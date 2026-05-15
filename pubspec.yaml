@@ -1,6 +1,6 @@
 name: investment_assistant
 description: مساعد الاستثمار - Investment Assistant Mobile App
-version: 2.0.0+1
+version: 2.0.1+1
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
@@ -43,6 +43,13 @@ dependencies:
   intl: ^0.20.2
   url_launcher: ^6.2.0
   connectivity_plus: ^6.0.0
+  # Version checking
+  package_info_plus: ^8.0.0
+  # Notifications
+  flutter_local_notifications: ^21.0.0
+  timezone: ^0.11.0
+  # Theme management
+  flutter_switch: ^0.3.2
 
 dev_dependencies:
   flutter_test:

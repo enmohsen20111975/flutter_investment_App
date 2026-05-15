@@ -144,6 +144,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   _saveSetting('notifications', v);
                 },
               ),
+              _buildToggleCard(
+                icon: Icons.dark_mode_outlined,
+                title: 'الوضع الداكن',
+                subtitle: 'استخدام المظهر الداكن',
+                value: _darkMode,
+                onChanged: (v) {
+                  setState(() => _darkMode = v);
+                  _saveSetting('dark_mode', v);
+                },
+              ),
               const SizedBox(height: 20),
 
               // Connection Section

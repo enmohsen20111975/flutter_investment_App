@@ -26,44 +26,6 @@ import 'screens/webview_screen.dart';
 import 'api/client.dart';
 import 'models/types.dart';
 
-class GLMInvestmentApp extends StatelessWidget {
-  const GLMInvestmentApp({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'مساعد الاستثمار',
-      debugShowCheckedModeBanner: false,
-      theme: AppTheme.lightTheme,
-      locale: const Locale('ar', 'EG'),
-      supportedLocales: const [Locale('ar', 'EG'), Locale('en', 'US')],
-      localizationsDelegates: const [
-        GlobalMaterialLocalizations.delegate,
-        GlobalWidgetsLocalizations.delegate,
-        GlobalCupertinoLocalizations.delegate,
-      ],
-      initialRoute: '/home',
-      routes: {
-        '/home': (_) => const MainNavigator(),
-        '/auth': (_) => const AuthScreen(),
-        '/portfolio': (_) => const PortfolioScreen(),
-        '/watchlist': (_) => const WatchlistScreen(),
-        '/recommendations': (_) => const RecommendationsScreen(),
-        '/ai-analysis': (_) => const AIAnalysisScreen(),
-        '/subscription': (_) => const SubscriptionScreen(),
-        '/settings': (_) => const SettingsScreen(),
-        '/stock-history': (_) => const StockHistoryScreen(ticker: 'EGX'),
-        '/metals': (_) => const MetalsScreen(),
-        '/currency': (_) => const CurrencyScreen(),
-        '/crypto': (_) => const CryptoScreen(),
-        '/zakat': (_) => const ZakatScreen(),
-        '/webview': (_) => const WebViewScreen(),
-      },
-      home: const MainNavigator(),
-    );
-  }
-}
-
 // ============================================================================
 // Main Navigator - AppBar + Bottom Tabs + Drawer + Command Bar
 // ============================================================================
