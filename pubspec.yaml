@@ -1,0 +1,76 @@
+name: investment_assistant
+description: مساعد الاستثمار - Investment Assistant Mobile App
+version: 2.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+
+  # Navigation
+  go_router: ^14.0.0
+
+  # State Management
+  flutter_riverpod: ^2.5.0
+
+  # Network
+  dio: ^5.4.0
+
+  # Storage
+  shared_preferences: ^2.2.0
+
+  # UI
+  cupertino_icons: ^1.0.6
+  google_fonts: ^6.2.0
+  flutter_svg: ^2.0.9
+  cached_network_image: ^3.3.0
+  shimmer: ^3.0.0
+  pull_to_refresh_flutter3: ^2.0.2
+  sqflite: ^2.2.8+4
+  path_provider: ^2.0.17
+  path: ^1.8.3
+  google_sign_in: ^6.1.0
+
+  # Charts
+  fl_chart: ^0.68.0
+  webview_flutter: ^4.7.0
+
+  # Utils
+  intl: ^0.20.2
+  url_launcher: ^6.2.0
+  connectivity_plus: ^6.0.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+  flutter_native_splash: ^2.4.0
+  flutter_launcher_icons: ^0.14.3
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/charts/
+    - assets/image/
+    - assets/db/
+
+flutter_native_splash:
+  color: "#FFFFFF"
+  background_image: "assets/image/m2y.jpg"
+  android_12:
+    image: "assets/image/m2y.jpg"
+    color: "#FFFFFF"
+  android: true
+  ios: true
+  web: true
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/image/icone.jpg"
+  adaptive_icon_background: "#FFFFFF"
+  adaptive_icon_foreground: "assets/image/icone.jpg"
