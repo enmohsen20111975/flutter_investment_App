@@ -10,6 +10,8 @@ import '../theme/typography.dart';
 import '../api/client.dart';
 import '../models/types.dart';
 import '../widgets/state_view.dart';
+import '../services/subscription_service.dart';
+import '../widgets/upgrade_modal.dart';
 
 class AIAnalysisScreen extends StatefulWidget {
   const AIAnalysisScreen({super.key});
@@ -30,6 +32,7 @@ class _AIAnalysisScreenState extends State<AIAnalysisScreen> with SingleTickerPr
   // Batch Analysis
   List<Map<String, dynamic>> _batchAnalysis = [];
   Map<String, dynamic>? _batchSummary;
+  Map<String, dynamic>? _liveAnalysis;
 
   // Predictions
   List<Prediction> _predictions = [];
@@ -61,6 +64,7 @@ class _AIAnalysisScreenState extends State<AIAnalysisScreen> with SingleTickerPr
         _loadServerHealth(),
         _loadBatchAnalysis(),
         _loadPredictions(),
+        _loadLiveAnalysis(),
       ]);
 
       setState(() { _loading = false; });
@@ -96,14 +100,26 @@ class _AIAnalysisScreenState extends State<AIAnalysisScreen> with SingleTickerPr
           ?.map((e) => Prediction.fromJson(e))
           .toList() ?? [];
       _predictions = preds;
-    } catch (_) {
-      // Predictions may not be available
-    }
+    } catch (_) {}
+  }
+
+  Future<void> _loadLiveAnalysis() async {
+    try {
+      _liveAnalysis = await api.getLiveAnalysis();
+    } catch (_) {}
   }
 
   Future<void> _analyzeStock() async {
     final ticker = _tickerCtrl.text.trim().toUpperCase();
     if (ticker.isEmpty) return;
+
+    final access = await SubscriptionService.instance.checkAccess('ai_analysis');
+    if (!access.hasAccess) {
+      if (mounted) {
+        UpgradeModal.show(context, feature: 'ai_analysis', reason: access.reason, upgradeTo: access.upgradeTo);
+      }
+      return;
+    }
 
     setState(() { _analyzing = true; _analysisResult = null; });
     try {

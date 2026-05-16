@@ -32,7 +32,13 @@ class _CurrencyScreenState extends State<CurrencyScreen> {
   Future<void> _loadData({bool silent = false}) async {
     try {
       if (!silent) setState(() { _loading = true; _error = null; });
-      final response = await api.getCurrency();
+      CurrencyResponse response;
+      try {
+        response = await api.getCurrency();
+      } catch (_) {
+        final listResponse = await api.getCurrencyList();
+        response = CurrencyResponse.fromJson(listResponse);
+      }
       setState(() { _currencies = response.currencies ?? []; _loading = false; _refreshing = false; });
     } catch (e) {
       setState(() { _error = e.toString(); _loading = false; _refreshing = false; });

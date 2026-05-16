@@ -57,7 +57,13 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
   Future<void> _subscribeToPlan(String planId) async {
     setState(() { _subscribing = true; });
     try {
-      final result = await api.subscribeToPlan(planId);
+      Map<String, dynamic> result;
+      final currentTier = _currentSub?['subscription_tier'] ?? _currentSub?['plan'] ?? 'free';
+      if (currentTier != 'free') {
+        result = await api.upgradeSubscription(planId);
+      } else {
+        result = await api.subscribeToPlan(planId);
+      }
       if (result['success'] == true) {
         // Check if payment URL is returned
         if (result['payment_url'] != null) {

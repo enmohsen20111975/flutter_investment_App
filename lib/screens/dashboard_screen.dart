@@ -19,6 +19,8 @@ class DashboardScreen extends StatefulWidget {
 
 class _DashboardScreenState extends State<DashboardScreen> {
   MarketOverview? _data;
+  Map<String, dynamic>? _liveData;
+  Map<String, dynamic>? _investingData;
   bool _loading = true;
   String? _error;
   bool _refreshing = false;
@@ -32,8 +34,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Future<void> _loadData({bool silent = false}) async {
     try {
       if (!silent) setState(() { _loading = true; _error = null; });
-      final data = await api.getMarketOverview();
-      setState(() { _data = data; _loading = false; _refreshing = false; });
+      final results = await Future.wait([
+        api.getMarketOverview(),
+        api.getMarketLiveData().catchError((_) => <String, dynamic>{}),
+        api.getMarketInvesting().catchError((_) => <String, dynamic>{}),
+      ]);
+      _data = results[0] as MarketOverview;
+      _liveData = results[1] as Map<String, dynamic>?;
+      _investingData = results[2] as Map<String, dynamic>?;
+      setState(() { _loading = false; _refreshing = false; });
     } catch (e) {
       setState(() { _error = e.toString(); _loading = false; _refreshing = false; });
     }
@@ -65,9 +74,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         const SizedBox(height: 20),
                         _buildSummaryCards(),
                         const SizedBox(height: 20),
+                        if (_liveData != null && _liveData!.isNotEmpty) ...[
+                          _buildLiveDataSection(),
+                          const SizedBox(height: 20),
+                        ],
                         _buildIndicesSection(),
                         const SizedBox(height: 20),
                         _buildTopStocksSection(),
+                        const SizedBox(height: 20),
+                        if (_investingData != null && _investingData!.isNotEmpty) ...[
+                          _buildInvestingSection(),
+                          const SizedBox(height: 20),
+                        ],
                         const SizedBox(height: 90),
                       ],
                     ),
@@ -226,6 +244,85 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
           )),
         ],
+      ],
+    );
+  }
+
+  Widget _buildLiveDataSection() {
+    final ld = _liveData!;
+    final stocks = (ld['stocks'] as List?) ?? [];
+    final lastUpdated = ld['last_updated']?.toString() ?? '';
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(children: [
+          const Icon(Icons.live_tv, size: 18, color: AppColors.success),
+          const SizedBox(width: 8),
+          const Text('بيانات مباشرة', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+          const Spacer(),
+          if (lastUpdated.isNotEmpty)
+            Text(lastUpdated.substring(0, lastUpdated.length > 16 ? 16 : lastUpdated.length),
+              style: const TextStyle(fontSize: 10, color: AppColors.textMuted)),
+        ]),
+        const SizedBox(height: 8),
+        ...stocks.take(5).map((s) {
+          final m = s as Map<String, dynamic>;
+          final ticker = m['ticker'] ?? m['symbol'] ?? '';
+          final price = (m['current_price'] as num?)?.toDouble() ?? 0;
+          final change = (m['change_percent'] as num?)?.toDouble() ?? 0;
+          final isUp = change >= 0;
+          return Container(
+            margin: const EdgeInsets.only(bottom: 6),
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(10), border: Border.all(color: AppColors.border)),
+            child: Row(children: [
+              Icon(isUp ? Icons.trending_up : Icons.trending_down, size: 16, color: isUp ? AppColors.success : AppColors.danger),
+              const SizedBox(width: 8),
+              Expanded(child: Text(ticker, style: AppTypography.bodyMedium)),
+              Text('${price.toStringAsFixed(2)}', style: AppTypography.bodyMedium),
+              const SizedBox(width: 8),
+              Text('${change >= 0 ? '+' : ''}${change.toStringAsFixed(2)}%',
+                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: isUp ? AppColors.success : AppColors.danger)),
+            ]),
+          );
+        }),
+      ],
+    );
+  }
+
+  Widget _buildInvestingSection() {
+    final inv = _investingData!;
+    final items = (inv['data'] as List?) ?? [];
+
+    if (items.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SectionHeader(title: 'بيانات Investing.com', icon: Icons.language),
+        const SizedBox(height: 8),
+        ...items.take(5).map((item) {
+          final m = item as Map<String, dynamic>;
+          final name = m['name'] ?? m['symbol'] ?? '';
+          final price = (m['price'] as num?)?.toDouble() ?? 0;
+          final change = (m['change_percent'] as num?)?.toDouble() ?? 0;
+          final isUp = change >= 0;
+          return Container(
+            margin: const EdgeInsets.only(bottom: 6),
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(10), border: Border.all(color: AppColors.border)),
+            child: Row(children: [
+              Icon(isUp ? Icons.trending_up : Icons.trending_down, size: 16, color: isUp ? AppColors.success : AppColors.danger),
+              const SizedBox(width: 8),
+              Expanded(child: Text(name, style: AppTypography.bodyMedium, maxLines: 1, overflow: TextOverflow.ellipsis)),
+              Text('${price.toStringAsFixed(2)}', style: AppTypography.bodyMedium),
+              const SizedBox(width: 8),
+              Text('${change >= 0 ? '+' : ''}${change.toStringAsFixed(2)}%',
+                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: isUp ? AppColors.success : AppColors.danger)),
+            ]),
+          );
+        }),
       ],
     );
   }

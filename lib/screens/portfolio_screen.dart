@@ -9,6 +9,8 @@ import '../theme/typography.dart';
 import '../api/client.dart';
 import '../models/types.dart';
 import '../widgets/state_view.dart';
+import '../services/subscription_service.dart';
+import '../widgets/upgrade_modal.dart';
 
 class PortfolioScreen extends StatefulWidget {
   const PortfolioScreen({super.key});
@@ -19,6 +21,7 @@ class PortfolioScreen extends StatefulWidget {
 
 class _PortfolioScreenState extends State<PortfolioScreen> {
   PortfolioResponse? _data;
+  Map<String, dynamic>? _analysis;
   bool _loading = true;
   bool _refreshing = false;
   String? _error;
@@ -32,14 +35,24 @@ class _PortfolioScreenState extends State<PortfolioScreen> {
   Future<void> _loadData({bool silent = false}) async {
     try {
       if (!silent) setState(() { _loading = true; _error = null; });
-      final data = await api.getPortfolio();
-      setState(() { _data = data; _loading = false; _refreshing = false; });
+      final results = await Future.wait([
+        api.getPortfolio(),
+        api.analyzePortfolio(),
+      ]);
+      _data = results[0] as PortfolioResponse;
+      _analysis = results[1] as Map<String, dynamic>;
+      setState(() { _loading = false; _refreshing = false; });
     } catch (e) {
       setState(() { _error = e.toString(); _loading = false; _refreshing = false; });
     }
   }
 
   Future<void> _showAddDialog() async {
+    if (!SubscriptionService.instance.canAddToPortfolio(_data?.positions.length ?? 0)) {
+      UpgradeModal.show(context, feature: 'portfolio_unlimited', reason: 'لقد وصلت للحد الأقصى (3 أسهم) في المحفظة');
+      return;
+    }
+
     final tickerCtrl = TextEditingController();
     final sharesCtrl = TextEditingController();
     final avgCostCtrl = TextEditingController();
@@ -202,10 +215,11 @@ class _PortfolioScreenState extends State<PortfolioScreen> {
               const SizedBox(height: 16),
               StateView(loading: _loading, error: _error, onRetry: () => _loadData()),
               if (!_loading && _error == null) ...[
-                // Summary
-                if (_data?.summary != null) _buildSummary(),
-                const SizedBox(height: 16),
-                // Positions list
+                 if (_data?.summary != null) _buildSummary(),
+                 const SizedBox(height: 16),
+                 if (_analysis != null) _buildAnalysis(),
+                 const SizedBox(height: 16),
+                 // Positions list
                 if (_data?.positions.isEmpty ?? true)
                   const StateView(empty: true, emptyMessage: 'المحفظة فارغة. أضف أسهم لتتبعها.')
                 else
@@ -216,6 +230,71 @@ class _PortfolioScreenState extends State<PortfolioScreen> {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildAnalysis() {
+    final a = _analysis!;
+    final diversification = a['diversification_score'] as num?;
+    final riskLevel = a['risk_level']?.toString() ?? '';
+    final recommendations = (a['recommendations'] as List?)?.cast<String>() ?? [];
+    final sectorBreakdown = a['sector_breakdown'] as Map<String, dynamic>? ?? {};
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(children: [
+            const Icon(Icons.analytics, size: 18, color: AppColors.primary),
+            const SizedBox(width: 8),
+            Text('تحليل المحفظة', style: AppTypography.titleSmall),
+          ]),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              if (diversification != null)
+                _buildAnalysisMetric('التنويع', '${diversification.toDouble().toStringAsFixed(0)}%', AppColors.info),
+              if (riskLevel.isNotEmpty)
+                _buildAnalysisMetric('مستوى المخاطر', riskLevel, riskLevel == 'high' ? AppColors.danger : AppColors.success),
+              ...sectorBreakdown.entries.map((e) => _buildAnalysisMetric(e.key, '${e.value}', AppColors.textSecondary)),
+            ],
+          ),
+          if (recommendations.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            const Divider(),
+            const SizedBox(height: 8),
+            ...recommendations.map((r) => Padding(
+              padding: const EdgeInsets.only(bottom: 4),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('• ', style: TextStyle(color: AppColors.primary)),
+                  Expanded(child: Text(r, style: AppTypography.bodySmall)),
+                ],
+              ),
+            )),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAnalysisMetric(String label, String value, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
+      child: Column(children: [
+        Text(label, style: const TextStyle(fontSize: 10, color: AppColors.textMuted)),
+        Text(value, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: color)),
+      ]),
     );
   }
 

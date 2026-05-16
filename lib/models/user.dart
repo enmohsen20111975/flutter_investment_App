@@ -13,6 +13,7 @@ class User {
   final bool? isAdmin;
   final String? subscriptionTier;
   final String? defaultRiskTolerance;
+  final String? phone;
   final bool? isActive;
   final bool? emailVerified;
   final String? lastLogin;
@@ -27,6 +28,7 @@ class User {
     this.isAdmin,
     this.subscriptionTier,
     this.defaultRiskTolerance,
+    this.phone,
     this.isActive,
     this.emailVerified,
     this.lastLogin,
@@ -42,6 +44,7 @@ class User {
         isAdmin: parseBool(json['is_admin']),
         subscriptionTier: json['subscription_tier'],
         defaultRiskTolerance: json['default_risk_tolerance'],
+        phone: json['phone'],
         isActive: parseBool(json['is_active']),
         emailVerified: parseBool(json['email_verified']),
         lastLogin: json['last_login'],

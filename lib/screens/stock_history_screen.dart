@@ -12,6 +12,8 @@ import '../api/client.dart';
 import '../models/json_helpers.dart';
 import '../models/types.dart';
 import '../widgets/state_view.dart';
+import '../services/subscription_service.dart';
+import '../widgets/upgrade_modal.dart';
 
 class StockHistoryScreen extends StatefulWidget {
   final String ticker;
@@ -28,6 +30,8 @@ class _StockHistoryScreenState extends State<StockHistoryScreen> with SingleTick
   Stock? _stockDetail;
   Map<String, dynamic>? _recommendation;
   Map<String, dynamic>? _professionalAnalysis;
+  Map<String, dynamic>? _fundamentals;
+  List<Map<String, dynamic>> _news = [];
 
   bool _loading = true;
   bool _refreshing = false;
@@ -36,7 +40,7 @@ class _StockHistoryScreenState extends State<StockHistoryScreen> with SingleTick
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 4, vsync: this);
     _loadData();
   }
 
@@ -56,6 +60,8 @@ class _StockHistoryScreenState extends State<StockHistoryScreen> with SingleTick
         _loadStockDetail(),
         _loadRecommendation(),
         _loadProfessionalAnalysis(),
+        _loadNews(),
+        _loadFundamentals(),
       ]);
 
       if (mounted) setState(() { _loading = false; _refreshing = false; });
@@ -79,13 +85,31 @@ class _StockHistoryScreenState extends State<StockHistoryScreen> with SingleTick
 
   Future<void> _loadRecommendation() async {
     try {
+      final access = await SubscriptionService.instance.checkAccess('recommendations');
+      if (!access.hasAccess) return;
       _recommendation = await api.getStockRecommendation(widget.ticker);
     } catch (_) {}
   }
 
   Future<void> _loadProfessionalAnalysis() async {
     try {
+      final access = await SubscriptionService.instance.checkAccess('ai_analysis');
+      if (!access.hasAccess) return;
       _professionalAnalysis = await api.getStockProfessionalAnalysis(widget.ticker);
+    } catch (_) {}
+  }
+
+  Future<void> _loadNews() async {
+    try {
+      final response = await api.getStockNews(widget.ticker);
+      _news = (response['news'] as List?)?.cast<Map<String, dynamic>>() ?? [];
+    } catch (_) {}
+  }
+
+  Future<void> _loadFundamentals() async {
+    try {
+      final response = await api.getStockFundamentals(ticker: widget.ticker);
+      _fundamentals = response;
     } catch (_) {}
   }
 
@@ -140,6 +164,7 @@ class _StockHistoryScreenState extends State<StockHistoryScreen> with SingleTick
                             Tab(text: 'البيانات'),
                             Tab(text: 'التوصية'),
                             Tab(text: 'تحليل'),
+                            Tab(text: 'أخبار'),
                           ],
                         ),
                       ),
@@ -151,6 +176,7 @@ class _StockHistoryScreenState extends State<StockHistoryScreen> with SingleTick
                             _buildHistoryTab(),
                             _buildRecommendationTab(),
                             _buildAnalysisTab(),
+                            _buildNewsTab(),
                           ],
                         ),
                       ),
@@ -242,8 +268,119 @@ class _StockHistoryScreenState extends State<StockHistoryScreen> with SingleTick
             ],
             const SizedBox(height: 16),
             if (_historyData?.data == null || _historyData!.data.isEmpty)
-              const StateView(empty: true, emptyMessage: 'لا توجد بيانات تاريخية كافية للعرض'),
+               const StateView(empty: true, emptyMessage: 'لا توجد بيانات تاريخية كافية للعرض'),
             const SizedBox(height: 40),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNewsTab() {
+    return RefreshIndicator(
+      color: AppColors.primary,
+      onRefresh: () async { setState(() => _refreshing = true); await _loadData(silent: true); },
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (_fundamentals != null) ...[
+              const SectionHeader(title: 'البيانات الأساسية', icon: Icons.analytics),
+              const SizedBox(height: 8),
+              _buildFundamentalsCard(),
+              const SizedBox(height: 16),
+            ],
+            if (_news.isEmpty)
+              const StateView(empty: true, emptyMessage: 'لا توجد أخبار متاحة لهذا السهم')
+            else ...[
+              const SectionHeader(title: 'آخر الأخبار', icon: Icons.newspaper),
+              const SizedBox(height: 8),
+              ..._news.map((n) => _buildNewsCard(n)),
+            ],
+            const SizedBox(height: 40),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFundamentalsCard() {
+    final f = _fundamentals!;
+    final fields = <MapEntry<String, String>>[];
+    final entries = f['fundamentals'] as Map<String, dynamic>? ?? f;
+    for (final e in entries.entries) {
+      if (e.value != null && e.value is! Map && e.value is! List) {
+        fields.add(MapEntry(e.key, e.value.toString()));
+      }
+    }
+    if (fields.isEmpty) return const SizedBox.shrink();
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(12), border: Border.all(color: AppColors.border)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(children: [
+            const Icon(Icons.bar_chart, size: 18, color: AppColors.primary),
+            const SizedBox(width: 8),
+            Text('البيانات الأساسية', style: AppTypography.titleSmall),
+          ]),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: fields.map((e) => _buildSummaryCard(
+              _fundamentalLabel(e.key),
+              e.value.length > 20 ? '${e.value.substring(0, 20)}...' : e.value,
+              AppColors.info,
+            )).toList(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _fundamentalLabel(String key) {
+    const labels = {
+      'pe_ratio': 'P/E', 'eps': 'EPS', 'market_cap': 'القيمة السوقية',
+      'dividend_yield': 'عائد التوزيعات', 'book_value': 'القيمة الدفترية',
+      'roe': 'ROE', 'debt_to_equity': 'الدين/الحقوق',
+    };
+    return labels[key] ?? key;
+  }
+
+  Widget _buildNewsCard(Map<String, dynamic> n) {
+    final title = n['title'] ?? n['title_ar'] ?? '';
+    final source = n['source'] ?? '';
+    final date = n['date'] ?? n['published_at'] ?? '';
+    final url = n['url'] ?? '';
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(12), border: Border.all(color: AppColors.border)),
+      child: InkWell(
+        onTap: url.isNotEmpty ? () => Navigator.pushNamed(context, '/webview', arguments: url) : null,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(title, style: AppTypography.titleSmall, maxLines: 2, overflow: TextOverflow.ellipsis),
+            if (source.isNotEmpty || date.isNotEmpty) ...[
+              const SizedBox(height: 6),
+              Row(children: [
+                if (source.isNotEmpty) ...[
+                  const Icon(Icons.source, size: 12, color: AppColors.textMuted),
+                  const SizedBox(width: 4),
+                  Text(source, style: const TextStyle(fontSize: 11, color: AppColors.textMuted)),
+                ],
+                if (date.isNotEmpty) ...[
+                  const Spacer(),
+                  Text(date.toString().substring(0, date.toString().length > 10 ? 10 : date.toString().length), style: const TextStyle(fontSize: 11, color: AppColors.textMuted)),
+                ],
+              ]),
+            ],
           ],
         ),
       ),
@@ -356,6 +493,10 @@ class _StockHistoryScreenState extends State<StockHistoryScreen> with SingleTick
   // Tab 2: Recommendation
   // ===========================================================================
   Widget _buildRecommendationTab() {
+    final sub = SubscriptionService.instance;
+    if (!sub.hasAccess('recommendations')) {
+      return _buildLockedTab('recommendations');
+    }
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -685,6 +826,10 @@ class _StockHistoryScreenState extends State<StockHistoryScreen> with SingleTick
   // Tab 3: Professional Analysis
   // ===========================================================================
   Widget _buildAnalysisTab() {
+    final sub = SubscriptionService.instance;
+    if (!sub.hasAccess('ai_analysis')) {
+      return _buildLockedTab('ai_analysis');
+    }
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -1275,6 +1420,49 @@ class _StockHistoryScreenState extends State<StockHistoryScreen> with SingleTick
     if (a.contains('HOLD')) return 'احتفاظ';
     if (a == 'ACCUMULATE') return 'تراكم';
     return action;
+  }
+
+  Widget _buildLockedTab(String feature) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: AppColors.primaryMuted,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.lock, color: AppColors.primary, size: 36),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              feature == 'recommendations' ? 'التوصيات ميزة مدفوعة' : 'التحليل الاحترافي ميزة مدفوعة',
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'قم بالترقية إلى بلس للوصول إلى ${feature == 'recommendations' ? 'التوصيات الاحترافية' : 'التحليل المتقدم'}',
+              style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: () => UpgradeModal.show(context, feature: feature),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              child: const Text('ترقية الآن', style: TextStyle(color: AppColors.white, fontWeight: FontWeight.w600)),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 

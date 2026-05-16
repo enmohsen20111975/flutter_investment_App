@@ -20,6 +20,8 @@ class RecommendationsScreen extends StatefulWidget {
 class _RecommendationsScreenState extends State<RecommendationsScreen> {
   List<ExpertRecommendation> _recommendations = [];
   List<ExpertStats> _expertStats = [];
+  Map<String, dynamic>? _aiInsights;
+  List<Map<String, dynamic>> _morningReports = [];
   bool _loading = true;
   bool _refreshing = false;
   String? _error;
@@ -63,6 +65,24 @@ class _RecommendationsScreenState extends State<RecommendationsScreen> {
     } catch (e) {
       setState(() { _error = e.toString(); _loading = false; _refreshing = false; });
     }
+
+    _loadAiInsights();
+    _loadMorningReports();
+  }
+
+  Future<void> _loadAiInsights() async {
+    try {
+      _aiInsights = await api.getMarketAiInsights();
+      if (mounted) setState(() {});
+    } catch (_) {}
+  }
+
+  Future<void> _loadMorningReports() async {
+    try {
+      final response = await api.getMorningReports();
+      _morningReports = (response['reports'] as List?)?.cast<Map<String, dynamic>>() ?? [];
+      if (mounted) setState(() {});
+    } catch (_) {}
   }
 
   Color _actionColor(String? action) {
@@ -155,6 +175,20 @@ class _RecommendationsScreenState extends State<RecommendationsScreen> {
                     const StateView(empty: true, emptyMessage: 'لا توجد توصيات')
                   else
                     ..._recommendations.map((rec) => _buildRecommendationCard(rec)),
+                  // AI Insights
+                  if (_aiInsights != null) ...[
+                    const SizedBox(height: 20),
+                    const SectionHeader(title: 'تحليلات AI للسوق', icon: Icons.auto_awesome),
+                    const SizedBox(height: 8),
+                    _buildAiInsightsCard(),
+                  ],
+                  // Morning Reports
+                  if (_morningReports.isNotEmpty) ...[
+                    const SizedBox(height: 20),
+                    const SectionHeader(title: 'التقارير الصباحية', icon: Icons.newspaper),
+                    const SizedBox(height: 8),
+                    ..._morningReports.take(5).map((r) => _buildMorningReportCard(r)),
+                  ],
                 ],
                 const SizedBox(height: 90),
               ],
@@ -366,6 +400,85 @@ class _RecommendationsScreenState extends State<RecommendationsScreen> {
         const SizedBox(height: 2),
         Text(value != null ? '${value.toStringAsFixed(2)}' : '-', style: AppTypography.titleSmall),
       ],
+    );
+  }
+
+  Widget _buildAiInsightsCard() {
+    final insights = _aiInsights!;
+    final summary = insights['summary']?.toString() ?? insights['market_outlook']?.toString() ?? '';
+    final recommendations = (insights['recommendations'] as List?)?.cast<Map<String, dynamic>>() ?? [];
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.primaryMuted,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(children: [
+            const Icon(Icons.auto_awesome, size: 18, color: AppColors.primary),
+            const SizedBox(width: 8),
+            Text('رؤية AI للسوق', style: AppTypography.titleSmall),
+          ]),
+          if (summary.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Text(summary, style: AppTypography.bodyMedium),
+          ],
+          if (recommendations.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            ...recommendations.take(3).map((r) => Padding(
+              padding: const EdgeInsets.only(bottom: 4),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('• ', style: TextStyle(color: AppColors.primary)),
+                  Expanded(child: Text(r['title'] ?? r['ticker'] ?? r.toString(), style: AppTypography.bodySmall)),
+                ],
+              ),
+            )),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMorningReportCard(Map<String, dynamic> report) {
+    final date = report['report_date'] ?? report['date'] ?? '';
+    final text = report['report_text'] ?? report['content'] ?? '';
+    final type = report['report_type'] ?? '';
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(12), border: Border.all(color: AppColors.border)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(children: [
+            const Icon(Icons.newspaper, size: 16, color: AppColors.primary),
+            const SizedBox(width: 8),
+            Text('تقرير صباحي', style: AppTypography.titleSmall),
+            const Spacer(),
+            if (date.isNotEmpty)
+              Text(date.toString().substring(0, date.toString().length > 10 ? 10 : date.toString().length), style: const TextStyle(fontSize: 11, color: AppColors.textMuted)),
+            if (type.isNotEmpty) ...[
+              const SizedBox(width: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(color: AppColors.primaryMuted, borderRadius: BorderRadius.circular(6)),
+                child: Text(type, style: const TextStyle(fontSize: 9, color: AppColors.primary)),
+              ),
+            ],
+          ]),
+          if (text.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text(text, style: AppTypography.bodySmall, maxLines: 4, overflow: TextOverflow.ellipsis),
+          ],
+        ],
+      ),
     );
   }
 }

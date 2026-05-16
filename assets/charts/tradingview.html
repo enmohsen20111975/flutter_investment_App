@@ -15,96 +15,171 @@
   <div id="chart"></div>
   <script>
     let chart = null;
-    let candlestickSeries = null;
+    let mainSeries = null;
     let volumeSeries = null;
+    let currentChartType = 'candle';
+    let storedCandles = [];
+    let storedVolumes = [];
+
+    function getThemeOptions(dark) {
+      if (dark) {
+        return {
+          layout: { background: { type: 'solid', color: '#1A1D26' }, textColor: '#d1d5db', fontSize: 12 },
+          grid: { vertLines: { color: '#2a2e3a' }, horzLines: { color: '#2a2e3a' } },
+        };
+      }
+      return {
+        layout: { background: { type: 'solid', color: '#ffffff' }, textColor: '#1A1D26', fontSize: 12 },
+        grid: { vertLines: { color: '#f1f5f9' }, horzLines: { color: '#f1f5f9' } },
+      };
+    }
 
     function createChart(options = {}) {
       const container = document.getElementById('chart');
       if (chart) { chart.remove(); chart = null; }
 
+      const themeOpts = getThemeOptions(options.dark || false);
       const chartOptions = {
         width: container.clientWidth,
         height: container.clientHeight,
-        layout: {
-          background: { type: 'solid', color: '#ffffff' },
-          textColor: '#1A1D26',
-          fontSize: 12,
-        },
-        grid: {
-          vertLines: { color: '#f1f5f9' },
-          horzLines: { color: '#f1f5f9' },
-        },
+        layout: themeOpts.layout,
+        grid: themeOpts.grid,
         crosshair: { mode: 0 },
         rightPriceScale: { borderColor: '#e8ecf1' },
-        timeScale: {
-          borderColor: '#e8ecf1',
-          timeVisible: true,
-          secondsVisible: false,
-        },
+        timeScale: { borderColor: '#e8ecf1', timeVisible: true, secondsVisible: false },
       };
 
       chart = LightweightCharts.createChart(container, chartOptions);
 
-      // Candlestick series
-      candlestickSeries = chart.addCandlestickSeries({
-        upColor: '#22c55e',
-        downColor: '#ef4444',
-        borderUpColor: '#22c55e',
-        borderDownColor: '#ef4444',
-        wickUpColor: '#22c55e',
-        wickDownColor: '#ef4444',
-      });
-
-      // Volume series
       volumeSeries = chart.addHistogramSeries({
         color: '#26a69a',
         priceFormat: { type: 'volume' },
         priceScaleId: '',
       });
+      chart.priceScale('').applyOptions({ scaleMargins: { top: 0.8, bottom: 0 } });
 
-      chart.priceScale('').applyOptions({
-        scaleMargins: { top: 0.8, bottom: 0 },
-      });
+      createMainSeries(currentChartType);
 
-      // Resize handler
       window.addEventListener('resize', () => {
-        if (chart) {
-          chart.applyOptions({ width: container.clientWidth, height: container.clientHeight });
-        }
+        if (chart) chart.applyOptions({ width: container.clientWidth, height: container.clientHeight });
       });
 
       return chart;
     }
 
+    function createMainSeries(type) {
+      if (mainSeries && chart) {
+        chart.removeSeries(mainSeries);
+        mainSeries = null;
+      }
+      if (!chart) return;
+
+      const candleOpts = {
+        upColor: '#22c55e', downColor: '#ef4444',
+        borderUpColor: '#22c55e', borderDownColor: '#ef4444',
+        wickUpColor: '#22c55e', wickDownColor: '#ef4444',
+      };
+
+      switch (type) {
+        case 'line':
+          mainSeries = chart.addLineSeries({ color: '#3b82f6', lineWidth: 2 });
+          break;
+        case 'area':
+          mainSeries = chart.addAreaSeries({
+            topColor: 'rgba(59, 130, 246, 0.4)',
+            bottomColor: 'rgba(59, 130, 246, 0.0)',
+            lineColor: '#3b82f6',
+            lineWidth: 2,
+          });
+          break;
+        case 'candle':
+        default:
+          mainSeries = chart.addCandlestickSeries(candleOpts);
+          break;
+      }
+
+      currentChartType = type;
+
+      if (storedCandles.length > 0) {
+        applyDataToSeries(storedCandles, storedVolumes);
+      }
+    }
+
+    function applyDataToSeries(candles, volumes) {
+      if (!mainSeries) return;
+
+      if (currentChartType === 'candle') {
+        mainSeries.setData(candles);
+      } else {
+        const lineData = candles.map(function(c) {
+          return { time: c.time, value: c.close !== undefined ? c.close : c.value };
+        });
+        mainSeries.setData(lineData);
+      }
+
+      if (volumeSeries && volumes && volumes.length > 0) {
+        volumeSeries.setData(volumes);
+      }
+    }
+
     function setData(candleData, volumeData) {
-      if (!candlestickSeries || !volumeSeries) return;
-      candlestickSeries.setData(candleData || []);
-      volumeSeries.setData(volumeData || []);
+      storedCandles = candleData || [];
+      storedVolumes = volumeData || [];
+      applyDataToSeries(storedCandles, storedVolumes);
       if (chart) chart.timeScale().fitContent();
     }
 
-    function addSMA(data, color = '#2962FF') {
-      if (!chart) return;
-      const lineSeries = chart.addLineSeries({ color, lineWidth: 2 });
+    function addSMA(data, color) {
+      if (!chart || !data || data.length === 0) return;
+      color = color || '#2962FF';
+      var lineSeries = chart.addLineSeries({ color: color, lineWidth: 2 });
       lineSeries.setData(data);
       return lineSeries;
     }
 
-    // Listen for messages from Flutter
-    window.addEventListener('message', (event) => {
-      const msg = event.data;
-      if (msg.type === 'create') {
-        createChart(msg.options || {});
-      } else if (msg.type === 'setData') {
-        setData(msg.candles, msg.volumes);
-      } else if (msg.type === 'addSMA') {
-        addSMA(msg.data, msg.color);
-      } else if (msg.type === 'fitContent') {
-        if (chart) chart.timeScale().fitContent();
+    function setChartType(type) {
+      createMainSeries(type);
+    }
+
+    function setTheme(dark) {
+      if (!chart) return;
+      var themeOpts = getThemeOptions(dark);
+      chart.applyOptions({ layout: themeOpts.layout, grid: themeOpts.grid });
+    }
+
+    function setInterval(interval, days) {
+      // Placeholder: interval switching triggers data reload from Flutter
+    }
+
+    window.addEventListener('message', function(event) {
+      var msg = event.data;
+      if (!msg || !msg.type) return;
+
+      switch (msg.type) {
+        case 'create':
+          createChart(msg.options || {});
+          break;
+        case 'setData':
+          setData(msg.candles, msg.volumes);
+          break;
+        case 'addSMA':
+          addSMA(msg.data, msg.color);
+          break;
+        case 'fitContent':
+          if (chart) chart.timeScale().fitContent();
+          break;
+        case 'setChartType':
+          setChartType(msg.chartType);
+          break;
+        case 'setInterval':
+          setInterval(msg.interval, msg.days);
+          break;
+        case 'setTheme':
+          setTheme(msg.dark);
+          break;
       }
     });
 
-    // Auto-create chart on load
     createChart();
   </script>
 </body>

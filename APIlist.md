@@ -1733,4 +1733,101 @@ Or use session cookies with NextAuth.js.
 
 ---
 
-*Last Updated: January 2025*
+---
+
+# Flutter App Endpoint Integration Status
+
+## ✅ Integrated Endpoints (58 unique)
+
+| # | Method | Endpoint | Flutter Method | Screen/Service |
+|---|--------|----------|----------------|----------------|
+| 1 | POST | `/api/auth/google` | `googleLogin()` | auth_screen |
+| 2 | GET | `/api/auth/me` | `getMe()` | auth_screen |
+| 3 | POST | `/api/auth/logout` | `logout()` | settings_screen |
+| 4 | GET | `/api/market/overview` | `getMarketOverview()` | dashboard_screen |
+| 5 | GET | `/api/market/status` | `getMarketStatus()` | dashboard_screen |
+| 6 | GET | `/api/market/indices` | `getMarketIndices()` | dashboard_screen |
+| 7 | GET | `/api/market/gold` | `getGold()` | metals_screen |
+| 8 | GET | `/api/market/gold/history` | `getGoldHistory()` | metals_screen |
+| 9 | GET | `/api/market/currency` | `getCurrency()` | currency_screen |
+| 10 | GET | `/api/stocks` | `getStocks()` | stocks_screen |
+| 11 | GET | `/api/stocks/$ticker` | `getStockDetail()` | stock_history_screen |
+| 12 | GET | `/api/stocks/$ticker/history` | `getStockHistory()` | stock_history_screen |
+| 13 | GET | `/api/stocks/$ticker/recommendation` | `getStockRecommendation()` | stock_history_screen |
+| 14 | GET | `/api/stocks/$ticker/professional-analysis` | `getStockProfessionalAnalysis()` | stock_history_screen |
+| 15 | GET | `/api/stocks/search` | `searchStocks()` | stocks_screen |
+| 16 | GET | `/api/stocks/batch-analysis` | `getBatchAnalysis()` | ai_analysis_screen |
+| 17 | GET | `/api/crypto` | `getCrypto()` | crypto_screen |
+| 18 | GET | `/api/crypto/$id` | `getCryptoDetail()` | crypto_detail_screen |
+| 19 | GET | `/api/crypto/ohlc` | `getCryptoOHLC()` | crypto_detail_screen |
+| 20 | GET | `/api/expert-recommendations` | `getExpertRecommendations()` | recommendations_screen |
+| 21 | GET | `/api/expert-recommendations/experts` | `getExpertStats()` | recommendations_screen |
+| 22 | POST | `/api/expert-recommendations` | `createExpertRecommendation()` | recommendations_screen |
+| 23 | PUT | `/api/expert-recommendations` | `updateExpertRecommendation()` | recommendations_screen |
+| 24 | DELETE | `/api/expert-recommendations` | `deleteExpertRecommendation()` | recommendations_screen |
+| 25 | GET | `/api/predictions` | `getPredictions()` | ai_analysis_screen |
+| 26 | POST | `/api/ai-analysis` | `analyzeStock()` | ai_analysis_screen |
+| 27 | POST | `/api/v2/recommend` | `getAIRecommend()` | ai_analysis_screen |
+| 28 | GET | `/api/v2/stock/$symbol/analysis` | `getStockAnalysis()` | stock_history_screen |
+| 29 | GET | `/api/portfolio` | `getPortfolio()` | portfolio_screen |
+| 30 | POST | `/api/portfolio` | `addToPortfolio()` | portfolio_screen |
+| 31 | DELETE | `/api/portfolio` | `removeFromPortfolio()` | portfolio_screen |
+| 32 | GET | `/api/watchlist` | `getWatchlist()` | watchlist_screen |
+| 33 | POST | `/api/watchlist` | `addToWatchlist()` | watchlist_screen |
+| 34 | DELETE | `/api/watchlist/$id` | `removeFromWatchlist()` | watchlist_screen |
+| 35 | GET | `/api/currency/convert` | `convertCurrency()` | currency_screen |
+| 36 | GET | `/api/subscription/plans` | `getSubscriptionPlans()` | subscription_screen |
+| 37 | GET | `/api/subscription/current` | `getCurrentSubscription()` | subscription_service |
+| 38 | POST | `/api/subscription/activate` | `activateSubscription()` | subscription_screen |
+| 39 | POST | `/api/subscription/start-trial` | `startTrial()` | subscription_screen |
+| 40 | POST | `/api/subscribe/$plan` | `subscribeToPlan()` | subscription_screen |
+| 41 | POST | `/api/subscription/check-access` | `checkFeatureAccess()` | subscription_service |
+| 42 | POST | `/api/google-play/verify-receipt` | `verifyGooglePlayReceipt()` | subscription_service |
+| 43 | POST | `/api/paymob/create-payment` | `createPayment()` | subscription_screen |
+| 44 | GET | `/api/finance/assets` | `getFinanceAssets()` | zakat_screen |
+| 45 | POST | `/api/finance/assets` | `addFinanceAsset()` | zakat_screen |
+| 46 | GET | `/api/finance/obligations` | `getFinanceObligations()` | zakat_screen |
+| 47 | GET | `/api/finance/reports` | `getFinanceReports()` | zakat_screen |
+| 48 | POST | `/api/backtest` | `runBacktest()` | (future) |
+| 49 | GET | `/api/backtesting` | `getBacktestingResults()` | (future) |
+| 50 | POST | `/api/zakat/calculate` | `calculateZakat()` | zakat_screen |
+| 51 | GET | `/api/health` | `healthCheck()` | ai_analysis_screen |
+| 52 | GET | `/api/version` | `fetchRemoteVersion()` | version_service |
+| 53 | GET | `/api/mobile/stocks/$ticker/recommendation` | fallback | stock_history_screen |
+| 54 | GET | `/api/mobile/stocks/$ticker/professional-analysis` | fallback | stock_history_screen |
+| 55 | GET | `/api/mobile/analysis/$ticker` | fallback | ai_analysis_screen |
+| 56 | GET | `/api/mobile/expert-recommendations` | fallback | recommendations_screen |
+| 57 | GET | `/api/mobile/expert-recommendations/experts` | fallback | recommendations_screen |
+| 58 | POST | `/api/mobile/zakat-calculator` | fallback | zakat_screen |
+
+---
+
+## ❌ Missing Endpoints — Pending Integration
+
+| # | Method | Endpoint | Section | Plan | Target Screen |
+|---|--------|----------|---------|------|---------------|
+| 1 | POST | `/api/auth/register` | Auth | ❌ Not needed (Google-only) | — |
+| 2 | POST | `/api/auth/login` | Auth | ❌ Not needed (Google-only) | — |
+| 3 | GET | `/api/stocks/[ticker]/news` | Stocks | Stock news feed tab | stock_history_screen (new tab) |
+| 4 | GET | `/api/stocks/movement-classification` | Stocks | Gainers/Losers/Active | stocks_screen (new filter) |
+| 5 | GET | `/api/stocks/fundamentals` | Stocks | Fundamental data cards | stock_history_screen (data tab) |
+| 6 | GET | `/api/portfolio/analyze` | Portfolio | Portfolio analysis section | portfolio_screen |
+| 7 | GET | `/api/watchlist-enhanced` | Watchlist | Enhanced watchlist details | watchlist_screen |
+| 8 | GET | `/api/market/live-data` | Market | Real-time market data | dashboard_screen |
+| 9 | GET | `/api/market/investing` | Market | Investing.com data | dashboard_screen |
+| 10 | GET | `/api/market/recommendations/ai-insights` | Market | AI market insights | recommendations_screen |
+| 11 | GET | `/api/v2/live-analysis` | AI | Live analysis for all stocks | ai_analysis_screen |
+| 12 | POST | `/api/subscription/upgrade` | Subscription | Plan upgrade flow | subscription_screen |
+| 13 | DELETE | `/api/finance/assets/[id]` | Finance | Delete financial asset | zakat_screen |
+| 14 | GET | `/api/currency/list` | Currency | Full currency list | currency_screen |
+| 15 | GET | `/api/reports/morning` | Reports | Morning market reports | recommendations_screen |
+
+---
+
+## 🔒 Admin/Backend Only (Not Needed in Mobile)
+
+Sync, Cron, Learning, Data Engine, System, Admin endpoints — server-side only.
+
+---
+
+*Last Updated: May 2026 (v2.0.2+2)*

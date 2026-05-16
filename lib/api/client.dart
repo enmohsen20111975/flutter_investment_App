@@ -97,6 +97,21 @@ Future<MarketOverview> getMarketOverview() async {
       return {'indices': localIndices};
     }
   }
+
+  Future<Map<String, dynamic>> getMarketLiveData() async {
+    final response = await _dio.get('/api/market/live-data');
+    return response.data;
+  }
+
+  Future<Map<String, dynamic>> getMarketInvesting() async {
+    final response = await _dio.get('/api/market/investing');
+    return response.data;
+  }
+
+  Future<Map<String, dynamic>> getMarketAiInsights() async {
+    final response = await _dio.get('/api/market/recommendations/ai-insights');
+    return response.data;
+  }
 }
 
 // ============================================================================
@@ -187,6 +202,23 @@ mixin StockApi {
     final response = await _dio.get('/api/stocks/search', queryParameters: {'q': query});
     return response.data;
   }
+
+  Future<Map<String, dynamic>> getStockNews(String ticker) async {
+    final response = await _dio.get('/api/stocks/$ticker/news');
+    return response.data;
+  }
+
+  Future<Map<String, dynamic>> getStockMovementClassification() async {
+    final response = await _dio.get('/api/stocks/movement-classification');
+    return response.data;
+  }
+
+  Future<Map<String, dynamic>> getStockFundamentals({String? ticker}) async {
+    final queryParams = <String, dynamic>{};
+    if (ticker != null) queryParams['ticker'] = ticker;
+    final response = await _dio.get('/api/stocks/fundamentals', queryParameters: queryParams);
+    return response.data;
+  }
 }
 
 // ============================================================================
@@ -231,6 +263,11 @@ Future<CurrencyResponse> getCurrency() async {
       'amount': amount,
     });
     return ConversionResult.fromJson(response.data);
+  }
+
+  Future<Map<String, dynamic>> getCurrencyList() async {
+    final response = await _dio.get('/api/currency/list');
+    return response.data;
   }
 }
 
@@ -360,6 +397,11 @@ mixin AIApi {
     final response = await _dio.get('/api/stocks/batch-analysis');
     return response.data;
   }
+
+  Future<Map<String, dynamic>> getLiveAnalysis() async {
+    final response = await _dio.get('/api/v2/live-analysis');
+    return response.data;
+  }
 }
 
 // ============================================================================
@@ -382,6 +424,11 @@ mixin PortfolioApi {
     final response = await _dio.delete('/api/portfolio', queryParameters: {'id': id});
     return response.data;
   }
+
+  Future<Map<String, dynamic>> analyzePortfolio() async {
+    final response = await _dio.get('/api/portfolio/analyze');
+    return response.data;
+  }
 }
 
 mixin WatchlistApi {
@@ -400,6 +447,11 @@ mixin WatchlistApi {
   Future<Map<String, dynamic>> removeFromWatchlist(String id) async {
     final response = await _dio.delete('/api/watchlist/$id');
     return response.data;
+  }
+
+  Future<WatchlistResponse> getWatchlistEnhanced() async {
+    final response = await _dio.get('/api/watchlist-enhanced');
+    return WatchlistResponse.fromJson(response.data);
   }
 }
 
@@ -523,6 +575,11 @@ class ApiClient
     return response.data;
   }
 
+  Future<Map<String, dynamic>> upgradeSubscription(String planId) async {
+    final response = await _dio.post('/api/subscription/upgrade', data: {'plan_id': planId});
+    return response.data;
+  }
+
   Future<Map<String, dynamic>> createPayment({required int amount, required String plan}) async {
     final response = await _dio.post('/api/paymob/create-payment', data: {
       'amount': amount,
@@ -542,6 +599,11 @@ class ApiClient
     return response.data;
   }
 
+  Future<Map<String, dynamic>> deleteFinanceAsset(String id) async {
+    final response = await _dio.delete('/api/finance/assets/$id');
+    return response.data;
+  }
+
   Future<Map<String, dynamic>> getFinanceObligations() async {
     final response = await _dio.get('/api/finance/obligations');
     return response.data;
@@ -549,6 +611,11 @@ class ApiClient
 
   Future<Map<String, dynamic>> getFinanceReports() async {
     final response = await _dio.get('/api/finance/reports');
+    return response.data;
+  }
+
+  Future<Map<String, dynamic>> getMorningReports() async {
+    final response = await _dio.get('/api/reports/morning');
     return response.data;
   }
 
@@ -564,6 +631,24 @@ class ApiClient
 
   Future<Map<String, dynamic>> healthCheck() async {
     final response = await _dio.get('/api/health');
+    return response.data;
+  }
+
+  Future<Map<String, dynamic>> checkFeatureAccess(String feature) async {
+    final response = await _dio.post('/api/subscription/check-access', data: {'feature': feature});
+    return response.data;
+  }
+
+  Future<Map<String, dynamic>> verifyGooglePlayReceipt({
+    required String productId,
+    required String purchaseToken,
+    String? orderId,
+  }) async {
+    final response = await _dio.post('/api/google-play/verify-receipt', data: {
+      'product_id': productId,
+      'purchase_token': purchaseToken,
+      if (orderId != null) 'order_id': orderId,
+    });
     return response.data;
   }
 }

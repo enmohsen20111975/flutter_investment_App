@@ -9,6 +9,8 @@ import '../theme/typography.dart';
 import '../api/client.dart';
 import '../models/types.dart';
 import '../widgets/state_view.dart';
+import '../services/subscription_service.dart';
+import '../widgets/upgrade_modal.dart';
 
 class WatchlistScreen extends StatefulWidget {
   const WatchlistScreen({super.key});
@@ -32,7 +34,12 @@ class _WatchlistScreenState extends State<WatchlistScreen> {
   Future<void> _loadData({bool silent = false}) async {
     try {
       if (!silent) setState(() { _loading = true; _error = null; });
-      final data = await api.getWatchlist();
+      WatchlistResponse data;
+      try {
+        data = await api.getWatchlistEnhanced();
+      } catch (_) {
+        data = await api.getWatchlist();
+      }
       setState(() { _data = data; _loading = false; _refreshing = false; });
     } catch (e) {
       setState(() { _error = e.toString(); _loading = false; _refreshing = false; });
@@ -40,6 +47,11 @@ class _WatchlistScreenState extends State<WatchlistScreen> {
   }
 
   Future<void> _showAddDialog() async {
+    if (!SubscriptionService.instance.canAddToWatchlist(_data?.items.length ?? 0)) {
+      UpgradeModal.show(context, feature: 'watchlist_unlimited', reason: 'لقد وصلت للحد الأقصى (3 أسهم) في قائمة المراقبة');
+      return;
+    }
+
     final tickerCtrl = TextEditingController();
     final alertAboveCtrl = TextEditingController();
     final alertBelowCtrl = TextEditingController();
@@ -250,7 +262,7 @@ class _WatchlistScreenState extends State<WatchlistScreen> {
                  child: Column(
                    crossAxisAlignment: CrossAxisAlignment.start,
                    children: [
-                      Text(item.name ?? item.ticker, style: AppTypography.titleSmall),
+                      Text(item.nameAr ?? item.name ?? item.ticker, style: AppTypography.titleSmall),
                    ],
                  ),
                ),

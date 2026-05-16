@@ -1,11 +1,7 @@
-// ============================================================================
-// مساعد الاستثمار Flutter - Google Auth Screen
-// Supports only Google OAuth sign-in via backend /api/auth/google
-// ============================================================================
-
 import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import '../theme/colors.dart';
+import '../theme/typography.dart';
 import '../api/client.dart';
 import '../config/google_auth_config.dart';
 
@@ -28,62 +24,52 @@ class _AuthScreenState extends State<AuthScreen> {
     super.initState();
     final config = GoogleAuthConfig.webClientId;
     if (config.isNotEmpty) {
-      _googleSignIn = GoogleSignIn(
-        scopes: <String>['email'],
-        serverClientId: config,
-      );
+      _googleSignIn = GoogleSignIn(scopes: <String>['email'], serverClientId: config);
     } else {
-      _googleSignIn = GoogleSignIn(
-        scopes: <String>['email', 'profile'],
-      );
+      _googleSignIn = GoogleSignIn(scopes: <String>['email', 'profile']);
     }
   }
 
   Future<void> _handleGoogleLogin() async {
-    setState(() {
-      _isLoading = true;
-      _error = null;
-      _success = null;
-    });
+    setState(() { _isLoading = true; _error = null; _success = null; });
 
     try {
-      debugPrint('[AUTH] Starting Google Sign-In...');
       final googleUser = await _googleSignIn.signIn();
       if (googleUser == null) {
-        debugPrint('[AUTH] User cancelled sign-in');
-        setState(() {
-          _isLoading = false;
-          _error = 'تم إلغاء عملية تسجيل الدخول';
-        });
+        setState(() { _isLoading = false; _error = 'تم إلغاء عملية تسجيل الدخول'; });
         return;
       }
 
-      debugPrint('[AUTH] Getting authentication tokens...');
       final googleAuth = await googleUser.authentication;
       final idToken = googleAuth.idToken;
       if (idToken == null) {
-        debugPrint('[AUTH] ERROR: No ID token received');
-        throw Exception('لم يتم الحصول على رمز التوثيق من Google. تأكد من إعداد Web Client ID في Google Console.');
+        throw Exception('لم يتم الحصول على رمز التوثيق من Google.');
       }
-      debugPrint('[AUTH] Got ID token, calling backend...');
 
       final result = await api.googleLogin(idToken);
       if (result.success && result.token != null) {
         await api.saveToken(result.token!);
         if (result.user != null) await api.saveUser(result.user!);
-        setState(() {
-          _success = result.messageAr ?? result.message;
-          _isLoading = false;
-        });
-        if (mounted) Navigator.of(context).pushReplacementNamed('/home');
+
+        final needsPhone = result.user?.phone == null;
+        if (needsPhone) {
+          setState(() { _isLoading = false; });
+          if (mounted) {
+            final phone = await _showPhoneDialog(result.user?.name ?? result.user?.email ?? '');
+            if (phone != null && mounted) {
+              Navigator.of(context).pushReplacementNamed('/home');
+            } else if (mounted) {
+              Navigator.of(context).pushReplacementNamed('/home');
+            }
+          }
+        } else {
+          setState(() { _success = result.messageAr ?? result.message; _isLoading = false; });
+          if (mounted) Navigator.of(context).pushReplacementNamed('/home');
+        }
       } else {
-        setState(() {
-          _error = result.messageAr ?? result.message ?? 'فشل تسجيل الدخول';
-          _isLoading = false;
-        });
+        setState(() { _error = result.messageAr ?? result.message ?? 'فشل تسجيل الدخول'; _isLoading = false; });
       }
     } catch (e) {
-      debugPrint('[AUTH] ERROR: $e');
       setState(() {
         if (e.toString().contains('NOT_FOUND') || e.toString().contains('sign_in_canceled')) {
           _error = 'تم إلغاء عملية تسجيل الدخول';
@@ -95,6 +81,92 @@ class _AuthScreenState extends State<AuthScreen> {
         _isLoading = false;
       });
     }
+  }
+
+  Future<String?> _showPhoneDialog(String userName) async {
+    final phoneCtrl = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+
+    return showDialog<String>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => Directionality(
+        textDirection: TextDirection.rtl,
+        child: AlertDialog(
+          backgroundColor: AppColors.background,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Column(
+            children: [
+              const Icon(Icons.phone_android, color: AppColors.primary, size: 40),
+              const SizedBox(height: 12),
+              Text('مرحباً $userName', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+              const SizedBox(height: 4),
+              const Text('أدخل رقم هاتفك لإكمال التسجيل', style: TextStyle(fontSize: 13, color: AppColors.textSecondary)),
+            ],
+          ),
+          content: Form(
+            key: formKey,
+            child: TextFormField(
+              controller: phoneCtrl,
+              keyboardType: TextInputType.phone,
+              autofocus: true,
+              decoration: InputDecoration(
+                hintText: '01XXXXXXXXX',
+                hintStyle: const TextStyle(color: AppColors.textMuted),
+                prefixIcon: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text('+20', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.text)),
+                      const SizedBox(width: 4),
+                      Container(width: 1, height: 24, color: AppColors.border),
+                    ],
+                  ),
+                ),
+                prefixIconConstraints: const BoxConstraints(minWidth: 60),
+                filled: true,
+                fillColor: AppColors.surface,
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: AppColors.border)),
+                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: AppColors.border)),
+                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: AppColors.primary, width: 2)),
+              ),
+              validator: (v) {
+                if (v == null || v.trim().isEmpty) return 'يرجى إدخال رقم الهاتف';
+                final clean = v.replaceAll(RegExp(r'[\s\-]'), '');
+                if (clean.length < 11) return 'رقم الهاتف غير صحيح';
+                return null;
+              },
+            ),
+          ),
+          actions: [
+            SizedBox(
+              width: double.infinity,
+              height: 48,
+              child: ElevatedButton(
+                onPressed: () {
+                  if (formKey.currentState!.validate()) {
+                    Navigator.pop(ctx, phoneCtrl.text.trim());
+                  }
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                child: const Text('متابعة', style: TextStyle(color: AppColors.white, fontWeight: FontWeight.w600, fontSize: 16)),
+              ),
+            ),
+            SizedBox(
+              width: double.infinity,
+              child: TextButton(
+                onPressed: () => Navigator.pop(ctx, null),
+                child: const Text('تخطي', style: TextStyle(color: AppColors.textMuted, fontSize: 13)),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
@@ -120,7 +192,7 @@ class _AuthScreenState extends State<AuthScreen> {
                     child: const Icon(Icons.login, color: AppColors.white, size: 48),
                   ),
                   const SizedBox(height: 24),
-                   const Text('مساعد الاستثمار', style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800, color: AppColors.text)),
+                  const Text('مساعد الاستثمار', style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800, color: AppColors.text)),
                   const SizedBox(height: 8),
                   const Text('سجل الدخول باستخدام حساب Google الخاص بك', textAlign: TextAlign.center, style: TextStyle(fontSize: 14, color: AppColors.textSecondary)),
                   const SizedBox(height: 24),
