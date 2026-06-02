@@ -22,9 +22,18 @@ class _AuthScreenState extends State<AuthScreen> {
   @override
   void initState() {
     super.initState();
+    _initGoogleSignIn();
+  }
+
+  void _initGoogleSignIn() {
     final config = GoogleAuthConfig.webClientId;
+    debugPrint('[Auth] Initializing Google Sign-In with client ID: ${config.isNotEmpty ? "configured" : "NOT SET"}');
+    
     if (config.isNotEmpty) {
-      _googleSignIn = GoogleSignIn(scopes: <String>['email'], serverClientId: config);
+      _googleSignIn = GoogleSignIn(
+        scopes: <String>['email', 'profile'],
+        serverClientId: config,
+      );
     } else {
       _googleSignIn = GoogleSignIn(scopes: <String>['email', 'profile']);
     }
@@ -34,20 +43,40 @@ class _AuthScreenState extends State<AuthScreen> {
     setState(() { _isLoading = true; _error = null; _success = null; });
 
     try {
+      debugPrint('[Auth] Starting Google Sign-In...');
+      
+      // Sign out first to ensure fresh login
+      try {
+        await _googleSignIn.signOut();
+      } catch (_) {}
+      
       final googleUser = await _googleSignIn.signIn();
       if (googleUser == null) {
+        debugPrint('[Auth] User cancelled Google Sign-In');
         setState(() { _isLoading = false; _error = 'تم إلغاء عملية تسجيل الدخول'; });
         return;
       }
 
+      debugPrint('[Auth] Google user: ${googleUser.email}');
+      
       final googleAuth = await googleUser.authentication;
       final idToken = googleAuth.idToken;
+      
       if (idToken == null) {
-        throw Exception('لم يتم الحصول على رمز التوثيق من Google.');
+        debugPrint('[Auth] No ID token received from Google');
+        setState(() { 
+          _isLoading = false; 
+          _error = 'لم يتم الحصول على رمز التوثيق من Google. حاول مرة أخرى.'; 
+        });
+        return;
       }
 
+      debugPrint('[Auth] ID Token received, length: ${idToken.length}');
+      
       final result = await api.googleLogin(idToken);
+      
       if (result.success && result.token != null) {
+        debugPrint('[Auth] Login successful!');
         await api.saveToken(result.token!);
         if (result.user != null) await api.saveUser(result.user!);
 
@@ -56,9 +85,7 @@ class _AuthScreenState extends State<AuthScreen> {
           setState(() { _isLoading = false; });
           if (mounted) {
             final phone = await _showPhoneDialog(result.user?.name ?? result.user?.email ?? '');
-            if (phone != null && mounted) {
-              Navigator.of(context).pushReplacementNamed('/home');
-            } else if (mounted) {
+            if (mounted) {
               Navigator.of(context).pushReplacementNamed('/home');
             }
           }
@@ -67,14 +94,34 @@ class _AuthScreenState extends State<AuthScreen> {
           if (mounted) Navigator.of(context).pushReplacementNamed('/home');
         }
       } else {
-        setState(() { _error = result.messageAr ?? result.message ?? 'فشل تسجيل الدخول'; _isLoading = false; });
+        debugPrint('[Auth] Login failed: ${result.message}');
+        setState(() { 
+          _error = result.messageAr ?? result.message ?? 'فشل تسجيل الدخول'; 
+          _isLoading = false; 
+        });
       }
-    } catch (e) {
+    } on GoogleSignInAccountNotFoundException catch (e) {
+      debugPrint('[Auth] Account not found: $e');
       setState(() {
-        if (e.toString().contains('NOT_FOUND') || e.toString().contains('sign_in_canceled')) {
+        _error = 'لم يتم العثور على حساب Google';
+        _isLoading = false;
+      });
+    } on GoogleSignInCanceledException catch (e) {
+      debugPrint('[Auth] Sign-in cancelled: $e');
+      setState(() {
+        _error = 'تم إلغاء عملية تسجيل الدخول';
+        _isLoading = false;
+      });
+    } catch (e) {
+      debugPrint('[Auth] Unexpected error: $e');
+      setState(() {
+        final errorStr = e.toString();
+        if (errorStr.contains('NOT_FOUND') || errorStr.contains('sign_in_canceled')) {
           _error = 'تم إلغاء عملية تسجيل الدخول';
-        } else if (e.toString().contains('network') || e.toString().contains('SocketException')) {
+        } else if (errorStr.contains('network') || errorStr.contains('SocketException')) {
           _error = 'خطأ في الاتصال. تحقق من اتصال الإنترنت.';
+        } else if (errorStr.contains('timeout')) {
+          _error = 'انتهت مهلة الاتصال. حاول مرة أخرى.';
         } else {
           _error = 'فشل تسجيل الدخول بواسطة Google. حاول مرة أخرى.';
         }
@@ -201,7 +248,13 @@ class _AuthScreenState extends State<AuthScreen> {
                       width: double.infinity,
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(color: AppColors.dangerLight, borderRadius: BorderRadius.circular(12)),
-                      child: Text(_error!, style: const TextStyle(color: AppColors.danger, fontSize: 13)),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.error_outline, color: AppColors.danger, size: 20),
+                          const SizedBox(width: 8),
+                          Expanded(child: Text(_error!, style: const TextStyle(color: AppColors.danger, fontSize: 13))),
+                        ],
+                      ),
                     ),
                     const SizedBox(height: 16),
                   ],
@@ -210,7 +263,13 @@ class _AuthScreenState extends State<AuthScreen> {
                       width: double.infinity,
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(color: AppColors.successLight, borderRadius: BorderRadius.circular(12)),
-                      child: Text(_success!, style: const TextStyle(color: AppColors.success, fontSize: 13)),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.check_circle_outline, color: AppColors.success, size: 20),
+                          const SizedBox(width: 8),
+                          Expanded(child: Text(_success!, style: const TextStyle(color: AppColors.success, fontSize: 13))),
+                        ],
+                      ),
                     ),
                     const SizedBox(height: 16),
                   ],
@@ -221,9 +280,14 @@ class _AuthScreenState extends State<AuthScreen> {
                       onPressed: _isLoading ? null : _handleGoogleLogin,
                       icon: _isLoading
                           ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: AppColors.white, strokeWidth: 2))
-                          : const Icon(Icons.login, color: AppColors.white, size: 20),
+                          : Image.asset(
+                              'assets/image/google_logo.png',
+                              width: 24,
+                              height: 24,
+                              errorBuilder: (ctx, error, trace) => const Icon(Icons.login, color: AppColors.white, size: 20),
+                            ),
                       label: Text(
-                        _isLoading ? 'جاري تسجيل الدخول بواسطة Google...' : 'الدخول بواسطة Google',
+                        _isLoading ? 'جاري تسجيل الدخول...' : 'الدخول بواسطة Google',
                         style: const TextStyle(color: AppColors.white, fontWeight: FontWeight.w600),
                       ),
                       style: ElevatedButton.styleFrom(
@@ -233,6 +297,10 @@ class _AuthScreenState extends State<AuthScreen> {
                     ),
                   ),
                   const SizedBox(height: 20),
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pushReplacementNamed('/home'),
+                    child: const Text('تخطي وتصفح كزائر', style: TextStyle(color: AppColors.textMuted, fontSize: 13)),
+                  ),
                 ],
               ),
             ),

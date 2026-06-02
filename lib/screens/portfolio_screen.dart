@@ -35,15 +35,26 @@ class _PortfolioScreenState extends State<PortfolioScreen> {
   Future<void> _loadData({bool silent = false}) async {
     try {
       if (!silent) setState(() { _loading = true; _error = null; });
+      
+      debugPrint('[Portfolio] Loading portfolio data...');
+      
       final results = await Future.wait([
         api.getPortfolio(),
-        api.analyzePortfolio(),
+        api.analyzePortfolio().catchError((e) {
+          debugPrint('[Portfolio] Analysis error: $e');
+          return <String, dynamic>{};
+        }),
       ]);
+      
       _data = results[0] as PortfolioResponse;
-      _analysis = results[1] as Map<String, dynamic>;
+      _analysis = results[1] as Map<String, dynamic>?;
+      
+      debugPrint('[Portfolio] Loaded ${_data?.positions.length ?? 0} positions');
+      
       setState(() { _loading = false; _refreshing = false; });
     } catch (e) {
-      setState(() { _error = e.toString(); _loading = false; _refreshing = false; });
+      debugPrint('[Portfolio] Error loading data: $e');
+      setState(() { _error = 'فشل تحميل المحفظة. اسحب للتحديث.'; _loading = false; _refreshing = false; });
     }
   }
 
@@ -213,13 +224,17 @@ class _PortfolioScreenState extends State<PortfolioScreen> {
             children: [
               const HeaderCard(icon: Icons.wallet, title: 'المحفظة الاستثمارية', subtitle: 'تتبع استثماراتك وتابع أداءها'),
               const SizedBox(height: 16),
-              StateView(loading: _loading, error: _error, onRetry: () => _loadData()),
-              if (!_loading && _error == null) ...[
-                 if (_data?.summary != null) _buildSummary(),
-                 const SizedBox(height: 16),
-                 if (_analysis != null) _buildAnalysis(),
-                 const SizedBox(height: 16),
-                 // Positions list
+              
+              if (_loading)
+                const StateView(loading: true)
+              else if (_error != null && _data == null)
+                StateView(error: _error, onRetry: () => _loadData())
+              else ...[
+                if (_data?.summary != null) _buildSummary(),
+                const SizedBox(height: 16),
+                if (_analysis != null && _analysis!.isNotEmpty) _buildAnalysis(),
+                const SizedBox(height: 16),
+                // Positions list
                 if (_data?.positions.isEmpty ?? true)
                   const StateView(empty: true, emptyMessage: 'المحفظة فارغة. أضف أسهم لتتبعها.')
                 else

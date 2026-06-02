@@ -42,16 +42,25 @@ class _StocksScreenState extends State<StocksScreen> {
   Future<void> _loadData(String search, {bool silent = false}) async {
     try {
       if (!silent) setState(() { _loading = true; _error = null; });
+      
+      debugPrint('[Stocks] Loading stocks with query: $search');
+      
       final results = await Future.wait([
         api.getStocks(search),
         api.getStockMovementClassification(),
       ]);
+      
       final response = results[0] as Map<String, dynamic>;
       final serverStocks = (response['stocks'] as List?)?.map((e) => Stock.fromJson(e)).toList() ?? [];
       _movementData = results[1] as Map<String, dynamic>;
+      
+      debugPrint('[Stocks] Loaded ${serverStocks.length} stocks');
+      debugPrint('[Stocks] Movement data: ${_gainers.length} gainers, ${_losers.length} losers');
+      
       setState(() { _stocks = serverStocks; _loading = false; _refreshing = false; });
     } catch (e) {
-      setState(() { _error = e.toString(); _loading = false; _refreshing = false; });
+      debugPrint('[Stocks] Error loading data: $e');
+      setState(() { _error = 'فشل تحميل البيانات. اسحب للتحديث.'; _loading = false; _refreshing = false; });
     }
   }
 
@@ -84,7 +93,7 @@ class _StocksScreenState extends State<StocksScreen> {
                 ),
                 const SizedBox(height: 12),
 
-                if (_movementData != null && _gainers.isNotEmpty) ...[
+                if (_movementData != null && (_gainers.isNotEmpty || _losers.isNotEmpty)) ...[
                   Row(
                     children: [
                       Expanded(
@@ -111,14 +120,16 @@ class _StocksScreenState extends State<StocksScreen> {
                   const SizedBox(height: 12),
                 ],
 
-                StateView(loading: _loading, error: _error, onRetry: () => _loadData(_query)),
-
-                if (!_loading && _error == null) ...[
+                if (_loading)
+                  const StateView(loading: true)
+                else if (_error != null && _stocks.isEmpty)
+                  StateView(error: _error, onRetry: () => _loadData(_query))
+                else ...[
                   if (_showMovers) _buildMoversSection() else ...[
                     const HeaderCard(icon: Icons.trending_up, title: 'الأسهم المصرية', subtitle: 'تتبع أسعار الأسهم لحظياً'),
                     const SizedBox(height: 16),
                     if (_stocks.isEmpty)
-                      const StateView(empty: true, emptyMessage: 'لا توجد أسهم مطابقة للبحث')
+                      const StateView(empty: true, emptyMessage: 'لا توجد أسهم متاحة حالياً')
                     else
                       ..._stocks.map((s) => Padding(
                         padding: const EdgeInsets.only(bottom: 8),
@@ -162,6 +173,8 @@ class _StocksScreenState extends State<StocksScreen> {
           const SizedBox(height: 8),
           ..._active.map((s) => _buildMoverCard(s, null)),
         ],
+        if (_gainers.isEmpty && _losers.isEmpty && _active.isEmpty)
+          const StateView(empty: true, emptyMessage: 'لا توجد بيانات حركة متاحة'),
       ],
     );
   }

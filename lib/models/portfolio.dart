@@ -31,8 +31,8 @@ class PortfolioPosition {
   
   factory PortfolioPosition.fromJson(Map<String, dynamic> json) => PortfolioPosition(
         id: json['id'] ?? '',
-        stockSymbol: json['stock_symbol'] ?? '',
-        stockName: json['stock_name'],
+        stockSymbol: json['stock_symbol'] ?? json['ticker'] ?? '',
+        stockName: json['stock_name'] ?? json['name'],
         shares: parseInt(json['shares']) ?? 0,
         avgCost: parseDouble(json['avg_cost']) ?? 0,
         currentPrice: parseDouble(json['current_price']) ?? 0,
@@ -72,11 +72,23 @@ class PortfolioResponse {
   final List<PortfolioPosition> positions;
   final PortfolioSummary? summary;
   
-  PortfolioResponse({required this.success, required this.positions, this.summary});
+  PortfolioResponse({this.success = true, required this.positions, this.summary});
   
-  factory PortfolioResponse.fromJson(Map<String, dynamic> json) => PortfolioResponse(
-        success: json['success'] ?? false,
-        positions: (json['positions'] as List?)?.map((e) => PortfolioPosition.fromJson(e)).toList() ?? [],
-        summary: json['summary'] != null ? PortfolioSummary.fromJson(json['summary']) : null,
-      );
+  factory PortfolioResponse.fromJson(Map<String, dynamic> json) {
+    // Handle different response formats
+    List<dynamic>? positionsList;
+    if (json['positions'] is List) {
+      positionsList = json['positions'] as List;
+    } else if (json['data'] is List) {
+      positionsList = json['data'] as List;
+    } else if (json['items'] is List) {
+      positionsList = json['items'] as List;
+    }
+    
+    return PortfolioResponse(
+      success: json['success'] as bool? ?? true,
+      positions: positionsList?.map((e) => PortfolioPosition.fromJson(e as Map<String, dynamic>)).toList() ?? [],
+      summary: json['summary'] != null ? PortfolioSummary.fromJson(json['summary']) : null,
+    );
+  }
 }

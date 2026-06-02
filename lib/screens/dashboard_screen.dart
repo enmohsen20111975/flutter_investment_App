@@ -34,17 +34,31 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Future<void> _loadData({bool silent = false}) async {
     try {
       if (!silent) setState(() { _loading = true; _error = null; });
+      
+      debugPrint('[Dashboard] Loading data...');
+      
       final results = await Future.wait([
         api.getMarketOverview(),
-        api.getMarketLiveData().catchError((_) => <String, dynamic>{}),
-        api.getMarketInvesting().catchError((_) => <String, dynamic>{}),
+        api.getMarketLiveData().catchError((e) {
+          debugPrint('[Dashboard] Live data error: $e');
+          return <String, dynamic>{};
+        }),
+        api.getMarketInvesting().catchError((e) {
+          debugPrint('[Dashboard] Investing data error: $e');
+          return <String, dynamic>{};
+        }),
       ]);
+      
       _data = results[0] as MarketOverview;
       _liveData = results[1] as Map<String, dynamic>?;
       _investingData = results[2] as Map<String, dynamic>?;
+      
+      debugPrint('[Dashboard] Data loaded: ${_data?.indices?.length ?? 0} indices, ${_data?.topGainers?.length ?? 0} gainers');
+      
       setState(() { _loading = false; _refreshing = false; });
     } catch (e) {
-      setState(() { _error = e.toString(); _loading = false; _refreshing = false; });
+      debugPrint('[Dashboard] Error loading data: $e');
+      setState(() { _error = 'فشل تحميل البيانات. اسحب للتحديث.'; _loading = false; _refreshing = false; });
     }
   }
 
@@ -59,7 +73,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       backgroundColor: AppColors.background,
       body: _loading
           ? const StateView(loading: true)
-          : _error != null
+          : _error != null && _data == null
               ? StateView(error: _error, onRetry: () => _loadData())
               : RefreshIndicator(
                   color: AppColors.primary,
@@ -127,8 +141,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
           Row(
             children: [
               _buildStatChip(
-                _data?.marketStatus?.isMarketHours == true ? 'السوق مفتوح' : 'السوق مغلق',
-                _data?.marketStatus?.isMarketHours == true ? Icons.check_circle : Icons.cancel,
+                _data?.marketStatus?.isOpen == true ? 'السوق مفتوح' : 'السوق مغلق',
+                _data?.marketStatus?.isOpen == true ? Icons.check_circle : Icons.cancel,
               ),
               const SizedBox(width: 8),
               if (_data?.lastUpdated != null)
@@ -159,11 +173,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final summary = _data?.summary;
     return Row(
       children: [
-        Expanded(child: _buildMiniCard('الأسهم', '${summary?.totalStocks ?? '-'}', Icons.bar_chart, AppColors.primary)),
+        Expanded(child: _buildMiniCard('الأسهم', '${summary?.totalStocks ?? _data?.totalStocks ?? '-'}', Icons.bar_chart, AppColors.primary)),
         const SizedBox(width: 8),
-        Expanded(child: _buildMiniCard('ارتفاعات', '${summary?.gainers ?? '-'}', Icons.trending_up, AppColors.success)),
+        Expanded(child: _buildMiniCard('ارتفاعات', '${summary?.gainers ?? _data?.gainers ?? '-'}', Icons.trending_up, AppColors.success)),
         const SizedBox(width: 8),
-        Expanded(child: _buildMiniCard('انخفاضات', '${summary?.losers ?? '-'}', Icons.trending_down, AppColors.danger)),
+        Expanded(child: _buildMiniCard('انخفاضات', '${summary?.losers ?? _data?.losers ?? '-'}', Icons.trending_down, AppColors.danger)),
       ],
     );
   }
@@ -266,27 +280,33 @@ class _DashboardScreenState extends State<DashboardScreen> {
               style: const TextStyle(fontSize: 10, color: AppColors.textMuted)),
         ]),
         const SizedBox(height: 8),
-        ...stocks.take(5).map((s) {
-          final m = s as Map<String, dynamic>;
-          final ticker = m['ticker'] ?? m['symbol'] ?? '';
-          final price = (m['current_price'] as num?)?.toDouble() ?? 0;
-          final change = (m['change_percent'] as num?)?.toDouble() ?? 0;
-          final isUp = change >= 0;
-          return Container(
-            margin: const EdgeInsets.only(bottom: 6),
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(10), border: Border.all(color: AppColors.border)),
-            child: Row(children: [
-              Icon(isUp ? Icons.trending_up : Icons.trending_down, size: 16, color: isUp ? AppColors.success : AppColors.danger),
-              const SizedBox(width: 8),
-              Expanded(child: Text(ticker, style: AppTypography.bodyMedium)),
-              Text('${price.toStringAsFixed(2)}', style: AppTypography.bodyMedium),
-              const SizedBox(width: 8),
-              Text('${change >= 0 ? '+' : ''}${change.toStringAsFixed(2)}%',
-                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: isUp ? AppColors.success : AppColors.danger)),
-            ]),
-          );
-        }),
+        if (stocks.isEmpty)
+          const Padding(
+            padding: EdgeInsets.all(16),
+            child: Text('لا توجد بيانات مباشرة متاحة حالياً', style: TextStyle(color: AppColors.textMuted)),
+          )
+        else
+          ...stocks.take(5).map((s) {
+            final m = s as Map<String, dynamic>;
+            final ticker = m['ticker'] ?? m['symbol'] ?? '';
+            final price = (m['current_price'] as num?)?.toDouble() ?? 0;
+            final change = (m['change_percent'] as num?)?.toDouble() ?? 0;
+            final isUp = change >= 0;
+            return Container(
+              margin: const EdgeInsets.only(bottom: 6),
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(10), border: Border.all(color: AppColors.border)),
+              child: Row(children: [
+                Icon(isUp ? Icons.trending_up : Icons.trending_down, size: 16, color: isUp ? AppColors.success : AppColors.danger),
+                const SizedBox(width: 8),
+                Expanded(child: Text(ticker, style: AppTypography.bodyMedium)),
+                Text('${price.toStringAsFixed(2)}', style: AppTypography.bodyMedium),
+                const SizedBox(width: 8),
+                Text('${change >= 0 ? '+' : ''}${change.toStringAsFixed(2)}%',
+                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: isUp ? AppColors.success : AppColors.danger)),
+              ]),
+            );
+          }),
       ],
     );
   }
