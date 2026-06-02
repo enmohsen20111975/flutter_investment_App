@@ -8,7 +8,7 @@ import '../theme/typography.dart';
 import '../api/client.dart';
 import '../models/types.dart';
 import '../widgets/state_view.dart';
-import '../widgets/state_view.dart' as widgets;
+import '../widgets/bubble_buttons.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -21,90 +21,103 @@ class _DashboardScreenState extends State<DashboardScreen> {
   MarketOverview? _data;
   Map<String, dynamic>? _liveData;
   Map<String, dynamic>? _investingData;
-  bool _loading = true;
-  String? _error;
-  bool _refreshing = false;
+  bool _loadingLive = false;
+  bool _loadingInvesting = false;
 
   @override
   void initState() {
     super.initState();
-    _loadData();
+    // Defer loading to post-frame callback to avoid blocking UI
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      setState(() { _loadingLive = true; _loadingInvesting = true; });
+      // Stagger API calls to prevent network overload
+      _loadOverview();
+      Future.delayed(const Duration(milliseconds: 300), _loadLive);
+      Future.delayed(const Duration(milliseconds: 600), _loadInvesting);
+    });
   }
 
-  Future<void> _loadData({bool silent = false}) async {
+  void _loadAllData() {
+    // Called by refresh button/refresh indicator
+    setState(() { _loadingLive = true; _loadingInvesting = true; });
+    // Stagger API calls to prevent network overload
+    _loadOverview();
+    Future.delayed(const Duration(milliseconds: 300), _loadLive);
+    Future.delayed(const Duration(milliseconds: 600), _loadInvesting);
+  }
+
+  Future<void> _loadOverview() async {
     try {
-      if (!silent) setState(() { _loading = true; _error = null; });
-      
-      debugPrint('[Dashboard] Loading data...');
-      
-      final results = await Future.wait([
-        api.getMarketOverview(),
-        api.getMarketLiveData().catchError((e) {
-          debugPrint('[Dashboard] Live data error: $e');
-          return <String, dynamic>{};
-        }),
-        api.getMarketInvesting().catchError((e) {
-          debugPrint('[Dashboard] Investing data error: $e');
-          return <String, dynamic>{};
-        }),
-      ]);
-      
-      _data = results[0] as MarketOverview;
-      _liveData = results[1] as Map<String, dynamic>?;
-      _investingData = results[2] as Map<String, dynamic>?;
-      
-      debugPrint('[Dashboard] Data loaded: ${_data?.indices?.length ?? 0} indices, ${_data?.topGainers?.length ?? 0} gainers');
-      
-      setState(() { _loading = false; _refreshing = false; });
+      final data = await api.getMarketOverview();
+      if (mounted) setState(() { _data = data; });
     } catch (e) {
-      debugPrint('[Dashboard] Error loading data: $e');
-      setState(() { _error = 'فشل تحميل البيانات. اسحب للتحديث.'; _loading = false; _refreshing = false; });
+      debugPrint('[Dashboard] Overview error: $e');
     }
   }
 
-  Future<void> _onRefresh() async {
-    setState(() => _refreshing = true);
-    await _loadData(silent: true);
+  Future<void> _loadLive() async {
+    try {
+      final data = await api.getMarketLiveData();
+      if (mounted) setState(() { _liveData = data; _loadingLive = false; });
+    } catch (e) {
+      debugPrint('[Dashboard] Live data error: $e');
+      if (mounted) setState(() { _loadingLive = false; });
+    }
+  }
+
+  Future<void> _loadInvesting() async {
+    try {
+      final data = await api.getMarketInvesting();
+      if (mounted) setState(() { _investingData = data; _loadingInvesting = false; });
+    } catch (e) {
+      debugPrint('[Dashboard] Investing data error: $e');
+      if (mounted) setState(() { _loadingInvesting = false; });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
-      body: _loading
-          ? const StateView(loading: true)
-          : _error != null && _data == null
-              ? StateView(error: _error, onRetry: () => _loadData())
-              : RefreshIndicator(
-                  color: AppColors.primary,
-                  onRefresh: _onRefresh,
-                  child: SingleChildScrollView(
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _buildHeroHeader(),
-                        const SizedBox(height: 20),
-                        _buildSummaryCards(),
-                        const SizedBox(height: 20),
-                        if (_liveData != null && _liveData!.isNotEmpty) ...[
-                          _buildLiveDataSection(),
-                          const SizedBox(height: 20),
-                        ],
-                        _buildIndicesSection(),
-                        const SizedBox(height: 20),
-                        _buildTopStocksSection(),
-                        const SizedBox(height: 20),
-                        if (_investingData != null && _investingData!.isNotEmpty) ...[
-                          _buildInvestingSection(),
-                          const SizedBox(height: 20),
-                        ],
-                        const SizedBox(height: 90),
-                      ],
-                    ),
-                  ),
-                ),
+      floatingActionButton: BubbleFloatingButton(
+        icon: Icons.refresh,
+        label: 'تحديث',
+        extended: true,
+        onPressed: _loadAllData,
+      ),
+      body: RefreshIndicator(
+        color: AppColors.primary,
+        onRefresh: () async => _loadAllData(),
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildHeroHeader(),
+              const SizedBox(height: 16),
+              _buildQuickActions(),
+              const SizedBox(height: 20),
+              if (_data != null) _buildSummaryCards(),
+              const SizedBox(height: 20),
+              if (_loadingLive)
+                const _LoadingIndicator(text: 'جاري تحميل البيانات المباشرة...')
+              else if (_liveData != null && _liveData!.isNotEmpty)
+                _buildLiveDataSection(),
+              const SizedBox(height: 20),
+              if (_data != null) _buildIndicesSection(),
+              const SizedBox(height: 20),
+              if (_data != null) _buildTopStocksSection(),
+              const SizedBox(height: 20),
+              if (_loadingInvesting)
+                const _LoadingIndicator(text: 'جاري تحميل بيانات Investing.com...')
+              else if (_investingData != null && _investingData!.isNotEmpty)
+                _buildInvestingSection(),
+              const SizedBox(height: 90),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
@@ -130,7 +143,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                     const Text('مساعد الاستثمار', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: AppColors.white)),
+                    const Text('مرحباً', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.white)),
+                    const Text('مساعد الاستثمار', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: AppColors.white)),
                     Text('لوحة التحكم', style: TextStyle(fontSize: 14, color: AppColors.white.withValues(alpha: 0.8))),
                   ],
                 ),
@@ -138,34 +152,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ],
           ),
           const SizedBox(height: 16),
-          Row(
-            children: [
-              _buildStatChip(
-                _data?.marketStatus?.isOpen == true ? 'السوق مفتوح' : 'السوق مغلق',
-                _data?.marketStatus?.isOpen == true ? Icons.check_circle : Icons.cancel,
-              ),
-              const SizedBox(width: 8),
-              if (_data?.lastUpdated != null)
-                _buildStatChip(_data!.lastUpdated!, Icons.access_time),
-            ],
-          ),
         ],
       ),
     );
   }
 
-  Widget _buildStatChip(String text, IconData icon) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(color: AppColors.white.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(20)),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 14, color: AppColors.white),
-          const SizedBox(width: 4),
-          Text(text, style: const TextStyle(fontSize: 11, color: AppColors.white, fontWeight: FontWeight.w500)),
-        ],
-      ),
+  Widget _buildQuickActions() {
+    return BubbleActionMenu(
+      items: [
+        BubbleMenuItem(icon: Icons.auto_awesome, label: 'تحليل AI', onPressed: () => Navigator.of(context).pushNamed('/ai-analysis')),
+        BubbleMenuItem(icon: Icons.lightbulb_outline, label: 'التوصيات', onPressed: () => Navigator.of(context).pushNamed('/recommendations')),
+        BubbleMenuItem(icon: Icons.visibility, label: 'قائمة المراقبة', onPressed: () => Navigator.of(context).pushNamed('/watchlist')),
+        BubbleMenuItem(icon: Icons.wallet, label: 'المحفظة', onPressed: () => Navigator.of(context).pushNamed('/portfolio')),
+      ],
     );
   }
 
@@ -173,11 +172,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final summary = _data?.summary;
     return Row(
       children: [
-        Expanded(child: _buildMiniCard('الأسهم', '${summary?.totalStocks ?? _data?.totalStocks ?? '-'}', Icons.bar_chart, AppColors.primary)),
+        Expanded(child: _buildMiniCard('الأسهم', '${summary?.totalStocks ?? '-'}', Icons.bar_chart, AppColors.primary)),
         const SizedBox(width: 8),
-        Expanded(child: _buildMiniCard('ارتفاعات', '${summary?.gainers ?? _data?.gainers ?? '-'}', Icons.trending_up, AppColors.success)),
+        Expanded(child: _buildMiniCard('ارتفاعات', '${summary?.gainers ?? '-'}', Icons.trending_up, AppColors.success)),
         const SizedBox(width: 8),
-        Expanded(child: _buildMiniCard('انخفاضات', '${summary?.losers ?? _data?.losers ?? '-'}', Icons.trending_down, AppColors.danger)),
+        Expanded(child: _buildMiniCard('انخفاضات', '${summary?.losers ?? '-'}', Icons.trending_down, AppColors.danger)),
       ],
     );
   }
@@ -205,7 +204,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget _buildIndicesSection() {
     final indices = _data?.indices ?? [];
     if (indices.isEmpty) return const SizedBox.shrink();
-
     return Column(
       children: [
         const SectionHeader(title: 'المؤشرات', icon: Icons.analytics),
@@ -226,7 +224,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget _buildTopStocksSection() {
     final gainers = _data?.topGainers ?? [];
     final losers = _data?.topLosers ?? [];
-
     return Column(
       children: [
         if (gainers.isNotEmpty) ...[
@@ -266,19 +263,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final ld = _liveData!;
     final stocks = (ld['stocks'] as List?) ?? [];
     final lastUpdated = ld['last_updated']?.toString() ?? '';
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(children: [
-          const Icon(Icons.live_tv, size: 18, color: AppColors.success),
-          const SizedBox(width: 8),
-          const Text('بيانات مباشرة', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
-          const Spacer(),
-          if (lastUpdated.isNotEmpty)
-            Text(lastUpdated.substring(0, lastUpdated.length > 16 ? 16 : lastUpdated.length),
-              style: const TextStyle(fontSize: 10, color: AppColors.textMuted)),
-        ]),
+        Row(
+          children: [
+            const Icon(Icons.live_tv, size: 18, color: AppColors.success),
+            const SizedBox(width: 8),
+            const Text('بيانات مباشرة', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+            const Spacer(),
+            if (lastUpdated.isNotEmpty)
+              Text(lastUpdated.length > 16 ? lastUpdated.substring(0, 16) : lastUpdated,
+                style: const TextStyle(fontSize: 10, color: AppColors.textMuted)),
+          ],
+        ),
         const SizedBox(height: 8),
         if (stocks.isEmpty)
           const Padding(
@@ -296,15 +294,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
               margin: const EdgeInsets.only(bottom: 6),
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(10), border: Border.all(color: AppColors.border)),
-              child: Row(children: [
-                Icon(isUp ? Icons.trending_up : Icons.trending_down, size: 16, color: isUp ? AppColors.success : AppColors.danger),
-                const SizedBox(width: 8),
-                Expanded(child: Text(ticker, style: AppTypography.bodyMedium)),
-                Text('${price.toStringAsFixed(2)}', style: AppTypography.bodyMedium),
-                const SizedBox(width: 8),
-                Text('${change >= 0 ? '+' : ''}${change.toStringAsFixed(2)}%',
-                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: isUp ? AppColors.success : AppColors.danger)),
-              ]),
+              child: Row(
+                children: [
+                  Icon(isUp ? Icons.trending_up : Icons.trending_down, size: 16, color: isUp ? AppColors.success : AppColors.danger),
+                  const SizedBox(width: 8),
+                  Expanded(child: Text(ticker, style: AppTypography.bodyMedium)),
+                  Text('$price', style: AppTypography.bodyMedium),
+                  const SizedBox(width: 8),
+                  Text('${change >= 0 ? '+' : ''}${change.toStringAsFixed(2)}%',
+                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: isUp ? AppColors.success : AppColors.danger)),
+                ],
+              ),
             );
           }),
       ],
@@ -314,9 +314,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget _buildInvestingSection() {
     final inv = _investingData!;
     final items = (inv['data'] as List?) ?? [];
-
     if (items.isEmpty) return const SizedBox.shrink();
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -332,18 +330,40 @@ class _DashboardScreenState extends State<DashboardScreen> {
             margin: const EdgeInsets.only(bottom: 6),
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(10), border: Border.all(color: AppColors.border)),
-            child: Row(children: [
-              Icon(isUp ? Icons.trending_up : Icons.trending_down, size: 16, color: isUp ? AppColors.success : AppColors.danger),
-              const SizedBox(width: 8),
-              Expanded(child: Text(name, style: AppTypography.bodyMedium, maxLines: 1, overflow: TextOverflow.ellipsis)),
-              Text('${price.toStringAsFixed(2)}', style: AppTypography.bodyMedium),
-              const SizedBox(width: 8),
-              Text('${change >= 0 ? '+' : ''}${change.toStringAsFixed(2)}%',
-                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: isUp ? AppColors.success : AppColors.danger)),
-            ]),
+            child: Row(
+              children: [
+                Icon(isUp ? Icons.trending_up : Icons.trending_down, size: 16, color: isUp ? AppColors.success : AppColors.danger),
+                const SizedBox(width: 8),
+                Expanded(child: Text(name, style: AppTypography.bodyMedium, maxLines: 1, overflow: TextOverflow.ellipsis)),
+                Text('$price', style: AppTypography.bodyMedium),
+                const SizedBox(width: 8),
+                Text('${change >= 0 ? '+' : ''}${change.toStringAsFixed(2)}%',
+                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: isUp ? AppColors.success : AppColors.danger)),
+              ],
+            ),
           );
         }),
       ],
+    );
+  }
+}
+
+class _LoadingIndicator extends StatelessWidget {
+  final String text;
+  const _LoadingIndicator({required this.text});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(12), border: Border.all(color: AppColors.border)),
+      child: Row(
+        children: [
+          const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: AppColors.primary, strokeWidth: 2)),
+          const SizedBox(width: 12),
+          Text(text, style: const TextStyle(color: AppColors.textSecondary, fontSize: 13)),
+        ],
+      ),
     );
   }
 }

@@ -33,7 +33,6 @@ class _CryptoDetailScreenState extends State<CryptoDetailScreen> {
   Map<String, dynamic>? _signals;
   bool _loadingChart = false;
   int _selectedDays = 30;
-
   @override
   void initState() {
     super.initState();
@@ -59,8 +58,8 @@ class _CryptoDetailScreenState extends State<CryptoDetailScreen> {
   Future<void> _loadOHLC() async {
     if (mounted) setState(() { _loadingChart = true; });
     try {
-      final response = await api.getCryptoOHLC(coinId: widget.coinId, days: _selectedDays);
-      final data = response['data'] as Map<String, dynamic>? ?? response;
+      final dynamic response = await api.getCryptoOHLC(coinId: widget.coinId, days: _selectedDays);
+      final Map<String, dynamic> data = response is Map<String, dynamic> ? response : {};
 
       final ohlcv = (data['ohlcv'] as List?) ?? [];
       _ohlcData = ohlcv.map((e) => CryptoOHLCPoint.fromJson(e)).toList();

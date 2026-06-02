@@ -21,11 +21,11 @@ class NotificationService {
 
   final FlutterLocalNotificationsPlugin _notificationsPlugin =
       FlutterLocalNotificationsPlugin();
-  final ApiClient _api = ApiClient();
+  final GLMApiClient _api = GLMApiClient.instance;
 
   static const String _recommendationsChannel = 'recommendations';
   static const String _analysisChannel = 'daily_analysis';
-  
+
   static const int _recommendationNotificationId = 1001;
   static const int _dailyAnalysisNotificationId = 1002;
 

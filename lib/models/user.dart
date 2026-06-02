@@ -38,18 +38,34 @@ class User {
   factory User.fromJson(Map<String, dynamic> json) => User(
         id: json['id'] ?? '',
         email: json['email'] ?? '',
-        username: json['username'],
-        name: json['name'],
-        image: json['image'],
-        isAdmin: parseBool(json['is_admin']),
-        subscriptionTier: json['subscription_tier'],
-        defaultRiskTolerance: json['default_risk_tolerance'],
+        username: json['username'] ?? json['display_name'] ?? json['displayname'],
+        name: json['name'] ?? json['full_name'] ?? json['fullname'] ?? json['display_name'] ?? json['displayname'],
+        image: json['image'] ?? json['photo_url'] ?? json['photoUrl'],
+        isAdmin: parseBool(json['is_admin'] ?? json['isAdmin']),
+        subscriptionTier: json['subscription_tier'] ?? json['subscriptionTier'] ?? json['tier'],
+        defaultRiskTolerance: json['default_risk_tolerance'] ?? json['defaultRiskTolerance'],
         phone: json['phone'],
-        isActive: parseBool(json['is_active']),
-        emailVerified: parseBool(json['email_verified']),
-        lastLogin: json['last_login'],
-        createdAt: json['created_at'],
+        isActive: parseBool(json['is_active'] ?? json['isActive']),
+        emailVerified: parseBool(json['email_verified'] ?? json['emailVerified']),
+        lastLogin: json['last_login'] ?? json['lastLogin'],
+        createdAt: json['created_at'] ?? json['createdAt'],
       );
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'email': email,
+        'username': username,
+        'name': name,
+        'image': image,
+        'is_admin': isAdmin,
+        'subscription_tier': subscriptionTier,
+        'default_risk_tolerance': defaultRiskTolerance,
+        'phone': phone,
+        'is_active': isActive,
+        'email_verified': emailVerified,
+        'last_login': lastLogin,
+        'created_at': createdAt,
+      };
 }
 
 class AuthResponse {

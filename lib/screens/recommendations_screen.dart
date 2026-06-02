@@ -9,6 +9,7 @@ import '../theme/typography.dart';
 import '../api/client.dart';
 import '../models/types.dart';
 import '../widgets/state_view.dart';
+import 'dart:convert';
 
 class RecommendationsScreen extends StatefulWidget {
   const RecommendationsScreen({super.key});
@@ -82,7 +83,9 @@ class _RecommendationsScreenState extends State<RecommendationsScreen> {
       final response = await api.getMorningReports();
       _morningReports = (response['reports'] as List?)?.cast<Map<String, dynamic>>() ?? [];
       if (mounted) setState(() {});
-    } catch (_) {}
+    } catch (_) {
+      if (mounted) setState(() {});
+    }
   }
 
   Color _actionColor(String? action) {

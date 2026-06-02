@@ -42,11 +42,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
         _darkMode = prefs.getBool('dark_mode') ?? false;
       });
 
-      // Try to load user data
+      // Try to load user data (skip if API fails)
       if (await api.isAuthenticated()) {
         try {
-          final user = await api.getMe();
-          setState(() { _user = user; });
+          final userData = await api.getMe();
+          if (userData != null) {
+            final user = User.fromJson(userData);
+            if (mounted) setState(() { _user = user; });
+          }
         } catch (_) {}
       }
     } finally {

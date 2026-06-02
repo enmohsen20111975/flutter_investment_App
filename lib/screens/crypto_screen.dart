@@ -24,7 +24,13 @@ class _CryptoScreenState extends State<CryptoScreen> {
   String? _error;
 
   @override
-  void initState() { super.initState(); _loadData(); }
+  void initState() {
+    super.initState();
+    // Defer loading to post-frame callback to avoid blocking UI
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadData();
+    });
+  }
 
   Future<void> _loadData({bool silent = false}) async {
     try {

@@ -11,7 +11,6 @@ import 'theme/typography.dart';
 import 'screens/dashboard_screen.dart';
 import 'screens/stocks_screen.dart';
 import 'screens/stock_history_screen.dart';
-import 'screens/metals_screen.dart';
 import 'screens/currency_screen.dart';
 import 'screens/crypto_screen.dart';
 import 'screens/zakat_screen.dart';
@@ -19,7 +18,6 @@ import 'screens/auth_screen.dart';
 import 'screens/portfolio_screen.dart';
 import 'screens/watchlist_screen.dart';
 import 'screens/recommendations_screen.dart';
-import 'screens/ai_analysis_screen.dart';
 import 'screens/subscription_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/webview_screen.dart';
@@ -58,26 +56,37 @@ class _MainNavigatorState extends State<MainNavigator> {
     const PortfolioScreen(),   // 3: Portfolio
   ];
 
-  @override
+@override
   void initState() {
     super.initState();
-    _checkAuth();
+    // Defer auth check to post-frame callback to avoid blocking UI
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkAuth();
+    });
   }
 
   Future<void> _checkAuth() async {
     final loggedIn = await api.isAuthenticated();
-    if (loggedIn) {
-try {
-         final user = await api.getMe();
-         if (mounted) {
-           setState(() { _user = user; _isLoggedIn = true; });
-         }
-       } catch (e) {
-         debugPrint('Auth check failed: $e');
-         if (mounted) {
-           setState(() { _isLoggedIn = false; });
-         }
-       }
+    if (mounted) {
+      setState(() { 
+        _isLoggedIn = loggedIn;
+        // Load user data when login state changes
+        if (loggedIn) {
+          _loadUserData();
+        } else {
+          _user = null;
+        }
+      });
+    }
+    // Skip getMe() call - user data already available from login response
+  }
+
+  Future<void> _loadUserData() async {
+    final user = await api.getUser();
+    if (mounted) {
+      setState(() {
+        _user = user;
+      });
     }
   }
 
@@ -94,47 +103,85 @@ try {
         drawer: _buildDrawer(),
         // ── Persistent AppBar with drawer toggle + command bar ──
         appBar: AppBar(
-          leading: IconButton(
-            icon: const Icon(Icons.menu),
-            onPressed: () => _scaffoldKey.currentState?.openDrawer(),
-            tooltip: 'القائمة',
+          backgroundColor: AppColors.surface,
+          elevation: 0,
+          leading: Container(
+            margin: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              gradient: AppColors.gradientPurplePink,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: IconButton(
+              icon: const Icon(Icons.menu, color: AppColors.text),
+              onPressed: () => _scaffoldKey.currentState?.openDrawer(),
+              tooltip: 'القائمة',
+            ),
           ),
-          title: Text(
-            _titles[_currentIndex],
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
-          ),
+title: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  _titles[_currentIndex],
+                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, fontFamily: 'Cairo', color: AppColors.text),
+                ),
+                if (_isLoggedIn && _user != null)
+                  Text(
+                    _user?.username ?? _user?.name ?? 'مستخدم',
+                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: AppColors.primary),
+                  ),
+              ],
+            ),
           centerTitle: true,
           actions: [
-            // Command bar / search
             IconButton(
-              icon: const Icon(Icons.search),
+              icon: Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  gradient: AppColors.gradientPurplePink,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.search, color: AppColors.white, size: 18),
+              ),
               onPressed: _showCommandBar,
               tooltip: 'بحث سريع',
             ),
-            // Login indicator / profile
-            if (_isLoggedIn && _user != null)
-              GestureDetector(
-                onTap: () => _navigateTo(const SettingsScreen()),
-                child: Padding(
-                  padding: const EdgeInsets.only(left: 8, right: 8),
-                  child: CircleAvatar(
-                    radius: 16,
-                    backgroundColor: AppColors.primaryMuted,
-                    child: Text(
-                      (_user?.username ?? _user?.email ?? 'U')[0].toUpperCase(),
-                      style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w700, fontSize: 14),
-                    ),
-                  ),
-                ),
-              )
+  if (_isLoggedIn && _user != null)
+    GestureDetector(
+      onTap: () => _navigateTo(const SettingsScreen()),
+      child: Container(
+        margin: const EdgeInsets.only(left: 8, right: 8),
+        decoration: const BoxDecoration(
+          gradient: AppColors.gradientPurplePink,
+          shape: BoxShape.circle,
+        ),
+        child: CircleAvatar(
+          radius: 16,
+          backgroundColor: AppColors.transparent,
+          child: Text(
+            _getUserInitials(_user),
+            style: const TextStyle(color: AppColors.white, fontWeight: FontWeight.w800, fontSize: 13),
+          ),
+        ),
+      ),
+    )
             else
-              IconButton(
-                icon: const Icon(Icons.login),
-                onPressed: () async {
+              GestureDetector(
+                onTap: () async {
                   await _navigateTo(const AuthScreen());
                   _refreshAuth();
                 },
-                tooltip: 'تسجيل الدخول',
+                child: Container(
+                  margin: const EdgeInsets.only(left: 8, right: 8),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: const BoxDecoration(
+                    gradient: AppColors.gradientPurplePink,
+                    borderRadius: BorderRadius.all(Radius.circular(16)),
+                  ),
+                  child: const Text(
+                    '✨',
+                    style: TextStyle(fontSize: 16),
+                  ),
+                ),
               ),
           ],
         ),
@@ -143,19 +190,43 @@ try {
           children: _screens,
         ),
         bottomNavigationBar: Container(
-          decoration: BoxDecoration(
-            color: AppColors.surface,
-            boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 10, offset: const Offset(0, -2))],
-            borderRadius: const BorderRadius.only(topLeft: Radius.circular(20), topRight: Radius.circular(20)),
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [AppColors.surface, AppColors.surfaceMuted],
+            ),
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.primary,
+                blurRadius: 20,
+                offset: Offset(0, -4),
+              ),
+            ],
           ),
           child: BottomNavigationBar(
             currentIndex: _currentIndex,
             onTap: (index) => setState(() => _currentIndex = index),
             items: [
-              const BottomNavigationBarItem(icon: Icon(Icons.home_outlined), activeIcon: Icon(Icons.home), label: 'الرئيسية'),
-              const BottomNavigationBarItem(icon: Icon(Icons.trending_up_outlined), activeIcon: Icon(Icons.trending_up), label: 'الأسهم'),
-              const BottomNavigationBarItem(icon: Icon(Icons.currency_bitcoin_outlined), activeIcon: Icon(Icons.currency_bitcoin), label: 'الكريبتو'),
-              const BottomNavigationBarItem(icon: Icon(Icons.wallet_outlined), activeIcon: Icon(Icons.wallet), label: 'المحفظة'),
+              const BottomNavigationBarItem(
+                icon: Icon(Icons.home_rounded, color: AppColors.textMuted),
+                activeIcon: Icon(Icons.home, color: AppColors.primaryGlow),
+                label: 'الرئيسية',
+              ),
+              const BottomNavigationBarItem(
+                icon: Icon(Icons.trending_up_rounded, color: AppColors.textMuted),
+                activeIcon: Icon(Icons.trending_up, color: AppColors.primaryGlow),
+                label: 'الأسهم',
+              ),
+              const BottomNavigationBarItem(
+                icon: Icon(Icons.currency_bitcoin_rounded, color: AppColors.textMuted),
+                activeIcon: Icon(Icons.currency_bitcoin, color: AppColors.primaryGlow),
+                label: 'الكريبتو',
+              ),
+              const BottomNavigationBarItem(
+                icon: Icon(Icons.account_balance_wallet_rounded, color: AppColors.textMuted),
+                activeIcon: Icon(Icons.account_balance_wallet, color: AppColors.primaryGlow),
+                label: 'المحفظة',
+              ),
             ],
           ),
         ),
@@ -195,17 +266,24 @@ try {
             // Header with user info
             Container(
               padding: const EdgeInsets.fromLTRB(20, 50, 20, 20),
-              decoration: const BoxDecoration(gradient: LinearGradient(colors: [AppColors.primaryDark, AppColors.primary])),
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [AppColors.primaryDark, AppColors.primary, AppColors.secondary],
+                ),
+              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Container(
                     padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(color: AppColors.white.withValues(alpha: 0.2), shape: BoxShape.circle),
-                    child: const Icon(Icons.trending_up, color: AppColors.white, size: 32),
+                    decoration: BoxDecoration(
+                      color: AppColors.white.withValues(alpha: 0.2),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.trending_up_rounded, color: AppColors.white, size: 28),
                   ),
                   const SizedBox(height: 12),
-                   const Text('مساعد الاستثمار', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: AppColors.white)),
+                  const Text('مساعد الاستثمار', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: AppColors.white, fontFamily: 'Cairo')),
                   const SizedBox(height: 4),
                   Text('منصة الاستثمار الذكية', style: TextStyle(fontSize: 13, color: AppColors.white.withValues(alpha: 0.8))),
                   if (_isLoggedIn && _user != null) ...[
@@ -215,14 +293,14 @@ try {
                       decoration: BoxDecoration(color: AppColors.white.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(8)),
                       child: Row(
                         children: [
-                          CircleAvatar(
-                            radius: 14,
-                            backgroundColor: AppColors.white.withValues(alpha: 0.3),
-                            child: Text(
-                              (_user?.username ?? _user?.email ?? 'U')[0].toUpperCase(),
-                              style: const TextStyle(color: AppColors.white, fontWeight: FontWeight.w700, fontSize: 12),
-                            ),
-                          ),
+        CircleAvatar(
+          radius: 14,
+          backgroundColor: AppColors.white.withValues(alpha: 0.3),
+          child: Text(
+            _getUserInitials(_user),
+            style: const TextStyle(color: AppColors.white, fontWeight: FontWeight.w700, fontSize: 12),
+          ),
+        ),
                           const SizedBox(width: 8),
                           Expanded(
                             child: Column(
@@ -274,7 +352,6 @@ try {
             ),
             _buildDrawerItem(Icons.trending_up, 'الأسهم', () => setState(() { _currentIndex = 1; Navigator.pop(context); })),
             _buildDrawerItem(Icons.currency_bitcoin, 'الكريبتو', () => setState(() { _currentIndex = 2; Navigator.pop(context); })),
-            _buildDrawerItem(Icons.attach_money, 'الذهب والفضة', () => _navigateTo(const MetalsScreen())),
             _buildDrawerItem(Icons.swap_horiz, 'العملات', () => _navigateTo(const CurrencyScreen())),
 
             const Divider(),
@@ -285,7 +362,6 @@ try {
               child: Text('التحليل والأدوات', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textMuted)),
             ),
             _buildDrawerItem(Icons.lightbulb_outline, 'التوصيات', () => _navigateTo(const RecommendationsScreen())),
-            _buildDrawerItem(Icons.auto_awesome, 'تحليل AI', () => _navigateTo(const AIAnalysisScreen())),
             _buildDrawerItem(Icons.calculate_outlined, 'حاسبة الزكاة', () => _navigateTo(const ZakatScreen())),
 
             const Divider(),
@@ -349,6 +425,13 @@ try {
     }
   }
 
+  String _getUserInitials(User? user) {
+    if (user == null) return 'U';
+    final String displayName = user.username ?? user.email ?? 'U';
+    if (displayName.isEmpty) return 'U';
+    return displayName[0].toUpperCase();
+  }
+
   Widget _buildDrawerItem(IconData icon, String label, VoidCallback onTap) {
     return ListTile(
       leading: Icon(icon, size: 20, color: AppColors.textSecondary),
@@ -390,11 +473,9 @@ class _CommandBarDialogState extends State<_CommandBarDialog> {
     // Markets
     _CommandAction('الأسهم', Icons.trending_up, Icons.trending_up, null, 1),
     _CommandAction('الكريبتو', Icons.currency_bitcoin_outlined, Icons.currency_bitcoin, null, 2),
-    _CommandAction('الذهب والفضة', Icons.attach_money, Icons.attach_money, () => MetalsScreen(), null),
     _CommandAction('العملات', Icons.swap_horiz, Icons.swap_horiz, () => CurrencyScreen(), null),
     // Analysis
     _CommandAction('التوصيات', Icons.lightbulb_outline, Icons.lightbulb, () => RecommendationsScreen(), null),
-    _CommandAction('تحليل AI', Icons.auto_awesome, Icons.auto_awesome, () => AIAnalysisScreen(), null),
     _CommandAction('حاسبة الزكاة', Icons.calculate_outlined, Icons.calculate, () => ZakatScreen(), null),
     // Account
     _CommandAction('المحفظة', Icons.wallet_outlined, Icons.wallet, null, 3),

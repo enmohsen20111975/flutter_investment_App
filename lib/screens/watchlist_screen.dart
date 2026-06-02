@@ -34,6 +34,15 @@ class _WatchlistScreenState extends State<WatchlistScreen> {
   Future<void> _loadData({bool silent = false}) async {
     try {
       if (!silent) setState(() { _loading = true; _error = null; });
+      
+      // Check authentication first
+      final isLoggedIn = await api.isAuthenticated();
+      if (!isLoggedIn) {
+        debugPrint('[Watchlist] Not authenticated, skipping load');
+        setState(() { _loading = false; _error = 'الرجاء تسجيل الدخول لعرض قائمة المراقبة'; });
+        return;
+      }
+      
       WatchlistResponse data;
       try {
         data = await api.getWatchlistEnhanced();
@@ -42,7 +51,7 @@ class _WatchlistScreenState extends State<WatchlistScreen> {
       }
       setState(() { _data = data; _loading = false; _refreshing = false; });
     } catch (e) {
-      setState(() { _error = e.toString(); _loading = false; _refreshing = false; });
+      setState(() { _error = 'فشل تحميل قائمة المراقبة: ${e.toString()}'; _loading = false; _refreshing = false; });
     }
   }
 

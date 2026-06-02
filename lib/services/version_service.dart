@@ -84,7 +84,7 @@ class VersionService {
       final token = prefs.getString('auth_token');
       if (token == null) return;
       
-      final response = await api.dio.get('/api/version');
+      final response = await GLMApiClient.instance.dio.get('/api/version');
       if (response.data['success'] == true) {
         final requiredVersion = response.data['required_version'] as String?;
         final message = response.data['message'] as String?;

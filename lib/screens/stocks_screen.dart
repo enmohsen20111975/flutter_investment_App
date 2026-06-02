@@ -8,6 +8,7 @@ import '../theme/typography.dart';
 import '../api/client.dart';
 import '../models/types.dart';
 import '../widgets/state_view.dart';
+import '../widgets/bubble_buttons.dart';
 import 'stock_history_screen.dart';
 
 class StocksScreen extends StatefulWidget {
@@ -22,7 +23,7 @@ class _StocksScreenState extends State<StocksScreen> {
   Map<String, dynamic>? _movementData;
   String _query = '';
   bool _loading = true;
-  bool _refreshing = false;
+  bool _loadingMovement = false;
   String? _error;
   bool _showMovers = false;
 
@@ -36,119 +37,138 @@ class _StocksScreenState extends State<StocksScreen> {
   @override
   void initState() {
     super.initState();
-    _loadData('');
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      // Stagger the loading to prevent UI jank
+      _loadStocks(_query);
+      Future.delayed(const Duration(milliseconds: 400), _loadMovement);
+    });
   }
 
-  Future<void> _loadData(String search, {bool silent = false}) async {
+  Future<void> _loadStocks([String? search]) async {
     try {
-      if (!silent) setState(() { _loading = true; _error = null; });
-      
-      debugPrint('[Stocks] Loading stocks with query: $search');
-      
-      final results = await Future.wait([
-        api.getStocks(search),
-        api.getStockMovementClassification(),
-      ]);
-      
-      final response = results[0] as Map<String, dynamic>;
+      setState(() { _loading = true; _error = null; });
+      debugPrint('[Stocks] Loading stocks...');
+
+      final response = await api.getStocks(search ?? '');
       final serverStocks = (response['stocks'] as List?)?.map((e) => Stock.fromJson(e)).toList() ?? [];
-      _movementData = results[1] as Map<String, dynamic>;
-      
+
       debugPrint('[Stocks] Loaded ${serverStocks.length} stocks');
-      debugPrint('[Stocks] Movement data: ${_gainers.length} gainers, ${_losers.length} losers');
-      
-      setState(() { _stocks = serverStocks; _loading = false; _refreshing = false; });
+      if (mounted) setState(() { _stocks = serverStocks; _loading = false; });
     } catch (e) {
-      debugPrint('[Stocks] Error loading data: $e');
-      setState(() { _error = 'فشل تحميل البيانات. اسحب للتحديث.'; _loading = false; _refreshing = false; });
+      debugPrint('[Stocks] Error loading stocks: $e');
+      if (mounted) setState(() { _loading = false; });
     }
+  }
+
+  Future<void> _loadMovement() async {
+    try {
+      setState(() { _loadingMovement = true; });
+
+      final data = await api.getStockMovementClassification();
+      if (mounted) setState(() { _movementData = data; _loadingMovement = false; });
+    } catch (e) {
+      debugPrint('[Stocks] Movement classification error (may be unavailable): $e');
+      if (mounted) setState(() { _loadingMovement = false; });
+    }
+  }
+
+  Future<void> _refreshAll() async {
+    await _loadStocks(_query);
+    await _loadMovement();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-        backgroundColor: AppColors.background,
-        body: RefreshIndicator(
-          color: AppColors.primary,
-          onRefresh: () async { setState(() => _refreshing = true); await _loadData(_query, silent: true); },
-          child: SingleChildScrollView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              children: [
-                Container(
-                  decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(12), border: Border.all(color: AppColors.border)),
-                  child: TextField(
-                    decoration: InputDecoration(
-                      hintText: 'ابحث بالرمز أو الاسم...',
-                      hintStyle: const TextStyle(color: AppColors.textMuted),
-                      prefixIcon: const Icon(Icons.search, color: AppColors.textMuted),
-                      border: InputBorder.none,
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                      suffixIcon: _query.isNotEmpty ? IconButton(icon: const Icon(Icons.clear, color: AppColors.textMuted), onPressed: () { setState(() => _query = ''); _loadData(''); }) : null,
-                    ),
-                    onChanged: (v) => setState(() => _query = v),
-                    onSubmitted: (v) => _loadData(v),
+      backgroundColor: AppColors.background,
+      floatingActionButton: BubbleFloatingButton(
+        icon: Icons.refresh,
+        label: 'تحديث',
+        extended: true,
+        onPressed: _refreshAll,
+      ),
+      body: RefreshIndicator(
+        color: AppColors.primary,
+        onRefresh: _refreshAll,
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(12), border: Border.all(color: AppColors.border)),
+                child: TextField(
+                  decoration: InputDecoration(
+                    hintText: 'ابحث بالرمز أو الاسم...',
+                    hintStyle: const TextStyle(color: AppColors.textMuted),
+                    prefixIcon: const Icon(Icons.search, color: AppColors.textMuted),
+                    border: InputBorder.none,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                    suffixIcon: _query.isNotEmpty ? IconButton(icon: const Icon(Icons.clear, color: AppColors.textMuted), onPressed: () { setState(() => _query = ''); _loadStocks(''); }) : null,
                   ),
+                  onChanged: (v) => setState(() => _query = v),
+                  onSubmitted: (v) => _loadStocks(v),
                 ),
-                const SizedBox(height: 12),
-
-                if (_movementData != null && (_gainers.isNotEmpty || _losers.isNotEmpty)) ...[
-                  Row(
-                    children: [
-                      Expanded(
-                        child: FilterChip(
-                          selected: !_showMovers,
-                          label: Text('كل الأسهم', style: TextStyle(fontSize: 12, color: !_showMovers ? AppColors.white : AppColors.textSecondary)),
-                          selectedColor: AppColors.primary,
-                          backgroundColor: AppColors.surface,
-                          onSelected: (_) => setState(() => _showMovers = false),
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                      Expanded(
-                        child: FilterChip(
-                          selected: _showMovers,
-                          label: Text('الأكثر حركة', style: TextStyle(fontSize: 12, color: _showMovers ? AppColors.white : AppColors.textSecondary)),
-                          selectedColor: AppColors.primary,
-                          backgroundColor: AppColors.surface,
-                          onSelected: (_) => setState(() => _showMovers = true),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                ],
-
-                if (_loading)
-                  const StateView(loading: true)
-                else if (_error != null && _stocks.isEmpty)
-                  StateView(error: _error, onRetry: () => _loadData(_query))
-                else ...[
-                  if (_showMovers) _buildMoversSection() else ...[
-                    const HeaderCard(icon: Icons.trending_up, title: 'الأسهم المصرية', subtitle: 'تتبع أسعار الأسهم لحظياً'),
-                    const SizedBox(height: 16),
-                    if (_stocks.isEmpty)
-                      const StateView(empty: true, emptyMessage: 'لا توجد أسهم متاحة حالياً')
-                    else
-                      ..._stocks.map((s) => Padding(
-                        padding: const EdgeInsets.only(bottom: 8),
-                        child: DataRowWidget(
-                          title: s.nameAr ?? s.name ?? s.ticker,
-                          subtitle: s.ticker,
-                          value: s.currentPrice != null ? '${s.currentPrice!.toStringAsFixed(2)} ج.م' : '-',
-                          change: s.changePercent,
-                          icon: Icons.trending_up,
-                          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => StockHistoryScreen(ticker: s.ticker))),
-                        ),
-                      )),
+              ),
+              const SizedBox(height: 12),
+              if (_movementData != null || _loadingMovement) ...[
+                Row(
+                  children: [
+                    const Icon(Icons.trending_up, size: 16, color: AppColors.textSecondary),
+                    const SizedBox(width: 8),
+                    const Text('عرض الأسهم الأكثر حركة', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
                   ],
-                ],
-                const SizedBox(height: 90),
+                ),
+                const SizedBox(height: 8),
+                BubbleActionMenu(
+                  items: [
+                    BubbleMenuItem(
+                      icon: Icons.list,
+                      label: 'كل الأسهم',
+                      isActive: !_showMovers,
+                      onPressed: () => setState(() => _showMovers = false),
+                    ),
+                    BubbleMenuItem(
+                      icon: Icons.trending_up,
+                      label: 'الأكثر حركة',
+                      isActive: _showMovers,
+                      onPressed: () => setState(() => _showMovers = true),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
               ],
-            ),
+
+              if (_loading)
+                const StateView(loading: true)
+              else if (_error != null && _stocks.isEmpty)
+                StateView(error: _error, onRetry: () => _loadStocks(''))
+              else ...[
+                if (_showMovers) _buildMoversSection() else ...[
+                  const HeaderCard(icon: Icons.trending_up, title: 'الأسهم المصرية', subtitle: 'تتبع أسعار الأسهم لحظياً'),
+                  const SizedBox(height: 16),
+                  if (_stocks.isEmpty)
+                    const StateView(empty: true, emptyMessage: 'لا توجد أسهم متاحة حالياً')
+                  else
+                    ..._stocks.map((s) => Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: DataRowWidget(
+                        title: s.nameAr ?? s.name ?? s.ticker,
+                        subtitle: s.ticker,
+                        value: s.currentPrice != null ? '${s.currentPrice!.toStringAsFixed(2)} ج.م' : '-',
+                        change: s.changePercent,
+                        icon: Icons.trending_up,
+                        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => StockHistoryScreen(ticker: s.ticker))),
+                      ),
+                    )),
+                ],
+              ],
+              const SizedBox(height: 90),
+            ],
           ),
         ),
+      ),
     );
   }
 

@@ -1,6 +1,6 @@
 // ============================================================================
 // مساعد الاستثمار Flutter - Theme Colors
-// Ultra modern Material 3 design tokens matching React Native theme
+// VIBRANT FUN THEME - TikTok / Game-like / Delightful
 // ============================================================================
 
 import 'package:flutter/material.dart';
@@ -8,23 +8,31 @@ import 'package:flutter/material.dart';
 class AppColors {
   AppColors._();
 
-  // Primary Brand Colors - Emerald Green
-  static const Color primary = Color(0xFF10B981);
-  static const Color primaryDark = Color(0xFF059669);
-  static const Color primaryLight = Color(0xFF34D399);
-  static const Color primaryMuted = Color(0x1410B981);
-  static const Color primaryContainer = Color(0x2610B981);
+  // Primary - Electric Purple/Pink
+  static const Color primary = Color(0xFF8B5CF6);
+  static const Color primaryDark = Color(0xFF7C3AED);
+  static const Color primaryLight = Color(0xFFA78BFA);
+  static const Color primaryMuted = Color(0x148B5CF6);
+  static const Color primaryContainer = Color(0x268B5CF6);
+  static const Color primaryGlow = Color(0xFFC084FC);
 
-  // Secondary Colors - Indigo
-  static const Color secondary = Color(0xFF6366F1);
-  static const Color secondaryDark = Color(0xFF4F46E5);
-  static const Color secondaryLight = Color(0xFF818CF8);
-  static const Color secondaryMuted = Color(0x146366F1);
+  // Secondary - Hot Pink
+  static const Color secondary = Color(0xFFEC4899);
+  static const Color secondaryDark = Color(0xFFDB2777);
+  static const Color secondaryLight = Color(0xFFF472B6);
+  static const Color secondaryMuted = Color(0x14EC4899);
 
-  // Accent Colors - Amber
-  static const Color accent = Color(0xFFF59E0B);
-  static const Color accentDark = Color(0xFFD97706);
-  static const Color accentLight = Color(0xFFFBBF24);
+  // Accent - Electric Orange
+  static const Color accent = Color(0xFFF97316);
+  static const Color accentDark = Color(0xFFEA580C);
+  static const Color accentLight = Color(0xFFFB923C);
+
+  // Neon accents
+  static const Color neonCyan = Color(0xFF06B6D4);
+  static const Color neonCyanLight = Color(0xFF22D3EE);
+  static const Color neonLime = Color(0xFF84CC16);
+  static const Color neonLimeLight = Color(0xFFBEF264);
+  static const Color neonYellow = Color(0xFFFACC15);
 
   // Semantic Colors
   static const Color success = Color(0xFF22C55E);
@@ -40,41 +48,39 @@ class AppColors {
   static const Color infoLight = Color(0x143B82F6);
   static const Color infoContainer = Color(0x263B82F6);
 
-  // Background Colors - Light Surface System
-  static const Color background = Color(0xFFF5F7FA);
-  static const Color surface = Color(0xFFFFFFFF);
-  static const Color surfaceMuted = Color(0xFFF1F5F9);
-  static const Color surfaceHover = Color(0xFFE2E8F0);
-  static const Color surfaceDim = Color(0xFFE8ECF1);
+  // Fun Dark Backgrounds
+  static const Color background = Color(0xFF0F0A1A);
+  static const Color surface = Color(0xFF1A1025);
+  static const Color surfaceMuted = Color(0xFF281A3A);
+  static const Color surfaceHover = Color(0xFF332045);
+  static const Color surfaceDim = Color(0xFF221535);
 
-  // Background Colors - Dark Theme
-  static const Color backgroundDark = Color(0xFF0F172A);
-  static const Color surfaceDark = Color(0xFF1E293B);
-  static const Color surfaceMutedDark = Color(0xFF334155);
-  static const Color surfaceHoverDark = Color(0xFF475569);
-  static const Color surfaceDimDark = Color(0xFF1E293B);
+  // Dark theme variants
+  static const Color backgroundDark = Color(0xFF0F0A1A);
+  static const Color surfaceDark = Color(0xFF1A1025);
+  static const Color surfaceMutedDark = Color(0xFF281A3A);
+  static const Color surfaceHoverDark = Color(0xFF332045);
+  static const Color surfaceDimDark = Color(0xFF221535);
 
-  // Text Colors - Dark Theme
-  static const Color textDark = Color(0xFFF1F5F9);
-  static const Color textSecondaryDark = Color(0xFFCBD5E1);
+  // Fun Text Colors
+  static const Color text = Color(0xFFF5F3FF);
+  static const Color textSecondary = Color(0xFFC4B5FD);
+  static const Color textMuted = Color(0xFF8B7AA0);
+  static const Color textLight = Color(0xFFE8E0F0);
+  static const Color textOnPrimary = Color(0xFFFFFFFF);
+  static const Color textDark = Color(0xFF1A1025);
+  static const Color textSecondaryDark = Color(0xFF475569);
   static const Color textMutedDark = Color(0xFF94A3B8);
 
-  // Text Colors
-  static const Color text = Color(0xFF1A1D26);
-  static const Color textSecondary = Color(0xFF475569);
-  static const Color textMuted = Color(0xFF94A3B8);
-  static const Color textLight = Color(0xFFCBD5E1);
-  static const Color textOnPrimary = Color(0xFFFFFFFF);
-
-  // Border Colors
-  static const Color border = Color(0xFFE8ECF1);
-  static const Color borderLight = Color(0xFFF1F5F9);
-  static const Color borderDark = Color(0xFFCBD5E1);
+  // Fun Borders
+  static const Color border = Color(0xFF3B2A50);
+  static const Color borderLight = Color(0xFF4A3560);
+  static const Color borderDark = Color(0xFF5A4570);
 
   // Chart Colors
   static const Color chartUp = Color(0xFF22C55E);
   static const Color chartDown = Color(0xFFEF4444);
-  static const Color chartNeutral = Color(0xFF94A3B8);
+  static const Color chartNeutral = Color(0xFF8B7AA0);
 
   // Action Colors
   static const Color buy = Color(0xFF22C55E);
@@ -86,18 +92,47 @@ class AppColors {
   static const Color white = Color(0xFFFFFFFF);
   static const Color black = Color(0xFF000000);
   static const Color transparent = Color(0x00000000);
-  static const Color overlay = Color(0x66000000);
-  static const Color overlayLight = Color(0x33000000);
+  static const Color overlay = Color(0xCC000000);
+  static const Color overlayLight = Color(0x66000000);
 
-  // Gradients
+  // ============================================================================
+  // FUN GRADIENTS
+  // ============================================================================
+  static const LinearGradient gradientNeon = LinearGradient(
+    colors: [primary, secondary, accent],
+  );
+  static const LinearGradient gradientPurplePink = LinearGradient(
+    colors: [primary, secondary],
+  );
+  static const LinearGradient gradientDark = LinearGradient(
+    colors: [Color(0xFF0F0A1A), Color(0xFF1A1025), Color(0xFF281A3A)],
+  );
+  static const LinearGradient gradientSurface = LinearGradient(
+    colors: [Color(0xFF1A1025), Color(0xFF281A3A)],
+  );
+  static const LinearGradient gradientCard = LinearGradient(
+    colors: [Color(0xFF281A3A), Color(0xFF332045)],
+  );
+  static const LinearGradient gradientSuccess = LinearGradient(
+    colors: [Color(0xFF22C55E), Color(0xFF16A34A)],
+  );
+  static const LinearGradient gradientDanger = LinearGradient(
+    colors: [Color(0xFFEF4444), Color(0xFFDC2626)],
+  );
+  static const LinearGradient gradientGold = LinearGradient(
+    colors: [Color(0xFFF59E0B), Color(0xFFFBBF24), Color(0xFFFCD34D)],
+  );
+  static const LinearGradient gradientInfo = LinearGradient(
+    colors: [Color(0xFF3B82F6), Color(0xFF60A5FA)],
+  );
+  static const LinearGradient gradientHero = LinearGradient(
+    colors: [primaryDark, primary, primaryLight],
+  );
   static const LinearGradient gradientPrimary = LinearGradient(
     colors: [primary, primaryDark],
   );
   static const LinearGradient gradientSecondary = LinearGradient(
     colors: [secondary, secondaryDark],
-  );
-  static const LinearGradient gradientHero = LinearGradient(
-    colors: [primaryDark, primary, primaryLight],
   );
 }
 

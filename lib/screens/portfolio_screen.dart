@@ -23,38 +23,33 @@ class _PortfolioScreenState extends State<PortfolioScreen> {
   PortfolioResponse? _data;
   Map<String, dynamic>? _analysis;
   bool _loading = true;
-  bool _refreshing = false;
-  String? _error;
 
   @override
   void initState() {
     super.initState();
-    _loadData();
+    // Load data non-blocking
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadPortfolio();
+      _loadAnalysis();
+    });
   }
 
-  Future<void> _loadData({bool silent = false}) async {
+  Future<void> _loadPortfolio() async {
     try {
-      if (!silent) setState(() { _loading = true; _error = null; });
-      
-      debugPrint('[Portfolio] Loading portfolio data...');
-      
-      final results = await Future.wait([
-        api.getPortfolio(),
-        api.analyzePortfolio().catchError((e) {
-          debugPrint('[Portfolio] Analysis error: $e');
-          return <String, dynamic>{};
-        }),
-      ]);
-      
-      _data = results[0] as PortfolioResponse;
-      _analysis = results[1] as Map<String, dynamic>?;
-      
-      debugPrint('[Portfolio] Loaded ${_data?.positions.length ?? 0} positions');
-      
-      setState(() { _loading = false; _refreshing = false; });
+      final data = await api.getPortfolio();
+      if (mounted) setState(() { _data = data; _loading = false; });
     } catch (e) {
-      debugPrint('[Portfolio] Error loading data: $e');
-      setState(() { _error = 'فشل تحميل المحفظة. اسحب للتحديث.'; _loading = false; _refreshing = false; });
+      debugPrint('[Portfolio] Portfolio error: $e');
+      if (mounted) setState(() { _loading = false; });
+    }
+  }
+
+  Future<void> _loadAnalysis() async {
+    try {
+      final result = await api.analyzePortfolio();
+      if (mounted) setState(() { _analysis = result; });
+    } catch (e) {
+      debugPrint('[Portfolio] Analysis error: $e');
     }
   }
 
@@ -145,12 +140,12 @@ class _PortfolioScreenState extends State<PortfolioScreen> {
                       'avg_buy_price': avgCost,
                       'notes': notesCtrl.text.trim(),
                     });
-                    if (mounted) {
+if (mounted) {
                       Navigator.pop(ctx);
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(content: Text('تمت إضافة السهم للمحفظة'), backgroundColor: AppColors.success),
                       );
-                      _loadData(silent: true);
+                      _loadPortfolio();
                     }
                   } catch (e) {
                     setDialogState(() => submitting = false);
@@ -196,7 +191,7 @@ class _PortfolioScreenState extends State<PortfolioScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('تم حذف السهم'), backgroundColor: AppColors.success),
         );
-        _loadData(silent: true);
+        _loadPortfolio();
       } catch (e) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('فشل الحذف: $e'), backgroundColor: AppColors.danger),
@@ -216,35 +211,25 @@ class _PortfolioScreenState extends State<PortfolioScreen> {
       ),
       body: RefreshIndicator(
         color: AppColors.primary,
-        onRefresh: () async { setState(() => _refreshing = true); await _loadData(silent: true); },
-        child: SingleChildScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const HeaderCard(icon: Icons.wallet, title: 'المحفظة الاستثمارية', subtitle: 'تتبع استثماراتك وتابع أداءها'),
-              const SizedBox(height: 16),
-              
-              if (_loading)
-                const StateView(loading: true)
-              else if (_error != null && _data == null)
-                StateView(error: _error, onRetry: () => _loadData())
-              else ...[
-                if (_data?.summary != null) _buildSummary(),
-                const SizedBox(height: 16),
-                if (_analysis != null && _analysis!.isNotEmpty) _buildAnalysis(),
-                const SizedBox(height: 16),
-                // Positions list
-                if (_data?.positions.isEmpty ?? true)
-                  const StateView(empty: true, emptyMessage: 'المحفظة فارغة. أضف أسهم لتتبعها.')
-                else
-                  ..._data!.positions.map((pos) => _buildPositionCard(pos)),
-              ],
-              const SizedBox(height: 90),
-            ],
-          ),
-        ),
+        onRefresh: () async { _loadPortfolio(); _loadAnalysis(); },
+child: SingleChildScrollView(
+           physics: const AlwaysScrollableScrollPhysics(),
+           padding: const EdgeInsets.all(16),
+           child: Column(
+             crossAxisAlignment: CrossAxisAlignment.start,
+             children: [
+               const HeaderCard(icon: Icons.wallet, title: 'المحفظة الاستثمارية', subtitle: 'تتبع استثماراتك وتابع أداءها'),
+               const SizedBox(height: 16),
+               if (_loading)
+                 const LinearProgressIndicator(color: AppColors.primary)
+               else if (_data != null && _data!.positions.isEmpty)
+                 const StateView(empty: true, emptyMessage: 'المحفظة فارغة. أضف أسهم لتتبعها.')
+               else if (_data != null)
+                 ..._data!.positions.map((pos) => _buildPositionCard(pos)),
+               const SizedBox(height: 90),
+             ],
+           ),
+         ),
       ),
     );
   }

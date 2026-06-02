@@ -127,7 +127,7 @@ class StockHistoryResponse {
   final List<StockHistory> data;
   final StockHistorySummary? summary;
   
-  StockHistoryResponse({required this.success, required this.ticker, required this.data, this.summary});
+  StockHistoryResponse({this.success = true, this.ticker = '', this.data = const [], this.summary});
   
   factory StockHistoryResponse.fromJson(Map<String, dynamic> json) => StockHistoryResponse(
         success: parseBool(json['success']) ?? true,

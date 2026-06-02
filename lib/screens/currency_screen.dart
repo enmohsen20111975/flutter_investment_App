@@ -29,19 +29,27 @@ class _CurrencyScreenState extends State<CurrencyScreen> {
   @override
   void initState() { super.initState(); _loadData(); }
 
-  Future<void> _loadData({bool silent = false}) async {
+  Future<CurrencyResponse?> _loadData({bool silent = false}) async {
     try {
       if (!silent) setState(() { _loading = true; _error = null; });
-      CurrencyResponse response;
+      late CurrencyResponse response;
       try {
-        response = await api.getCurrency();
+        final dynamic currencyData = await api.getCurrency();
+        if (currencyData is Map<String, dynamic>) {
+          response = CurrencyResponse.fromJson(currencyData);
+        } else {
+          final dynamic listData = await api.getCurrencyList();
+          response = CurrencyResponse.fromJson(listData);
+        }
       } catch (_) {
-        final listResponse = await api.getCurrencyList();
-        response = CurrencyResponse.fromJson(listResponse);
+        setState(() { _loading = false; });
+        return null;
       }
       setState(() { _currencies = response.currencies ?? []; _loading = false; _refreshing = false; });
+      return response;
     } catch (e) {
       setState(() { _error = e.toString(); _loading = false; _refreshing = false; });
+      return null;
     }
   }
 
@@ -50,7 +58,8 @@ class _CurrencyScreenState extends State<CurrencyScreen> {
     if (amt <= 0) return;
     setState(() => _converting = true);
     try {
-      final result = await api.convertCurrency(_fromCurrency, _toCurrency, amt);
+      final dynamic resultData = await api.convertCurrency(_fromCurrency, _toCurrency, amt);
+      final ConversionResult result = ConversionResult.fromJson(resultData);
       setState(() { _result = result; _converting = false; });
     } catch (e) {
       setState(() => _converting = false);

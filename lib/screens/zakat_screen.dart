@@ -38,8 +38,9 @@ class _ZakatScreenState extends State<ZakatScreen> {
         'other_assets': double.tryParse(_otherCtrl.text) ?? 0,
         'debts': double.tryParse(_debtsCtrl.text) ?? 0,
       };
-      final result = await api.calculateZakat(data);
-      setState(() { _result = result; _loading = false; });
+      final dynamic result = await api.calculateZakat(data);
+      final zakatResult = ZakatCalculation.fromJson(result);
+      setState(() { _result = zakatResult; _loading = false; });
     } catch (e) {
       setState(() { _error = e.toString(); _loading = false; });
     }
