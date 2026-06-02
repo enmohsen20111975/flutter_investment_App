@@ -139,9 +139,10 @@ class _PortfolioScreenState extends State<PortfolioScreen> {
                   setDialogState(() => submitting = true);
                   try {
                     await api.addToPortfolio({
-                      'stock_symbol': ticker,
-                      'shares': shares,
-                      'avg_cost': avgCost,
+                      'type': 'stock',
+                      'stock_ticker': ticker,
+                      'quantity': shares,
+                      'avg_buy_price': avgCost,
                       'notes': notesCtrl.text.trim(),
                     });
                     if (mounted) {
