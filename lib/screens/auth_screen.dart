@@ -45,11 +45,6 @@ class _AuthScreenState extends State<AuthScreen> {
     try {
       debugPrint('[Auth] Starting Google Sign-In...');
       
-      // Sign out first to ensure fresh login
-      try {
-        await _googleSignIn.signOut();
-      } catch (_) {}
-      
       final googleUser = await _googleSignIn.signIn();
       if (googleUser == null) {
         debugPrint('[Auth] User cancelled Google Sign-In');
@@ -61,25 +56,29 @@ class _AuthScreenState extends State<AuthScreen> {
       
       final googleAuth = await googleUser.authentication;
       final idToken = googleAuth.idToken;
+      final accessToken = googleAuth.accessToken;
+      
+      debugPrint('[Auth] ID Token: ${idToken != null ? "received (${idToken.length} chars)" : "NULL"}');
+      debugPrint('[Auth] Access Token: ${accessToken != null ? "received" : "NULL"}');
       
       if (idToken == null) {
         debugPrint('[Auth] No ID token received from Google');
         setState(() { 
           _isLoading = false; 
-          _error = 'لم يتم الحصول على رمز التوثيق من Google. حاول مرة أخرى.'; 
+          _error = 'لم يتم الحصول على رمز التوثيق من Google. تأكد من إعداد OAuth بشكل صحيح.'; 
         });
         return;
       }
 
-      debugPrint('[Auth] ID Token received, length: ${idToken.length}');
-      
+      debugPrint('[Auth] Sending ID token to backend...');
       final result = await api.googleLogin(idToken);
+      
+      debugPrint('[Auth] Backend response: success=${result.success}, token=${result.token != null ? "received" : "null"}');
       
       if (result.success && result.token != null) {
         debugPrint('[Auth] Login successful!');
-        await api.saveToken(result.token!);
-        if (result.user != null) await api.saveUser(result.user!);
-
+        // Token and user are already saved in api.googleLogin()
+        
         final needsPhone = result.user?.phone == null;
         if (needsPhone) {
           setState(() { _isLoading = false; });
@@ -123,7 +122,7 @@ class _AuthScreenState extends State<AuthScreen> {
         } else if (errorStr.contains('timeout')) {
           _error = 'انتهت مهلة الاتصال. حاول مرة أخرى.';
         } else {
-          _error = 'فشل تسجيل الدخول بواسطة Google. حاول مرة أخرى.';
+          _error = 'فشل تسجيل الدخول بواسطة Google: $errorStr';
         }
         _isLoading = false;
       });

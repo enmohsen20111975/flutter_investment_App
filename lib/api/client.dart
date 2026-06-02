@@ -18,11 +18,29 @@ mixin AuthApi {
   Future<AuthResponse> googleLogin(String idToken) async {
     try {
       debugPrint('[API Auth] Sending Google login request...');
+      debugPrint('[API Auth] ID Token length: ${idToken.length}');
       final response = await _dio.post('/api/auth/google', data: {'id_token': idToken});
       debugPrint('[API Auth] Response status: ${response.statusCode}');
-      return AuthResponse.fromJson(response.data);
+      debugPrint('[API Auth] Response data: ${response.data}');
+      
+      final authResponse = AuthResponse.fromJson(response.data);
+      
+      // Auto-save token if present
+      if (authResponse.success && authResponse.token != null) {
+        await saveToken(authResponse.token!);
+        debugPrint('[API Auth] Token auto-saved');
+      }
+      
+      // Auto-save user if present
+      if (authResponse.user != null) {
+        await saveUser(authResponse.user!);
+        debugPrint('[API Auth] User auto-saved');
+      }
+      
+      return authResponse;
     } on DioException catch (e) {
       debugPrint('[API Auth] DioException: ${e.type} - ${e.message}');
+      debugPrint('[API Auth] Response data: ${e.response?.data}');
       final data = e.response?.data;
       if (data is Map<String, dynamic>) {
         return AuthResponse(
@@ -40,8 +58,18 @@ mixin AuthApi {
 
   Future<User> getMe() async {
     try {
+      debugPrint('[API Auth] Fetching current user...');
       final response = await _dio.get('/api/auth/me');
-      return User.fromJson(response.data['user']);
+      debugPrint('[API Auth] getMe response: ${response.data}');
+      
+      // Handle different response formats
+      if (response.data['user'] != null) {
+        return User.fromJson(response.data['user']);
+      } else if (response.data['id'] != null) {
+        return User.fromJson(response.data);
+      } else {
+        throw Exception('Invalid user response format');
+      }
     } catch (e) {
       debugPrint('[API Auth] getMe failed: $e');
       rethrow;
@@ -65,7 +93,7 @@ mixin AuthApi {
   Future<void> saveToken(String token) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('auth_token', token);
-    debugPrint('[API Auth] Token saved: ${token.substring(0, 20)}...');
+    debugPrint('[API Auth] Token saved successfully, length: ${token.length}');
   }
 
   Future<void> saveUser(User user) async {
@@ -575,10 +603,22 @@ mixin PortfolioApi {
   
   Future<PortfolioResponse> getPortfolio() async {
     try {
+      debugPrint('[API Portfolio] Fetching portfolio...');
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('auth_token');
+      debugPrint('[API Portfolio] Auth token exists: ${token != null}');
+      
       final response = await _dio.get('/api/portfolio');
+      debugPrint('[API Portfolio] Response: ${response.data}');
       return PortfolioResponse.fromJson(response.data);
+    } on DioException catch (e) {
+      debugPrint('[API Portfolio] DioException: ${e.type} - ${e.message}');
+      if (e.response?.statusCode == 401) {
+        debugPrint('[API Portfolio] Unauthorized - token may be invalid');
+      }
+      return PortfolioResponse(positions: [], summary: null);
     } catch (e) {
-      debugPrint('[API] getPortfolio failed: $e');
+      debugPrint('[API Portfolio] getPortfolio failed: $e');
       return PortfolioResponse(positions: [], summary: null);
     }
   }

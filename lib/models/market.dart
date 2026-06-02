@@ -2,6 +2,7 @@
 // مساعد الاستثمار Flutter - Market Types
 // ============================================================================
 
+import 'package:flutter/foundation.dart';
 import 'json_helpers.dart';
 
 // Market Status
@@ -82,19 +83,75 @@ class MarketOverview {
   MarketOverview({this.marketStatus, this.summary, this.indices, this.topGainers, this.topLosers, this.mostActive, this.lastUpdated, this.source, this.totalStocks, this.gainers, this.losers});
   
   factory MarketOverview.fromJson(Map<String, dynamic> json) {
+    debugPrint('[MarketOverview] Parsing JSON keys: \${json.keys}');
+    
     final summaryData = json['summary'] as Map<String, dynamic>?;
+    final dataWrapper = json['data'] as Map<String, dynamic>?;
+    
+    // Handle wrapped response format: {data: {...}, source: "vps"}
+    final actualData = dataWrapper ?? json;
+    
+    // Parse indices from different formats
+    List<MarketIndex>? indicesList;
+    if (actualData['indices'] is List) {
+      indicesList = (actualData['indices'] as List)
+          .map((e) => MarketIndex.fromJson(e as Map<String, dynamic>))
+          .toList();
+    }
+    
+    // Parse top gainers from different formats
+    List<MarketStock>? gainersList;
+    if (actualData['top_gainers'] is List) {
+      gainersList = (actualData['top_gainers'] as List)
+          .map((e) => MarketStock.fromJson(e as Map<String, dynamic>))
+          .toList();
+    } else if (actualData['gainers'] is List) {
+      gainersList = (actualData['gainers'] as List)
+          .map((e) => MarketStock.fromJson(e as Map<String, dynamic>))
+          .toList();
+    }
+    
+    // Parse top losers from different formats
+    List<MarketStock>? losersList;
+    if (actualData['top_losers'] is List) {
+      losersList = (actualData['top_losers'] as List)
+          .map((e) => MarketStock.fromJson(e as Map<String, dynamic>))
+          .toList();
+    } else if (actualData['losers'] is List) {
+      losersList = (actualData['losers'] as List)
+          .map((e) => MarketStock.fromJson(e as Map<String, dynamic>))
+          .toList();
+    }
+    
+    // Parse most active
+    List<MarketStock>? activeList;
+    if (actualData['most_active'] is List) {
+      activeList = (actualData['most_active'] as List)
+          .map((e) => MarketStock.fromJson(e as Map<String, dynamic>))
+          .toList();
+    }
+    
     return MarketOverview(
-      marketStatus: json['market_status'] != null ? MarketStatus.fromJson(json['market_status']) : null,
-      summary: json['summary'] != null ? MarketSummary.fromJson(json['summary']) : null,
-      indices: (json['indices'] as List?)?.map((e) => MarketIndex.fromJson(e)).toList(),
-      topGainers: (json['top_gainers'] as List?)?.map((e) => MarketStock.fromJson(e)).toList(),
-      topLosers: (json['top_losers'] as List?)?.map((e) => MarketStock.fromJson(e)).toList(),
-      mostActive: (json['most_active'] as List?)?.map((e) => MarketStock.fromJson(e)).toList(),
-      lastUpdated: json['last_updated'],
-      source: json['source'],
-      totalStocks: parseInt(json['total_stocks']) ?? parseInt(summaryData?['total_stocks']),
-      gainers: parseInt(json['gainers']) ?? parseInt(summaryData?['gainers']),
-      losers: parseInt(json['losers']) ?? parseInt(summaryData?['losers']),
+      marketStatus: actualData['market_status'] != null 
+          ? MarketStatus.fromJson(actualData['market_status']) 
+          : actualData['marketStatus'] != null
+              ? MarketStatus.fromJson(actualData['marketStatus'])
+              : null,
+      summary: actualData['summary'] != null 
+          ? MarketSummary.fromJson(actualData['summary']) 
+          : null,
+      indices: indicesList,
+      topGainers: gainersList,
+      topLosers: losersList,
+      mostActive: activeList,
+      lastUpdated: actualData['last_updated'] ?? actualData['lastUpdated'],
+      source: actualData['source'],
+      totalStocks: parseInt(actualData['total_stocks'] ?? actualData['totalStocks']) 
+          ?? parseInt(summaryData?['total_stocks']),
+      gainers: parseInt(actualData['gainers']) 
+          ?? parseInt(summaryData?['gainers']),
+      losers: parseInt(actualData['losers']) 
+          ?? parseInt(summaryData?['losers']),
     );
   }
 }
