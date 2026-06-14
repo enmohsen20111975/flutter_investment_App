@@ -18,45 +18,32 @@ class CryptoScreen extends StatefulWidget {
 }
 
 class _CryptoScreenState extends State<CryptoScreen> {
-  List<CryptoAsset> _assets = [];
-  bool _loading = true;
-  bool _refreshing = false;
-  String? _error;
+  Future<List<CryptoAsset>>? _assetsFuture;
 
   @override
   void initState() {
     super.initState();
-    // Defer loading to post-frame callback to avoid blocking UI
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _loadData();
-    });
+    _assetsFuture = _fetchAssets();
   }
 
-  Future<void> _loadData({bool silent = false}) async {
-    try {
-      if (!silent) setState(() { _loading = true; _error = null; });
-      final response = await api.getCrypto();
-
-      // The API may return data in different formats:
-      // 1. { "data": [...] } - standard format
-      // 2. { "coins": [...] } - alternative format
-      // 3. Direct list
-      List<dynamic> cryptoList;
-      if (response['data'] is List) {
-        cryptoList = response['data'] as List;
-      } else if (response['coins'] is List) {
-        cryptoList = response['coins'] as List;
-      } else if (response is List) {
-        cryptoList = response as List;
-      } else {
-        cryptoList = [];
-      }
-
-      final data = cryptoList.map((e) => CryptoAsset.fromJson(e as Map<String, dynamic>)).toList();
-      setState(() { _assets = data; _loading = false; _refreshing = false; });
-    } catch (e) {
-      setState(() { _error = e.toString(); _loading = false; _refreshing = false; });
+  Future<List<CryptoAsset>> _fetchAssets() async {
+    final response = await api.getCrypto();
+    List<dynamic> cryptoList;
+    if (response['data'] is List) {
+      cryptoList = response['data'] as List;
+    } else if (response['coins'] is List) {
+      cryptoList = response['coins'] as List;
+    } else if (response is List) {
+      cryptoList = response as List;
+    } else {
+      cryptoList = [];
     }
+    return cryptoList.map((e) => CryptoAsset.fromJson(e as Map<String, dynamic>)).toList();
+  }
+
+  Future<void> _refresh() async {
+    _assetsFuture = _fetchAssets();
+    if (mounted) setState(() {});
   }
 
   @override
@@ -65,32 +52,50 @@ class _CryptoScreenState extends State<CryptoScreen> {
       backgroundColor: AppColors.background,
       body: RefreshIndicator(
         color: AppColors.primary,
-        onRefresh: () async { setState(() => _refreshing = true); await _loadData(silent: true); },
+        onRefresh: _refresh,
         child: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.all(16),
           child: Column(children: [
             const HeaderCard(icon: Icons.currency_bitcoin, title: 'العملات الرقمية', subtitle: 'تتبع أسعار الكريبتو لحظياً'),
             const SizedBox(height: 16),
-            StateView(loading: _loading, error: _error, onRetry: () => _loadData()),
-            if (!_loading && _error == null) ...[
-              if (_assets.isEmpty)
-                const StateView(empty: true, emptyMessage: 'لا توجد عملات رقمية متاحة')
-              else
-                ..._assets.map((a) => Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: DataRowWidget(
-                    title: a.name,
-                    subtitle: '${a.symbol.toUpperCase()} #${a.marketCapRank ?? '-'}',
-                    value: a.currentPrice != null ? '\$${_formatPrice(a.currentPrice!)}' : '-',
-                    change: a.priceChangePercentage24h,
-                    icon: Icons.currency_bitcoin,
-                    onTap: () => Navigator.push(context, MaterialPageRoute(
-                      builder: (_) => CryptoDetailScreen(coinId: a.id, coinName: a.name),
+            FutureBuilder<List<CryptoAsset>>(
+              future: _assetsFuture,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(32),
+                      child: CircularProgressIndicator(color: AppColors.primary),
+                    ),
+                  );
+                }
+                if (snapshot.hasError) {
+                  return StateView(error: snapshot.error.toString(), onRetry: _refresh);
+                }
+                final assets = snapshot.data ?? [];
+                if (assets.isEmpty) {
+                  return const StateView(empty: true, emptyMessage: 'لا توجد عملات رقمية متاحة');
+                }
+                return Column(
+                  children: [
+                    ...assets.map((a) => Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: DataRowWidget(
+                        title: a.name,
+                        subtitle: '${a.symbol.toUpperCase()} #${a.marketCapRank ?? '-'}',
+                        value: a.currentPrice != null ? '\$${_formatPrice(a.currentPrice!)}' : '-',
+                        change: a.priceChangePercentage24h,
+                        icon: Icons.currency_bitcoin,
+                        onTap: () => Navigator.push(context, MaterialPageRoute(
+                          builder: (_) => CryptoDetailScreen(coinId: a.id, coinName: a.name),
+                        )),
+                      ),
                     )),
-                  ),
-                )),
-            ],
+                  ],
+                );
+              },
+            ),
             const SizedBox(height: 90),
           ]),
         ),

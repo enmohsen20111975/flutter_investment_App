@@ -79,6 +79,10 @@ class SubscriptionStatus {
       case 'ai_analysis':
         if (isPlus) return true;
         return (usageToday['ai_analysis'] ?? 0) < maxDailyAiAnalysis;
+      case 'backtesting':
+      case 'ai_learning':
+      case 'portfolio_analysis':
+        return isPlus || isPremium;
       case 'recommendations':
         return isPlus || isPremium;
       case 'predictions':
@@ -165,8 +169,7 @@ class SubscriptionService {
       final prefs = await SharedPreferences.getInstance();
       final cached = prefs.getString(_cacheKey);
       if (cached != null) {
-        _currentStatus =
-            SubscriptionStatus.fromJson(jsonDecode(cached));
+        _currentStatus = SubscriptionStatus.fromJson(jsonDecode(cached));
         _lastFetch = DateTime.now();
       }
     } catch (_) {}
@@ -176,8 +179,7 @@ class SubscriptionService {
     if (_currentStatus == null) return;
     try {
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(
-          _cacheKey, jsonEncode(_currentStatus!.toJson()));
+      await prefs.setString(_cacheKey, jsonEncode(_currentStatus!.toJson()));
     } catch (_) {}
   }
 

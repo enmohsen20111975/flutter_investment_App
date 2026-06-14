@@ -4,16 +4,15 @@
 // ============================================================================
 
 import 'package:flutter/material.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'theme/colors.dart';
-import 'theme/typography.dart';
 import 'screens/dashboard_screen.dart';
 import 'screens/stocks_screen.dart';
 import 'screens/stock_history_screen.dart';
 import 'screens/currency_screen.dart';
 import 'screens/crypto_screen.dart';
 import 'screens/zakat_screen.dart';
+import 'screens/ai_analysis_screen.dart';
 import 'screens/auth_screen.dart';
 import 'screens/portfolio_screen.dart';
 import 'screens/watchlist_screen.dart';
@@ -21,12 +20,11 @@ import 'screens/recommendations_screen.dart';
 import 'screens/subscription_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/webview_screen.dart';
+import 'screens/metals_screen.dart';
+import 'screens/learning_backtest_screen.dart';
 import 'api/client.dart';
 import 'models/types.dart';
 
-// ============================================================================
-// Main Navigator - AppBar + Bottom Tabs + Drawer + Command Bar
-// ============================================================================
 class MainNavigator extends StatefulWidget {
   const MainNavigator({super.key});
 
@@ -36,41 +34,126 @@ class MainNavigator extends StatefulWidget {
 
 class _MainNavigatorState extends State<MainNavigator> {
   int _currentIndex = 0;
+  int _marketVersion = 0;
+  bool _loadingMarkets = false;
+  final GlobalKey<State> _dashboardKey = GlobalKey<State>();
+  final GlobalKey<State> _stocksKey = GlobalKey<State>();
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   User? _user;
   bool _isLoggedIn = false;
-
-  // Tab titles matching bottom nav items
-  final List<String> _titles = [
-    'الرئيسية',
-    'الأسهم',
-    'الكريبتو',
-    'المحفظة',
+  String _selectedMarket = 'EGX';
+  List<_MarketOption> _marketOptions = const [
+    _MarketOption('EGX', 'مصر'),
+    _MarketOption('TADAWUL', 'السعودية'),
+    _MarketOption('KSE', 'الكويت'),
+    _MarketOption('QSE', 'قطر'),
+    _MarketOption('DFM', 'دبي'),
+    _MarketOption('ADX', 'أبوظبي'),
+    _MarketOption('BSE', 'البحرين'),
   ];
 
-  // Tab screens — indices align 1:1 with BottomNavigationBar items
-  final List<Widget> _screens = [
-    const DashboardScreen(),   // 0: Home
-    const StocksScreen(),      // 1: Stocks
-    const CryptoScreen(),      // 2: Crypto
-    const PortfolioScreen(),   // 3: Portfolio
-  ];
+  List<Widget> get _screens => [
+        DashboardScreen(
+          key: _dashboardKey,
+          marketVersion: _marketVersion,
+        ),
+        StocksScreen(
+          key: _stocksKey,
+          marketVersion: _marketVersion,
+        ),
+        const CryptoScreen(),
+        const PortfolioScreen(),
+      ];
 
-@override
+  @override
   void initState() {
     super.initState();
+    _loadSelectedMarket();
+    _loadMarketOptions();
     // Defer auth check to post-frame callback to avoid blocking UI
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _checkAuth();
     });
   }
 
+  Future<void> _loadSelectedMarket() async {
+    final prefs = await SharedPreferences.getInstance();
+    final storedMarket = prefs.getString('active_market') ?? 'EGX';
+    final market = _marketOptions.any((m) => m.code == storedMarket)
+        ? storedMarket
+        : _marketOptions.first.code;
+    setState(() {
+      _selectedMarket = market;
+    });
+  }
+
+  Future<void> _loadMarketOptions() async {
+    setState(() => _loadingMarkets = true);
+    try {
+      final data = await api.getUnifiedMarkets();
+      final rawMarkets = data['markets'] ?? data['data'] ?? data['items'];
+      if (rawMarkets is List && rawMarkets.isNotEmpty) {
+        final options = rawMarkets
+            .map((e) {
+              final map = e as Map<String, dynamic>;
+              final code = map['code']?.toString() ??
+                  map['market']?.toString() ??
+                  map['symbol']?.toString() ??
+                  '';
+              if (code.isEmpty) return null;
+              return _MarketOption(
+                code,
+                map['name_ar']?.toString() ??
+                    map['name']?.toString() ??
+                    map['country_ar']?.toString() ??
+                    map['country']?.toString() ??
+                    code,
+              );
+            })
+            .whereType<_MarketOption>()
+            .toList();
+        if (options.isNotEmpty && mounted) {
+          setState(() {
+            _marketOptions = options;
+            if (!_marketOptions.any((m) => m.code == _selectedMarket)) {
+              _selectedMarket = options.first.code;
+            }
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint('[App] Failed to load unified markets: $e');
+    } finally {
+      if (mounted) {
+        setState(() => _loadingMarkets = false);
+      }
+    }
+  }
+
+  Future<void> _changeMarket(String market) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('active_market', market);
+    if (!mounted) return;
+    setState(() {
+      _selectedMarket = market;
+      _marketVersion++;
+    });
+
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text('تم تحويل السوق النشط إلى $market'),
+        duration: const Duration(seconds: 1),
+        backgroundColor: AppColors.primary,
+      ),
+    );
+  }
+
   Future<void> _checkAuth() async {
     final loggedIn = await api.isAuthenticated();
     if (mounted) {
-      setState(() { 
+      setState(() {
         _isLoggedIn = loggedIn;
-        // Load user data when login state changes
         if (loggedIn) {
           _loadUserData();
         } else {
@@ -78,7 +161,6 @@ class _MainNavigatorState extends State<MainNavigator> {
         }
       });
     }
-    // Skip getMe() call - user data already available from login response
   }
 
   Future<void> _loadUserData() async {
@@ -105,65 +187,100 @@ class _MainNavigatorState extends State<MainNavigator> {
         appBar: AppBar(
           backgroundColor: AppColors.surface,
           elevation: 0,
-          leading: Container(
-            margin: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              gradient: AppColors.gradientPurplePink,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: IconButton(
-              icon: const Icon(Icons.menu, color: AppColors.text),
-              onPressed: () => _scaffoldKey.currentState?.openDrawer(),
-              tooltip: 'القائمة',
+          leading: IconButton(
+            icon: const Icon(Icons.menu_rounded, color: AppColors.text),
+            onPressed: () => _scaffoldKey.currentState?.openDrawer(),
+          ),
+          title: const Text(
+            'مساعد الاستثمار',
+            style: TextStyle(
+              fontFamily: 'Cairo',
+              fontWeight: FontWeight.w800,
+              fontSize: 18,
+              color: AppColors.text,
             ),
           ),
-title: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  _titles[_currentIndex],
-                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, fontFamily: 'Cairo', color: AppColors.text),
-                ),
-                if (_isLoggedIn && _user != null)
-                  Text(
-                    _user?.username ?? _user?.name ?? 'مستخدم',
-                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: AppColors.primary),
-                  ),
-              ],
-            ),
-          centerTitle: true,
           actions: [
-            IconButton(
-              icon: Container(
-                padding: const EdgeInsets.all(6),
-                decoration: BoxDecoration(
-                  gradient: AppColors.gradientPurplePink,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: const Icon(Icons.search, color: AppColors.white, size: 18),
+            // Market Selector Dropdown
+            Theme(
+              data: Theme.of(context).copyWith(
+                cardColor: AppColors.surface,
               ),
-              onPressed: _showCommandBar,
-              tooltip: 'بحث سريع',
+              child: PopupMenuButton<String>(
+                initialValue: _selectedMarket,
+                onSelected: _changeMarket,
+                child: Container(
+                  margin: const EdgeInsets.symmetric(vertical: 12),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: AppColors.border),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        _selectedMarket,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.text,
+                        ),
+                      ),
+                      const Icon(Icons.arrow_drop_down,
+                          size: 16, color: AppColors.text),
+                    ],
+                  ),
+                ),
+                itemBuilder: (context) => _loadingMarkets
+                    ? [
+                        const PopupMenuItem<String>(
+                          enabled: false,
+                          child: SizedBox(
+                            width: 160,
+                            height: 32,
+                            child: Center(
+                                child: CircularProgressIndicator(
+                                    strokeWidth: 2, color: AppColors.primary)),
+                          ),
+                        ),
+                      ]
+                    : _marketOptions.map((option) {
+                        return PopupMenuItem<String>(
+                          value: option.code,
+                          child: Text('${option.code} (${option.label})',
+                              style: const TextStyle(color: AppColors.text)),
+                        );
+                      }).toList(),
+              ),
             ),
-  if (_isLoggedIn && _user != null)
-    GestureDetector(
-      onTap: () => _navigateTo(const SettingsScreen()),
-      child: Container(
-        margin: const EdgeInsets.only(left: 8, right: 8),
-        decoration: const BoxDecoration(
-          gradient: AppColors.gradientPurplePink,
-          shape: BoxShape.circle,
-        ),
-        child: CircleAvatar(
-          radius: 16,
-          backgroundColor: AppColors.transparent,
-          child: Text(
-            _getUserInitials(_user),
-            style: const TextStyle(color: AppColors.white, fontWeight: FontWeight.w800, fontSize: 13),
-          ),
-        ),
-      ),
-    )
+            IconButton(
+              icon: const Icon(Icons.search_rounded, color: AppColors.text),
+              onPressed: _showCommandBar,
+            ),
+            if (_isLoggedIn)
+              GestureDetector(
+                onTap: () => _navigateTo(const SettingsScreen()),
+                child: Container(
+                  margin: const EdgeInsets.only(left: 8, right: 8),
+                  decoration: const BoxDecoration(
+                    gradient: AppColors.gradientPurplePink,
+                    shape: BoxShape.circle,
+                  ),
+                  child: CircleAvatar(
+                    radius: 16,
+                    backgroundColor: AppColors.transparent,
+                    child: Text(
+                      _getUserInitials(_user),
+                      style: const TextStyle(
+                          color: AppColors.white,
+                          fontWeight: FontWeight.w800,
+                          fontSize: 13),
+                    ),
+                  ),
+                ),
+              )
             else
               GestureDetector(
                 onTap: () async {
@@ -172,7 +289,8 @@ title: Column(
                 },
                 child: Container(
                   margin: const EdgeInsets.only(left: 8, right: 8),
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                   decoration: const BoxDecoration(
                     gradient: AppColors.gradientPurplePink,
                     borderRadius: BorderRadius.all(Radius.circular(16)),
@@ -207,24 +325,30 @@ title: Column(
             currentIndex: _currentIndex,
             onTap: (index) => setState(() => _currentIndex = index),
             items: [
-              const BottomNavigationBarItem(
+              BottomNavigationBarItem(
                 icon: Icon(Icons.home_rounded, color: AppColors.textMuted),
                 activeIcon: Icon(Icons.home, color: AppColors.primaryGlow),
                 label: 'الرئيسية',
               ),
-              const BottomNavigationBarItem(
-                icon: Icon(Icons.trending_up_rounded, color: AppColors.textMuted),
-                activeIcon: Icon(Icons.trending_up, color: AppColors.primaryGlow),
+              BottomNavigationBarItem(
+                icon:
+                    Icon(Icons.trending_up_rounded, color: AppColors.textMuted),
+                activeIcon:
+                    Icon(Icons.trending_up, color: AppColors.primaryGlow),
                 label: 'الأسهم',
               ),
-              const BottomNavigationBarItem(
-                icon: Icon(Icons.currency_bitcoin_rounded, color: AppColors.textMuted),
-                activeIcon: Icon(Icons.currency_bitcoin, color: AppColors.primaryGlow),
+              BottomNavigationBarItem(
+                icon: Icon(Icons.currency_bitcoin_rounded,
+                    color: AppColors.textMuted),
+                activeIcon:
+                    Icon(Icons.currency_bitcoin, color: AppColors.primaryGlow),
                 label: 'الكريبتو',
               ),
-              const BottomNavigationBarItem(
-                icon: Icon(Icons.account_balance_wallet_rounded, color: AppColors.textMuted),
-                activeIcon: Icon(Icons.account_balance_wallet, color: AppColors.primaryGlow),
+              BottomNavigationBarItem(
+                icon: Icon(Icons.account_balance_wallet_rounded,
+                    color: AppColors.textMuted),
+                activeIcon: Icon(Icons.account_balance_wallet,
+                    color: AppColors.primaryGlow),
                 label: 'المحفظة',
               ),
             ],
@@ -268,7 +392,11 @@ title: Column(
               padding: const EdgeInsets.fromLTRB(20, 50, 20, 20),
               decoration: const BoxDecoration(
                 gradient: LinearGradient(
-                  colors: [AppColors.primaryDark, AppColors.primary, AppColors.secondary],
+                  colors: [
+                    AppColors.primaryDark,
+                    AppColors.primary,
+                    AppColors.secondary
+                  ],
                 ),
               ),
               child: Column(
@@ -280,34 +408,59 @@ title: Column(
                       color: AppColors.white.withValues(alpha: 0.2),
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(Icons.trending_up_rounded, color: AppColors.white, size: 28),
+                    child: const Icon(Icons.trending_up_rounded,
+                        color: AppColors.white, size: 28),
                   ),
                   const SizedBox(height: 12),
-                  const Text('مساعد الاستثمار', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: AppColors.white, fontFamily: 'Cairo')),
+                  const Text('مساعد الاستثمار',
+                      style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.white,
+                          fontFamily: 'Cairo')),
                   const SizedBox(height: 4),
-                  Text('منصة الاستثمار الذكية', style: TextStyle(fontSize: 13, color: AppColors.white.withValues(alpha: 0.8))),
+                  Text('منصة الاستثمار الذكية',
+                      style: TextStyle(
+                          fontSize: 13,
+                          color: AppColors.white.withValues(alpha: 0.8))),
                   if (_isLoggedIn && _user != null) ...[
                     const SizedBox(height: 12),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      decoration: BoxDecoration(color: AppColors.white.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(8)),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                          color: AppColors.white.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(8)),
                       child: Row(
                         children: [
-        CircleAvatar(
-          radius: 14,
-          backgroundColor: AppColors.white.withValues(alpha: 0.3),
-          child: Text(
-            _getUserInitials(_user),
-            style: const TextStyle(color: AppColors.white, fontWeight: FontWeight.w700, fontSize: 12),
-          ),
-        ),
+                          CircleAvatar(
+                            radius: 14,
+                            backgroundColor:
+                                AppColors.white.withValues(alpha: 0.3),
+                            child: Text(
+                              _getUserInitials(_user),
+                              style: const TextStyle(
+                                  color: AppColors.white,
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 12),
+                            ),
+                          ),
                           const SizedBox(width: 8),
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(_user?.username ?? _user?.name ?? 'مستخدم', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.white)),
-                                Text(_user?.email ?? '', style: TextStyle(fontSize: 10, color: AppColors.white.withValues(alpha: 0.7)), overflow: TextOverflow.ellipsis),
+                                Text(_user?.username ?? _user?.name ?? 'مستخدم',
+                                    style: const TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w600,
+                                        color: AppColors.white)),
+                                Text(_user?.email ?? '',
+                                    style: TextStyle(
+                                        fontSize: 10,
+                                        color: AppColors.white
+                                            .withValues(alpha: 0.7)),
+                                    overflow: TextOverflow.ellipsis),
                               ],
                             ),
                           ),
@@ -317,15 +470,26 @@ title: Column(
                   ] else ...[
                     const SizedBox(height: 8),
                     GestureDetector(
-                      onTap: () { Navigator.pop(context); _navigateTo(const AuthScreen()); _refreshAuth(); },
+                      onTap: () {
+                        Navigator.pop(context);
+                        _navigateTo(const AuthScreen());
+                        _refreshAuth();
+                      },
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                        decoration: BoxDecoration(color: AppColors.white.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(8)),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 8),
+                        decoration: BoxDecoration(
+                            color: AppColors.white.withValues(alpha: 0.2),
+                            borderRadius: BorderRadius.circular(8)),
                         child: const Row(
                           children: [
                             Icon(Icons.login, color: AppColors.white, size: 16),
                             SizedBox(width: 8),
-                            Text('تسجيل الدخول', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.white)),
+                            Text('تسجيل الدخول',
+                                style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.white)),
                           ],
                         ),
                       ),
@@ -338,43 +502,93 @@ title: Column(
             // ── Quick Access ──
             const Padding(
               padding: EdgeInsets.fromLTRB(20, 20, 20, 8),
-              child: Text('الوصول السريع', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textMuted)),
+              child: Text('الوصول السريع',
+                  style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textMuted)),
             ),
-            _buildDrawerItem(Icons.visibility_outlined, 'قائمة المراقبة', () => _navigateTo(const WatchlistScreen())),
-            _buildDrawerItem(Icons.history, 'تاريخ الأسهم', () => _navigateTo(const StockHistoryScreen(ticker: 'EGX'))),
+            _buildDrawerItem(Icons.visibility_outlined, 'قائمة المراقبة',
+                () => _navigateTo(const WatchlistScreen())),
+            _buildDrawerItem(Icons.history, 'تاريخ الأسهم',
+                () => _navigateTo(const StockHistoryScreen(ticker: 'EGX'))),
+            _buildDrawerItem(Icons.auto_awesome_outlined, 'تحليل AI',
+                () => _navigateTo(const AiAnalysisScreen())),
 
             const Divider(),
 
             // ── Markets ──
             const Padding(
               padding: EdgeInsets.fromLTRB(20, 12, 20, 8),
-              child: Text('الأسواق', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textMuted)),
+              child: Text('الأسواق',
+                  style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textMuted)),
             ),
-            _buildDrawerItem(Icons.trending_up, 'الأسهم', () => setState(() { _currentIndex = 1; Navigator.pop(context); })),
-            _buildDrawerItem(Icons.currency_bitcoin, 'الكريبتو', () => setState(() { _currentIndex = 2; Navigator.pop(context); })),
-            _buildDrawerItem(Icons.swap_horiz, 'العملات', () => _navigateTo(const CurrencyScreen())),
+            _buildDrawerItem(
+                Icons.trending_up,
+                'الأسهم',
+                () => setState(() {
+                      _currentIndex = 1;
+                      Navigator.pop(context);
+                    })),
+            _buildDrawerItem(
+                Icons.currency_bitcoin,
+                'الكريبتو',
+                () => setState(() {
+                      _currentIndex = 2;
+                      Navigator.pop(context);
+                    })),
+            _buildDrawerItem(Icons.swap_horiz, 'العملات',
+                () => _navigateTo(const CurrencyScreen())),
+            _buildDrawerItem(Icons.toll_outlined, 'الذهب والمعادن',
+                () => _navigateTo(const MetalsScreen())),
 
             const Divider(),
 
             // ── Analysis & Tools ──
             const Padding(
               padding: EdgeInsets.fromLTRB(20, 12, 20, 8),
-              child: Text('التحليل والأدوات', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textMuted)),
+              child: Text('التحليل والأدوات',
+                  style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textMuted)),
             ),
-            _buildDrawerItem(Icons.lightbulb_outline, 'التوصيات', () => _navigateTo(const RecommendationsScreen())),
-            _buildDrawerItem(Icons.calculate_outlined, 'حاسبة الزكاة', () => _navigateTo(const ZakatScreen())),
+            _buildDrawerItem(Icons.lightbulb_outline, 'التوصيات',
+                () => _navigateTo(const RecommendationsScreen())),
+            _buildDrawerItem(Icons.calculate_outlined, 'حاسبة الزكاة',
+                () => _navigateTo(const ZakatScreen())),
+            _buildDrawerItem(
+                Icons.analytics_outlined,
+                'التعلم واختبار الاستراتيجيات',
+                () => _navigateTo(const LearningBacktestScreen())),
 
             const Divider(),
 
             // ── Account ──
             const Padding(
               padding: EdgeInsets.fromLTRB(20, 12, 20, 8),
-              child: Text('الحساب', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textMuted)),
+              child: Text('الحساب',
+                  style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textMuted)),
             ),
-            _buildDrawerItem(Icons.wallet_outlined, 'المحفظة', () => setState(() { _currentIndex = 3; Navigator.pop(context); })),
-            _buildDrawerItem(Icons.card_membership_outlined, 'الاشتراكات', () => _navigateTo(const SubscriptionScreen())),
-            _buildDrawerItem(Icons.settings_outlined, 'الإعدادات', () => _navigateTo(const SettingsScreen())),
-            _buildDrawerItem(Icons.login, _isLoggedIn ? 'تسجيل الخروج' : 'تسجيل الدخول', () {
+            _buildDrawerItem(
+                Icons.wallet_outlined,
+                'المحفظة',
+                () => setState(() {
+                      _currentIndex = 3;
+                      Navigator.pop(context);
+                    })),
+            _buildDrawerItem(Icons.card_membership_outlined, 'الاشتراكات',
+                () => _navigateTo(const SubscriptionScreen())),
+            _buildDrawerItem(Icons.settings_outlined, 'الإعدادات',
+                () => _navigateTo(const SettingsScreen())),
+            _buildDrawerItem(
+                Icons.login, _isLoggedIn ? 'تسجيل الخروج' : 'تسجيل الدخول', () {
               if (_isLoggedIn) {
                 _handleLogout();
               } else {
@@ -385,12 +599,16 @@ title: Column(
             const Divider(),
 
             // ── Website ──
-            _buildDrawerItem(Icons.language, 'فتح الموقع', () => _navigateTo(const WebViewScreen())),
+            _buildDrawerItem(Icons.language, 'فتح الموقع',
+                () => _navigateTo(const WebViewScreen())),
 
             const SizedBox(height: 20),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Text('الإصدار 2.0.0 • © 2024 مساعد الاستثمار', style: TextStyle(fontSize: 10, color: AppColors.textMuted)),
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 20),
+              child: Text(
+                'الإصدار 2.0.0 • © 2024 مساعد الاستثمار',
+                style: TextStyle(fontSize: 10, color: AppColors.textMuted),
+              ),
             ),
             const SizedBox(height: 20),
           ],
@@ -408,11 +626,15 @@ title: Column(
           title: const Text('تسجيل الخروج'),
           content: const Text('هل تريد تسجيل الخروج من حسابك؟'),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('إلغاء')),
+            TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('إلغاء')),
             ElevatedButton(
               onPressed: () => Navigator.pop(ctx, true),
-              style: ElevatedButton.styleFrom(backgroundColor: AppColors.danger),
-              child: const Text('خروج', style: TextStyle(color: AppColors.white)),
+              style:
+                  ElevatedButton.styleFrom(backgroundColor: AppColors.danger),
+              child:
+                  const Text('خروج', style: TextStyle(color: AppColors.white)),
             ),
           ],
         ),
@@ -420,22 +642,27 @@ title: Column(
     );
     if (confirm == true) {
       await api.logout();
-      setState(() { _user = null; _isLoggedIn = false; });
+      setState(() {
+        _user = null;
+        _isLoggedIn = false;
+      });
       if (mounted) Navigator.pop(context); // Close drawer
     }
   }
 
   String _getUserInitials(User? user) {
     if (user == null) return 'U';
-    final String displayName = user.username ?? user.email ?? 'U';
+    final String displayName = user.username ?? user.email;
     if (displayName.isEmpty) return 'U';
     return displayName[0].toUpperCase();
   }
 
   Widget _buildDrawerItem(IconData icon, String label, VoidCallback onTap) {
     return ListTile(
-      leading: Icon(icon, size: 20, color: AppColors.textSecondary),
-      title: Text(label, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+      leading:
+          const Icon(Icons.login, size: 20, color: AppColors.textSecondary),
+      title: Text(label,
+          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
       onTap: onTap,
       dense: true,
       visualDensity: const VisualDensity(horizontal: -4, vertical: -2),
@@ -449,6 +676,13 @@ title: Column(
   }
 }
 
+class _MarketOption {
+  final String code;
+  final String label;
+
+  const _MarketOption(this.code, this.label);
+}
+
 // ===========================================================================
 // Command Bar Dialog - Quick search & navigation palette
 // ===========================================================================
@@ -456,7 +690,8 @@ class _CommandBarDialog extends StatefulWidget {
   final void Function(Widget screen) onNavigate;
   final void Function(int index) onSwitchTab;
 
-  const _CommandBarDialog({required this.onNavigate, required this.onSwitchTab});
+  const _CommandBarDialog(
+      {required this.onNavigate, required this.onSwitchTab});
 
   @override
   State<_CommandBarDialog> createState() => _CommandBarDialogState();
@@ -468,21 +703,37 @@ class _CommandBarDialogState extends State<_CommandBarDialog> {
 
   final List<_CommandAction> _actions = [
     // Quick Access
-    _CommandAction('قائمة المراقبة', Icons.visibility_outlined, Icons.visibility, () => WatchlistScreen(), null),
-    _CommandAction('تاريخ الأسهم', Icons.history, Icons.history, () => StockHistoryScreen(ticker: 'EGX'), null),
+    _CommandAction('قائمة المراقبة', Icons.visibility_outlined,
+        Icons.visibility, () => const WatchlistScreen(), null),
+    _CommandAction('تاريخ الأسهم', Icons.history, Icons.history,
+        () => const StockHistoryScreen(ticker: 'EGX'), null),
     // Markets
     _CommandAction('الأسهم', Icons.trending_up, Icons.trending_up, null, 1),
-    _CommandAction('الكريبتو', Icons.currency_bitcoin_outlined, Icons.currency_bitcoin, null, 2),
-    _CommandAction('العملات', Icons.swap_horiz, Icons.swap_horiz, () => CurrencyScreen(), null),
+    _CommandAction('الكريبتو', Icons.currency_bitcoin_outlined,
+        Icons.currency_bitcoin, null, 2),
+    _CommandAction('العملات', Icons.swap_horiz, Icons.swap_horiz,
+        () => const CurrencyScreen(), null),
+    _CommandAction('الذهب والمعادن', Icons.toll_outlined, Icons.toll,
+        () => const MetalsScreen(), null),
     // Analysis
-    _CommandAction('التوصيات', Icons.lightbulb_outline, Icons.lightbulb, () => RecommendationsScreen(), null),
-    _CommandAction('حاسبة الزكاة', Icons.calculate_outlined, Icons.calculate, () => ZakatScreen(), null),
+    _CommandAction('التوصيات', Icons.lightbulb_outline, Icons.lightbulb,
+        () => const RecommendationsScreen(), null),
+    _CommandAction('حاسبة الزكاة', Icons.calculate_outlined, Icons.calculate,
+        () => const ZakatScreen(), null),
+    _CommandAction('تحليل AI', Icons.auto_awesome_outlined, Icons.auto_awesome,
+        () => const AiAnalysisScreen(), null),
+    _CommandAction('التعلم واختبار الاستراتيجيات', Icons.analytics_outlined,
+        Icons.analytics, () => const LearningBacktestScreen(), null),
     // Account
     _CommandAction('المحفظة', Icons.wallet_outlined, Icons.wallet, null, 3),
-    _CommandAction('الاشتراكات', Icons.card_membership_outlined, Icons.card_membership, () => SubscriptionScreen(), null),
-    _CommandAction('الإعدادات', Icons.settings_outlined, Icons.settings, () => SettingsScreen(), null),
-    _CommandAction('تسجيل الدخول', Icons.login, Icons.login, () => AuthScreen(), null),
-    _CommandAction('فتح الموقع', Icons.language, Icons.language, () => WebViewScreen(), null),
+    _CommandAction('الاشتراكات', Icons.card_membership_outlined,
+        Icons.card_membership, () => const SubscriptionScreen(), null),
+    _CommandAction('الإعدادات', Icons.settings_outlined, Icons.settings,
+        () => const SettingsScreen(), null),
+    _CommandAction('تسجيل الدخول', Icons.login, Icons.login,
+        () => const AuthScreen(), null),
+    _CommandAction('فتح الموقع', Icons.language, Icons.language,
+        () => const WebViewScreen(), null),
   ];
 
   @override
@@ -516,7 +767,8 @@ class _CommandBarDialogState extends State<_CommandBarDialog> {
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: const BoxDecoration(
-                  gradient: LinearGradient(colors: [AppColors.primaryDark, AppColors.primary]),
+                  gradient: LinearGradient(
+                      colors: [AppColors.primaryDark, AppColors.primary]),
                   borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
                 ),
                 child: Row(
@@ -527,10 +779,12 @@ class _CommandBarDialogState extends State<_CommandBarDialog> {
                       child: TextField(
                         controller: _searchCtrl,
                         autofocus: true,
-                        style: const TextStyle(color: AppColors.white, fontSize: 16),
+                        style: const TextStyle(
+                            color: AppColors.white, fontSize: 16),
                         decoration: InputDecoration(
                           hintText: 'ابحث أو اختر إجراء...',
-                          hintStyle: TextStyle(color: AppColors.white.withValues(alpha: 0.6)),
+                          hintStyle: TextStyle(
+                              color: AppColors.white.withValues(alpha: 0.6)),
                           border: InputBorder.none,
                         ),
                         onChanged: (v) => setState(() => _query = v),
@@ -577,12 +831,14 @@ class _CommandBarDialogState extends State<_CommandBarDialog> {
                                 color: AppColors.primaryMuted,
                                 borderRadius: BorderRadius.circular(10),
                               ),
-                              child: Icon(action.icon, size: 22, color: AppColors.primary),
+                              child: Icon(action.icon,
+                                  size: 22, color: AppColors.primary),
                             ),
                             const SizedBox(height: 8),
                             Text(
                               action.label,
-                              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+                              style: const TextStyle(
+                                  fontSize: 11, fontWeight: FontWeight.w600),
                               textAlign: TextAlign.center,
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
@@ -609,5 +865,6 @@ class _CommandAction {
   final Widget Function()? screenBuilder;
   final int? tabIndex;
 
-  _CommandAction(this.label, this.icon, this.activeIcon, this.screenBuilder, this.tabIndex);
+  _CommandAction(this.label, this.icon, this.activeIcon, this.screenBuilder,
+      this.tabIndex);
 }

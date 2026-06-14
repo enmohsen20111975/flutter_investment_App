@@ -9,7 +9,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'theme/colors.dart';
-import 'theme/typography.dart';
 import 'app.dart';
 import 'screens/auth_screen.dart';
 import 'screens/portfolio_screen.dart';
@@ -22,8 +21,11 @@ import 'screens/stock_history_screen.dart';
 import 'screens/currency_screen.dart';
 import 'screens/crypto_screen.dart';
 import 'screens/zakat_screen.dart';
+import 'screens/ai_analysis_screen.dart';
+import 'screens/metals_screen.dart';
+import 'screens/learning_backtest_screen.dart';
 import 'services/notification_service.dart';
-import 'services/version_service.dart';
+import 'services/subscription_service.dart';
 
 final darkModeProvider = StateProvider<bool>((ref) => true);
 
@@ -41,6 +43,7 @@ Future<void> main() async {
 
   // Initialize notification service non-blocking (skip if it takes too long)
   unawaited(NotificationService().init());
+  unawaited(SubscriptionService.instance.init());
 
   runApp(
     ProviderScope(
@@ -67,8 +70,6 @@ class GLMInvestmentApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final darkMode = ref.watch(darkModeProvider);
-
     return MaterialApp(
       title: 'مساعد الاستثمار ✨',
       debugShowCheckedModeBanner: false,
@@ -86,7 +87,11 @@ class GLMInvestmentApp extends ConsumerWidget {
         appBarTheme: const AppBarTheme(
           backgroundColor: AppColors.surface,
           elevation: 0,
-          titleTextStyle: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, fontFamily: 'Cairo', color: AppColors.text),
+          titleTextStyle: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+              fontFamily: 'Cairo',
+              color: AppColors.text),
         ),
         fontFamily: 'Cairo',
       ),
@@ -104,7 +109,11 @@ class GLMInvestmentApp extends ConsumerWidget {
         appBarTheme: const AppBarTheme(
           backgroundColor: AppColors.surface,
           elevation: 0,
-          titleTextStyle: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, fontFamily: 'Cairo', color: AppColors.text),
+          titleTextStyle: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+              fontFamily: 'Cairo',
+              color: AppColors.text),
         ),
         fontFamily: 'Cairo',
       ),
@@ -130,6 +139,9 @@ class GLMInvestmentApp extends ConsumerWidget {
         '/currency': (_) => const CurrencyScreen(),
         '/crypto': (_) => const CryptoScreen(),
         '/zakat': (_) => const ZakatScreen(),
+        '/ai-analysis': (_) => const AiAnalysisScreen(),
+        '/metals': (_) => const MetalsScreen(),
+        '/learning-backtest': (_) => const LearningBacktestScreen(),
       },
     );
   }
