@@ -44,8 +44,8 @@ class PortfolioPosition {
   factory PortfolioPosition.fromJson(Map<String, dynamic> json) {
     // Handle both old and new API response formats
     final ticker = json['stock_ticker'] ?? json['stock_symbol'] ?? json['ticker'] ?? '';
-    final quantity = parseInt(json['quantity'] ?? json['shares']) ?? 0;
-    final avgBuyPrice = parseDouble(json['avg_buy_price'] ?? json['avg_cost']) ?? 0;
+    final quantity = parseInt(json['quantity'] ?? json['shares'] ?? json['weight_grams']) ?? 0;
+    final avgBuyPrice = parseDouble(json['avg_buy_price'] ?? json['avg_cost'] ?? json['purchase_price_per_gram']) ?? 0;
     final currentPrice = parseDouble(json['current_price']) ?? 0;
 
     return PortfolioPosition(

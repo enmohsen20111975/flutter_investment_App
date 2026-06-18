@@ -45,7 +45,7 @@ class _AiAnalysisScreenState extends State<AiAnalysisScreen>
 
   Future<Map<String, dynamic>?> _fetchAnalysis() async {
     try {
-      final data = await mobileApi.getDashboard();
+      final data = await api.getLiveAnalysis();
       if (data.isNotEmpty) return data;
       return null;
     } catch (_) {
@@ -200,14 +200,36 @@ class _AiAnalysisScreenState extends State<AiAnalysisScreen>
         }
 
         final data = snapshot.data!;
+        final market = data['market'] is Map ? data['market'] as Map : {};
+        final live = data['_live'] is Map ? data['_live'] as Map : {};
+        final recs = market['recommendations'] is Map ? market['recommendations'] as Map : {};
+
+        final regime = market['regime']?.toString() ?? 'neutral';
+        final regimeText = regime == 'bull' ? 'صاعد 📈' : regime == 'bear' ? 'هابط 📉' : 'محايد ⚖️';
+        
+        final marketSummaryStr = 'اتجاه السوق الحالي: $regimeText\n'
+            'إجمالي الأسهم التي تم تحليلها: ${market['totalStocksAnalyzed'] ?? 0}\n'
+            'الأسهم المجتازة لفلتر الأمان المالي: ${market['passedSafetyFilter'] ?? 0}';
+
+        final recsStr = '${live['aiCommentary'] ?? 'تحليل التوصيات الذكي للمحفظة والأسهم.'}\n\n'
+            'شراء قوي: ${recs['strongBuy'] ?? 0} | شراء: ${recs['buy'] ?? 0}\n'
+            'احتفاظ: ${recs['hold'] ?? 0} | تجنب: ${recs['avoid'] ?? 0} | تجنب قوي: ${recs['strongAvoid'] ?? 0}';
+
+        final riskIssues = market['diversificationIssues'] is List 
+            ? (market['diversificationIssues'] as List).join('\n')
+            : '';
+        final riskStr = 'نسبة السيولة النقدية المقترحة: ${parseDouble(market['fearCashPercent'])?.toStringAsFixed(0) ?? '20'}%\n'
+            '${riskIssues.isNotEmpty ? '\nتنبيهات المحفظة والتنويع:\n$riskIssues' : 'المحفظة متنوعة بشكل جيد ولا توجد تنبيهات مخاطر.'}';
+
         return ListView(
+          padding: const EdgeInsets.symmetric(vertical: 8),
           children: [
             _buildMetricCard(
-                'مؤشرات السوق', Icons.show_chart, data['market_summary'] ?? ''),
+                'مؤشرات السوق والاتجاه', Icons.show_chart, marketSummaryStr),
             _buildMetricCard(
-                'التوصيات', Icons.lightbulb, data['recommendations'] ?? ''),
+                'توصيات وقراءة الذكاء الاصطناعي', Icons.lightbulb, recsStr),
             _buildMetricCard(
-                'تحليل المخاطر', Icons.warning, data['risk_analysis'] ?? ''),
+                'تحليل المخاطر والسيولة', Icons.warning, riskStr),
           ],
         );
       },
@@ -244,7 +266,7 @@ class _AiAnalysisScreenState extends State<AiAnalysisScreen>
 
   Widget _buildPredictionCard(Map<String, dynamic> pred) {
     final ticker = pred['ticker'] ?? pred['symbol'] ?? '';
-    final signal = pred['signal']?.toString().toUpperCase() ?? '';
+    final signal = (pred['signal'] ?? pred['signal_type'])?.toString().toUpperCase() ?? '';
     final confidence = parseDouble(pred['confidence']) ?? 0;
     final entryPrice = parseDouble(pred['entry_price']);
     final targetPrice = parseDouble(pred['target_price']);
@@ -342,11 +364,11 @@ class _AiAnalysisScreenState extends State<AiAnalysisScreen>
           const Divider(height: 16),
           Row(children: [
             if (entryPrice != null)
-              Expanded(child: _buildPriceCol('الدخول', entryPrice!)),
+              Expanded(child: _buildPriceCol('الدخول', entryPrice)),
             if (targetPrice != null)
-              Expanded(child: _buildPriceCol('الهدف', targetPrice!)),
+              Expanded(child: _buildPriceCol('الهدف', targetPrice)),
             if (stopLoss != null)
-              Expanded(child: _buildPriceCol('وقف الخسارة', stopLoss!)),
+              Expanded(child: _buildPriceCol('وقف الخسارة', stopLoss)),
           ]),
           if (pred['reasoning'] != null) ...[
             const SizedBox(height: 8),

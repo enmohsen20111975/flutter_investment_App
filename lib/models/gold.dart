@@ -181,8 +181,8 @@ class Currency {
   factory Currency.fromJson(Map<String, dynamic> json) => Currency(
         code: (json['code'] ?? '').toString(),
         nameAr: json['name_ar'],
-        buyRate: parseDouble(json['buy_rate']),
-        sellRate: parseDouble(json['sell_rate']),
+        buyRate: parseDouble(json['buy_rate'] ?? json['buy'] ?? json['rate_to_egp'] ?? json['rate']),
+        sellRate: parseDouble(json['sell_rate'] ?? json['sell'] ?? json['rate_to_egp'] ?? json['rate']),
         change: parseDouble(json['change']),
         isMajor: parseBool(json['is_major']),
         lastUpdated: json['last_updated'],

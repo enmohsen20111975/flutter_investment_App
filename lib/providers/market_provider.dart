@@ -16,7 +16,6 @@ class MarketProvider extends ChangeNotifier {
   bool _isMarketOpen = false;
   bool _isLoading = false;
   String? _error;
-  Timer? _pollTimer;
   StreamSubscription<Map<String, dynamic>>? _dashboardSubscription;
 
   Map<String, dynamic>? get dashboardData => _dashboardData;

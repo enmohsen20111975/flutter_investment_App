@@ -20,7 +20,7 @@ class GLMApiClient {
   static GLMApiClient get instance => _instance;
 
   late final Dio _dio;
-  String _baseUrl = 'https://invist.m2y.net/api';
+  String _baseUrl = 'https://invist.m2y.net';
   String? _authToken;
 
   late final Dio _aiDio; // Separate Dio instance for AI/long requests
@@ -90,13 +90,6 @@ class GLMApiClient {
 
   Dio get aiDio => _aiDio;
   Dio get chartDio => _chartDio;
-
-  GLMApiClient() {
-    _initDio();
-  }
-  GLMApiClient.create() {
-    _initDio();
-  }
 
   void setAuthToken(String? token) {
     _authToken = token;
@@ -353,7 +346,8 @@ class GLMApiClient {
   Future<Map<String, dynamic>> getStockFundamentals(
       {required String ticker}) async {
     try {
-      final response = await _dio.get('/api/stocks/$ticker/fundamentals');
+      final response = await _dio.get('/api/stocks/fundamentals',
+          queryParameters: {'ticker': ticker});
       return response.data;
     } catch (e) {
       debugPrint('[API] getStockFundamentals failed: $e');
@@ -924,6 +918,8 @@ class GLMApiClient {
   void setBaseUrl(String url) {
     _baseUrl = url;
     _dio.options.baseUrl = _baseUrl;
+    _aiDio.options.baseUrl = _baseUrl;
+    _chartDio.options.baseUrl = _baseUrl;
   }
 
   Future<Map<String, dynamic>> getExpertRecommendations(

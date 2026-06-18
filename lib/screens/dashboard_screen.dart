@@ -7,7 +7,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import '../theme/colors.dart';
 import '../theme/typography.dart';
-import '../api/client.dart';
 import '../api/mobile_api.dart';
 import '../models/json_helpers.dart';
 import '../widgets/state_view.dart';
@@ -153,6 +152,7 @@ class _DashboardScreenState extends State<DashboardScreen>
     final indices =
         _dashboardData?['indices'] ?? _dashboardData?['market_indices'];
     if (indices is! List || indices.isEmpty) {
+      if (_dashboardData != null) return const SizedBox.shrink();
       return const SkeletonBox(height: 100);
     }
     return SizedBox(
@@ -212,8 +212,8 @@ class _DashboardScreenState extends State<DashboardScreen>
         borderRadius: BorderRadius.circular(16),
       ),
       child: Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [
-        _buildSummaryBadge('🟢', '${s['advances'] ?? 0}', 'مرتفع'),
-        _buildSummaryBadge('🔴', '${s['declines'] ?? 0}', 'منخفض'),
+        _buildSummaryBadge('🟢', '${s['advances'] ?? s['gainers'] ?? 0}', 'مرتفع'),
+        _buildSummaryBadge('🔴', '${s['declines'] ?? s['losers'] ?? 0}', 'منخفض'),
         _buildSummaryBadge('⚪', '${s['unchanged'] ?? 0}', 'بدون تغيير'),
       ]),
     );
@@ -256,11 +256,14 @@ class _DashboardScreenState extends State<DashboardScreen>
             child: TabBarView(
               controller: _topMoversTabController,
               children: [
-                _buildMoversList(_dashboardData?['top_gainers'] ??
+                _buildMoversList(_dashboardData?['top_movers']?['gainers'] ??
+                    _dashboardData?['top_gainers'] ??
                     _dashboardData?['gainers']),
-                _buildMoversList(
-                    _dashboardData?['top_losers'] ?? _dashboardData?['losers']),
-                _buildMoversList(_dashboardData?['most_active']),
+                _buildMoversList(_dashboardData?['top_movers']?['losers'] ??
+                    _dashboardData?['top_losers'] ??
+                    _dashboardData?['losers']),
+                _buildMoversList(_dashboardData?['top_movers']?['most_active'] ??
+                    _dashboardData?['most_active']),
               ],
             ),
           ),
@@ -321,8 +324,30 @@ class _DashboardScreenState extends State<DashboardScreen>
   }
 
   Widget _buildGoldPrices() {
-    final gold = _dashboardData?['gold_prices'] ?? _dashboardData?['gold'];
-    if (gold is! List || gold.isEmpty) return const SizedBox.shrink();
+    final rawGold = _dashboardData?['gold_prices'] ?? _dashboardData?['gold'];
+    if (rawGold == null) return const SizedBox.shrink();
+
+    List<Map<String, dynamic>> gold = [];
+    if (rawGold is List) {
+      gold = rawGold.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+    } else if (rawGold is Map) {
+      final map = Map<String, dynamic>.from(rawGold);
+      if (map.containsKey('karat_24')) {
+        gold.add({'karat': 'عيار 24', 'price': parseDouble(map['karat_24'])});
+      }
+      if (map.containsKey('karat_21')) {
+        gold.add({'karat': 'عيار 21', 'price': parseDouble(map['karat_21'])});
+      }
+      if (map.containsKey('karat_18')) {
+        gold.add({'karat': 'عيار 18', 'price': parseDouble(map['karat_18'])});
+      }
+      if (map.containsKey('silver') && parseDouble(map['silver']) != 0) {
+        gold.add({'karat': 'فضة', 'price': parseDouble(map['silver'])});
+      }
+    }
+
+    if (gold.isEmpty) return const SizedBox.shrink();
+
     return SizedBox(
       height: 80,
       child: ListView.separated(
@@ -330,11 +355,9 @@ class _DashboardScreenState extends State<DashboardScreen>
         itemCount: gold.length,
         separatorBuilder: (_, __) => const SizedBox(width: 8),
         itemBuilder: (_, i) {
-          final g = gold[i] is Map
-              ? Map<String, dynamic>.from(gold[i])
-              : <String, dynamic>{};
-          final karat = g['karat']?.toString() ?? g['type']?.toString() ?? '';
-          final price = parseDouble(g['price'] ?? g['buy']);
+          final g = gold[i];
+          final karat = g['karat']?.toString() ?? '';
+          final price = parseDouble(g['price']);
           return Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
@@ -356,22 +379,42 @@ class _DashboardScreenState extends State<DashboardScreen>
   }
 
   Widget _buildCurrencyRates() {
-    final rates =
-        _dashboardData?['currency_rates'] ?? _dashboardData?['currencies'];
-    if (rates is! List || rates.isEmpty) return const SizedBox.shrink();
+    final rawRates =
+        _dashboardData?['currency_rates'] ?? _dashboardData?['currencies'] ?? _dashboardData?['rates'];
+    List<Map<String, dynamic>> ratesList = [];
+    if (rawRates is List) {
+      ratesList = rawRates.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+    } else if (rawRates is Map) {
+      rawRates.forEach((key, value) {
+        if (value is Map) {
+          ratesList.add({
+            'code': key,
+            'buy': value['buy'] ?? value['buy_rate'] ?? value['rate_to_egp'] ?? value['rate'],
+            'sell': value['sell'] ?? value['sell_rate'] ?? value['rate_to_egp'] ?? value['rate'],
+          });
+        } else {
+          ratesList.add({
+            'code': key,
+            'buy': value,
+            'sell': value,
+          });
+        }
+      });
+    }
+
+    if (ratesList.isEmpty) return const SizedBox.shrink();
+
     return SizedBox(
       height: 60,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
-        itemCount: rates.length,
+        itemCount: ratesList.length,
         separatorBuilder: (_, __) => const SizedBox(width: 8),
         itemBuilder: (_, i) {
-          final r = rates[i] is Map
-              ? Map<String, dynamic>.from(rates[i])
-              : <String, dynamic>{};
+          final r = ratesList[i];
           final name = r['code']?.toString() ?? r['currency']?.toString() ?? '';
-          final buy = parseDouble(r['buy'] ?? r['price']);
-          final sell = parseDouble(r['sell']);
+          final buy = parseDouble(r['buy'] ?? r['price'] ?? r['buy_rate'] ?? r['rate_to_egp'] ?? r['rate']);
+          final sell = parseDouble(r['sell'] ?? r['sell_rate'] ?? r['rate_to_egp'] ?? r['rate']);
           return Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(

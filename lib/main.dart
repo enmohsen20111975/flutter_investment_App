@@ -10,6 +10,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'theme/colors.dart';
 import 'app.dart';
+import 'api/client.dart';
 import 'screens/auth_screen.dart';
 import 'screens/portfolio_screen.dart';
 import 'screens/watchlist_screen.dart';
@@ -34,6 +35,12 @@ Future<void> main() async {
 
   // Initialize shared preferences
   final SharedPreferences prefs = await SharedPreferences.getInstance();
+
+  // Load custom server URL if exists
+  final String? serverUrl = prefs.getString('server_url');
+  if (serverUrl != null && serverUrl.isNotEmpty) {
+    GLMApiClient.instance.setBaseUrl(serverUrl);
+  }
 
   // Check if user has auth token (simplified check)
   final bool hasToken = prefs.containsKey('auth_token');

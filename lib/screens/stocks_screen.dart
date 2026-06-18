@@ -5,11 +5,8 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../theme/colors.dart';
-import '../theme/typography.dart';
 import '../api/client.dart';
 import '../models/types.dart';
-import '../widgets/state_view.dart';
-import '../widgets/bubble_buttons.dart';
 import 'stock_history_screen.dart';
 
 class StocksScreen extends StatefulWidget {
@@ -23,20 +20,35 @@ class StocksScreen extends StatefulWidget {
 
 class _StocksScreenState extends State<StocksScreen> {
   Future<List<Stock>>? _stocksFuture;
-  Future<Map<String, dynamic>?>? _movementFuture;
+  final TextEditingController _searchCtrl = TextEditingController();
   String _query = '';
   bool _showMovers = false;
+  bool _isLoadingMore = false;
+  int _currentPage = 1;
+  static const int _pageSize = 20;
+  List<Stock> _allStocks = <Stock>[];
+  List<Stock> _displayedStocks = <Stock>[];
+  bool _hasMore = true;
 
   List<Map<String, dynamic>> get _gainers =>
-      (_movementData?['gainers'] as List?)?.map((e) => Map<String, dynamic>.from(e as Map)).toList() ?? <Map<String, dynamic>>[];
+      (_movementData?['gainers'] as List?)
+          ?.map((e) => Map<String, dynamic>.from(e as Map))
+          .toList() ??
+      <Map<String, dynamic>>[];
   List<Map<String, dynamic>> get _losers =>
-      (_movementData?['losers'] as List?)?.map((e) => Map<String, dynamic>.from(e as Map)).toList() ?? <Map<String, dynamic>>[];
+      (_movementData?['losers'] as List?)
+          ?.map((e) => Map<String, dynamic>.from(e as Map))
+          .toList() ??
+      <Map<String, dynamic>>[];
   List<Map<String, dynamic>> get _active =>
-      (_movementData?['most_active'] as List?)?.map((e) => Map<String, dynamic>.from(e as Map)).toList() ??
+      (_movementData?['most_active'] as List?)
+          ?.map((e) => Map<String, dynamic>.from(e as Map))
+          .toList() ??
       <Map<String, dynamic>>[];
 
   Map<String, dynamic>? _movementData;
   String _activeMarket = 'EGX';
+  String _movementFilter = 'gainers';
 
   String get _marketTitle {
     switch (_activeMarket) {
@@ -61,19 +73,9 @@ class _StocksScreenState extends State<StocksScreen> {
   void initState() {
     super.initState();
     _loadActiveMarket().then((_) {
-      _stocksFuture = _fetchStocks(_query);
-      _movementFuture = _fetchMovement();
-      if (mounted) setState(() {});
+      _loadStocks(_query);
+      _loadMovement();
     });
-  }
-
-  Future<void> _loadActiveMarket() async {
-    final prefs = await SharedPreferences.getInstance();
-    if (mounted) {
-      setState(() {
-        _activeMarket = prefs.getString('active_market') ?? 'EGX';
-      });
-    }
   }
 
   @override
@@ -81,11 +83,16 @@ class _StocksScreenState extends State<StocksScreen> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.marketVersion != widget.marketVersion) {
       _loadActiveMarket().then((_) {
-        _stocksFuture = _fetchStocks(_query);
-        _movementFuture = _fetchMovement();
-        if (mounted) setState(() {});
+        _loadStocks(_query);
+        _loadMovement();
       });
     }
+  }
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
   }
 
   Future<List<Stock>> _fetchStocks([String? search, String? market]) async {
@@ -93,7 +100,7 @@ class _StocksScreenState extends State<StocksScreen> {
     return (response['stocks'] as List?)
             ?.map((e) => Stock.fromJson(e))
             .toList() ??
-        [];
+        <Stock>[];
   }
 
   Future<Map<String, dynamic>?> _fetchMovement([String? market]) async {
@@ -106,297 +113,313 @@ class _StocksScreenState extends State<StocksScreen> {
     }
   }
 
+  Future<void> _loadActiveMarket() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (mounted) {
+      setState(() {
+        _activeMarket = prefs.getString('active_market') ?? 'EGX';
+      });
+    }
+  }
+
   Future<void> _loadStocks([String? search]) async {
-    _stocksFuture = _fetchStocks(search ?? '', _activeMarket);
+    _query = search ?? _query;
+    _currentPage = 1;
+    _hasMore = true;
+    _allStocks = <Stock>[];
+    _displayedStocks = <Stock>[];
+    _stocksFuture = _fetchStocks(_query, _activeMarket);
+    _stocksFuture!.then((stocks) {
+      _allStocks = stocks;
+      _displayedStocks = stocks.take(_pageSize).toList();
+      _hasMore = stocks.length > _pageSize;
+      if (mounted) setState(() {});
+    });
+  }
+
+  Future<void> _loadMoreStocks() async {
+    if (_isLoadingMore || !_hasMore) return;
+    setState(() => _isLoadingMore = true);
+    _currentPage++;
+    final start = (_currentPage - 1) * _pageSize;
+    final end = start + _pageSize;
+    final nextBatch = _allStocks.skip(start).take(_pageSize).toList();
+    await Future<void>.delayed(const Duration(milliseconds: 300));
+    _displayedStocks.addAll(nextBatch);
+    _hasMore = end < _allStocks.length;
+    setState(() => _isLoadingMore = false);
   }
 
   Future<void> _loadMovement() async {
-    _movementFuture = _fetchMovement(_activeMarket);
-    if (mounted) setState(() {});
+    final data = await _fetchMovement(_activeMarket);
+    if (mounted) {
+      setState(() {
+        _movementData = data;
+      });
+    }
+  }
+
+  void _onSearchChanged(String value) {
+    _searchCtrl.text = value;
+    _query = value;
+    _loadStocks(value);
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      floatingActionButton: BubbleFloatingButton(
-        icon: Icons.refresh,
-        label: 'تحديث',
-        extended: true,
-        onPressed: () {
-          setState(() {
-            _stocksFuture = null;
-          });
-          _loadStocks(_query);
-        },
-      ),
-      body: RefreshIndicator(
-        color: AppColors.primary,
-        onRefresh: () async {
-          setState(() {
-            _stocksFuture = null;
-          });
-          await _loadStocks(_query);
-          await _loadMovement();
-        },
-        child: SingleChildScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                decoration: BoxDecoration(
-                    color: AppColors.surface,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: AppColors.border)),
-                child: TextField(
-                  decoration: InputDecoration(
-                    hintText: 'ابحث بالرمز أو الاسم...',
-                    hintStyle: const TextStyle(color: AppColors.textMuted),
-                    prefixIcon:
-                        const Icon(Icons.search, color: AppColors.textMuted),
-                    border: InputBorder.none,
-                    contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 14),
-                    suffixIcon: _query.isNotEmpty
-                        ? IconButton(
-                            icon: const Icon(Icons.clear,
-                                color: AppColors.textMuted),
-                            onPressed: () {
-                              setState(() => _query = '');
-                              _loadStocks('');
-                            })
-                        : null,
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: Scaffold(
+        backgroundColor: AppColors.background,
+        appBar: AppBar(
+          backgroundColor: AppColors.surface,
+          elevation: 0,
+          title: Text(_marketTitle,
+              style: const TextStyle(fontWeight: FontWeight.w800)),
+          leading: IconButton(
+              icon: const Icon(Icons.arrow_back),
+              onPressed: () => Navigator.pop(context)),
+        ),
+        body: Column(
+          children: [
+            // Search bar
+            Container(
+              padding: const EdgeInsets.all(12),
+              color: AppColors.surface,
+              child: TextField(
+                controller: _searchCtrl,
+                decoration: InputDecoration(
+                  hintText: 'ابحث عن سهم...',
+                  prefixIcon: const Icon(Icons.search, size: 20),
+                  suffixIcon: _query.isNotEmpty
+                      ? IconButton(
+                          icon: const Icon(Icons.clear),
+                          onPressed: () => _onSearchChanged(''))
+                      : null,
+                  filled: true,
+                  fillColor: AppColors.background,
+                  border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide.none),
+                ),
+                onChanged: _onSearchChanged,
+              ),
+            ),
+            // Movement toggle + filter
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              color: AppColors.surface,
+              child: Row(children: [
+                Expanded(
+                  child: SegmentedButton<String>(
+                    segments: const [
+                      ButtonSegment(value: 'gainers', label: Text('المرتفعة')),
+                      ButtonSegment(value: 'losers', label: Text('المنخفضة')),
+                      ButtonSegment(
+                          value: 'active', label: Text('الأكثر نشاطاً')),
+                    ],
+                    selected: {_movementFilter},
+                    onSelectionChanged: (val) {
+                      setState(() => _movementFilter = val.first);
+                    },
                   ),
-                  onChanged: (v) => setState(() => _query = v),
-                  onSubmitted: (v) => _loadStocks(v),
+                ),
+                IconButton(
+                  icon: Icon(
+                      _showMovers ? Icons.visibility_off : Icons.visibility),
+                  onPressed: () => setState(() => _showMovers = !_showMovers),
+                ),
+              ]),
+            ),
+            // Content
+            Expanded(
+              child: RefreshIndicator(
+                color: AppColors.primary,
+                onRefresh: () async {
+                  await _loadStocks(_query);
+                  await _loadMovement();
+                },
+                child: CustomScrollView(
+                  slivers: [
+                    if (_showMovers) _buildMoversSliver(),
+                    SliverList(
+                      delegate: SliverChildBuilderDelegate(
+                        (context, index) {
+                          if (index >= _displayedStocks.length) {
+                            if (_hasMore) {
+                              WidgetsBinding.instance.addPostFrameCallback(
+                                  (_) => _loadMoreStocks());
+                              return const Padding(
+                                padding: EdgeInsets.all(16),
+                                child: Center(
+                                    child: CircularProgressIndicator(
+                                        color: AppColors.primary)),
+                              );
+                            }
+                            return const SizedBox.shrink();
+                          }
+                          final stock = _displayedStocks[index];
+                          return _StockCard(stock: stock);
+                        },
+                        childCount:
+                            _displayedStocks.length + (_hasMore ? 1 : 0),
+                      ),
+                    ),
+                    if (_displayedStocks.isEmpty &&
+                        !_stocksFuture.toString().contains('waiting'))
+                      SliverToBoxAdapter(
+                        child: Center(
+                          child: Padding(
+                            padding: const EdgeInsets.all(32),
+                            child: Text(
+                              _query.isEmpty
+                                  ? 'لا توجد أسهم متاحة'
+                                  : 'لا توجد نتائج لـ "$_query"',
+                              style:
+                                  const TextStyle(color: AppColors.textMuted),
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
               ),
-              const SizedBox(height: 12),
-              FutureBuilder<Map<String, dynamic>?>(
-                future: _movementFuture,
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                          color: AppColors.surface,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: AppColors.border)),
-                      child: const Row(
-                        children: [
-                          SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(
-                                  color: AppColors.primary, strokeWidth: 2)),
-                          SizedBox(width: 12),
-                          Text('جاري تحميل بيانات الحركة...',
-                              style: TextStyle(
-                                  color: AppColors.textSecondary,
-                                  fontSize: 13)),
-                        ],
-                      ),
-                    );
-                  }
-                  if (snapshot.hasData && snapshot.data != null) {
-                    _movementData = snapshot.data;
-                    return Column(
-                      children: [
-                        const Row(
-                          children: [
-                            Icon(Icons.trending_up,
-                                size: 16, color: AppColors.textSecondary),
-                            SizedBox(width: 8),
-                            Text('عرض الأسهم الأكثر حركة',
-                                style: TextStyle(
-                                    fontSize: 12,
-                                    color: AppColors.textSecondary)),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        BubbleActionMenu(
-                          items: [
-                            BubbleMenuItem(
-                              icon: Icons.list,
-                              label: 'كل الأسهم',
-                              isActive: !_showMovers,
-                              onPressed: () =>
-                                  setState(() => _showMovers = false),
-                            ),
-                            BubbleMenuItem(
-                              icon: Icons.trending_up,
-                              label: 'الأكثر حركة',
-                              isActive: _showMovers,
-                              onPressed: () =>
-                                  setState(() => _showMovers = true),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-                      ],
-                    );
-                  }
-                  return const SizedBox.shrink();
-                },
-              ),
-              FutureBuilder<List<Stock>>(
-                future: _stocksFuture,
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(
-                      child: Padding(
-                        padding: EdgeInsets.all(32),
-                        child:
-                            CircularProgressIndicator(color: AppColors.primary),
-                      ),
-                    );
-                  }
-                  if (snapshot.hasError) {
-                    return StateView(
-                        error: 'فشل تحميل الأسهم: ${snapshot.error}',
-                        onRetry: () => _loadStocks(''));
-                  }
-                  final stocks = snapshot.data ?? [];
-                  if (stocks.isEmpty) {
-                    return const StateView(
-                        empty: true, emptyMessage: 'لا توجد أسهم متاحة حالياً');
-                  }
-                  if (_showMovers) return _buildMoversSection();
-                  return Column(
-                    children: [
-                      HeaderCard(
-                          icon: Icons.trending_up,
-                          title: _marketTitle,
-                          subtitle: 'السوق النشط: $_activeMarket'),
-                      const SizedBox(height: 16),
-                      ...stocks.map((s) => Padding(
-                            padding: const EdgeInsets.only(bottom: 8),
-                            child: DataRowWidget(
-                              title: s.nameAr ?? s.name ?? s.ticker,
-                              subtitle: s.ticker,
-                              value: s.currentPrice != null
-                                  ? '${s.currentPrice!.toStringAsFixed(2)} ج.م'
-                                  : '-',
-                              change: s.changePercent,
-                              icon: Icons.trending_up,
-                              onTap: () => Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                      builder: (_) => StockHistoryScreen(
-                                          ticker: s.ticker))),
-                            ),
-                          )),
-                    ],
-                  );
-                },
-              ),
-              const SizedBox(height: 90),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
   }
 
-  Widget _buildMoversSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        if (_gainers.isNotEmpty) ...[
-          const SectionHeader(
-              title: 'الأكثر ارتفاعاً', icon: Icons.trending_up),
-          const SizedBox(height: 8),
-          ..._gainers.map((s) => _buildMoverCard(s, true)),
-          const SizedBox(height: 16),
-        ],
-        if (_losers.isNotEmpty) ...[
-          const SectionHeader(
-              title: 'الأكثر انخفاضاً', icon: Icons.trending_down),
-          const SizedBox(height: 8),
-          ..._losers.map((s) => _buildMoverCard(s, false)),
-          const SizedBox(height: 16),
-        ],
-        if (_active.isNotEmpty) ...[
-          const SectionHeader(title: 'الأكثر تداولاً', icon: Icons.bar_chart),
-          const SizedBox(height: 8),
-          ..._active.map((s) => _buildMoverCard(s, null)),
-        ],
-        if (_gainers.isEmpty && _losers.isEmpty && _active.isEmpty)
-          const StateView(
-              empty: true, emptyMessage: 'لا توجد بيانات حركة متاحة'),
-      ],
+  Widget _buildMoversSliver() {
+    final movers = _movementFilter == 'gainers'
+        ? _gainers
+        : _movementFilter == 'losers'
+            ? _losers
+            : _active;
+    if (movers.isEmpty)
+      return const SliverToBoxAdapter(child: SizedBox.shrink());
+    return SliverToBoxAdapter(
+      child: SizedBox(
+        height: 140,
+        child: ListView.separated(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          itemCount: movers.length,
+          separatorBuilder: (_, __) => const SizedBox(width: 8),
+          itemBuilder: (_, i) {
+            final m = movers[i];
+            final ticker =
+                m['ticker']?.toString() ?? m['symbol']?.toString() ?? '';
+            final price =
+                double.tryParse((m['price'] ?? m['last'] ?? '0').toString()) ??
+                    0;
+            final change =
+                double.tryParse((m['change_percent'] ?? '0').toString()) ?? 0;
+            final isUp = change >= 0;
+            return Container(
+              width: 120,
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: AppColors.surface,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppColors.border),
+              ),
+              child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(ticker,
+                        style: const TextStyle(
+                            fontWeight: FontWeight.w700, fontSize: 13)),
+                    const SizedBox(height: 4),
+                    Text(price.toStringAsFixed(2),
+                        style: const TextStyle(fontSize: 12)),
+                    const SizedBox(height: 4),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: (isUp ? AppColors.success : AppColors.danger)
+                            .withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                          '${isUp ? '+' : ''}${change.toStringAsFixed(2)}%',
+                          style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color:
+                                  isUp ? AppColors.success : AppColors.danger)),
+                    ),
+                  ]),
+            );
+          },
+        ),
+      ),
     );
   }
+}
 
-  Widget _buildMoverCard(Map<String, dynamic> s, bool? isUp) {
-    final ticker = s['ticker'] ?? s['symbol'] ?? '';
-    final name = s['name_ar'] ?? s['name'] ?? '';
-    final change = (s['change_percent'] as num?)?.toDouble() ?? 0;
-    final price = (s['current_price'] as num?)?.toDouble() ?? 0;
-    final color = isUp == null
-        ? AppColors.info
-        : isUp
-            ? AppColors.success
-            : AppColors.danger;
+class _StockCard extends StatelessWidget {
+  final Stock stock;
+  const _StockCard({required this.stock});
 
+  @override
+  Widget build(BuildContext context) {
+    final change = stock.priceChange ?? 0;
+    final changePercent = stock.changePercent ?? 0;
+    final isUp = change >= 0;
+    final price = stock.currentPrice?.toStringAsFixed(2) ?? '0';
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-          color: AppColors.surface,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppColors.border)),
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.border),
+      ),
       child: InkWell(
         onTap: () => Navigator.push(
             context,
             MaterialPageRoute(
-                builder: (_) => StockHistoryScreen(ticker: ticker))),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(8)),
-              child: Icon(
-                isUp == null
-                    ? Icons.bar_chart
-                    : isUp
-                        ? Icons.trending_up
-                        : Icons.trending_down,
-                color: color,
-                size: 20,
-              ),
+                builder: (_) => StockHistoryScreen(ticker: stock.ticker))),
+        child: Row(children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: (isUp ? AppColors.success : AppColors.danger)
+                  .withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(10),
             ),
-            const SizedBox(width: 10),
-            Expanded(
-                child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(ticker, style: AppTypography.titleSmall),
-                if (name.isNotEmpty)
-                  Text(name,
-                      style: AppTypography.bodySmall,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis),
-              ],
-            )),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Text('${price.toStringAsFixed(2)} ج.م',
-                    style: AppTypography.titleSmall),
-                Text('${change >= 0 ? '+' : ''}${change.toStringAsFixed(2)}%',
-                    style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: color)),
-              ],
-            ),
-          ],
-        ),
+            child: Icon(isUp ? Icons.trending_up : Icons.trending_down,
+                color: isUp ? AppColors.success : AppColors.danger, size: 20),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+              child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                Text(stock.nameAr ?? stock.name ?? stock.ticker,
+                    style: const TextStyle(
+                        fontWeight: FontWeight.w700, fontSize: 14)),
+                if (stock.ticker.isNotEmpty)
+                  Text(stock.ticker,
+                      style: const TextStyle(
+                          fontSize: 11, color: AppColors.textMuted)),
+              ])),
+          Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+            Text(price,
+                style:
+                    const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+            if (changePercent != 0)
+              Text('${isUp ? '+' : ''}${changePercent.toStringAsFixed(2)}%',
+                  style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: isUp ? AppColors.success : AppColors.danger)),
+          ]),
+        ]),
       ),
     );
   }

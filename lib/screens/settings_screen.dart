@@ -48,12 +48,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
           final userData = await api.getMe();
           if (userData != null) {
             final user = User.fromJson(userData);
-            if (mounted) setState(() { _user = user; });
+            if (mounted)
+              setState(() {
+                _user = user;
+              });
           }
         } catch (_) {}
       }
     } finally {
-      setState(() { _loading = false; });
+      setState(() {
+        _loading = false;
+      });
     }
   }
 
@@ -72,11 +77,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
           title: const Text('تسجيل الخروج'),
           content: const Text('هل تريد تسجيل الخروج من حسابك؟'),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('إلغاء')),
+            TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('إلغاء')),
             ElevatedButton(
               onPressed: () => Navigator.pop(ctx, true),
-              style: ElevatedButton.styleFrom(backgroundColor: AppColors.danger),
-              child: const Text('خروج', style: TextStyle(color: AppColors.white)),
+              style:
+                  ElevatedButton.styleFrom(backgroundColor: AppColors.danger),
+              child:
+                  const Text('خروج', style: TextStyle(color: AppColors.white)),
             ),
           ],
         ),
@@ -198,11 +207,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   child: ElevatedButton.icon(
                     onPressed: _handleLogout,
                     icon: const Icon(Icons.logout, color: AppColors.white),
-                    label: const Text('تسجيل الخروج', style: TextStyle(color: AppColors.white, fontWeight: FontWeight.w600)),
+                    label: const Text('تسجيل الخروج',
+                        style: TextStyle(
+                            color: AppColors.white,
+                            fontWeight: FontWeight.w600)),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.danger,
                       padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12)),
                     ),
                   ),
                 ),
@@ -212,11 +225,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   child: ElevatedButton.icon(
                     onPressed: () => Navigator.of(context).pushNamed('/auth'),
                     icon: const Icon(Icons.login, color: AppColors.white),
-                    label: const Text('تسجيل الدخول', style: TextStyle(color: AppColors.white, fontWeight: FontWeight.w600)),
+                    label: const Text('تسجيل الدخول',
+                        style: TextStyle(
+                            color: AppColors.white,
+                            fontWeight: FontWeight.w600)),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.primary,
                       padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12)),
                     ),
                   ),
                 ),
@@ -248,7 +265,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                   child: Text(
                     (_user?.username ?? _user?.email ?? 'U')[0].toUpperCase(),
-                    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: AppColors.primary),
+                    style: const TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.primary),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -256,18 +276,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(_user?.username ?? _user?.name ?? 'مستخدم', style: AppTypography.titleSmall),
+                      Text(_user?.username ?? _user?.name ?? 'مستخدم',
+                          style: AppTypography.titleSmall),
                       Text(_user?.email ?? '', style: AppTypography.bodySmall),
                       const SizedBox(height: 4),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 2),
                         decoration: BoxDecoration(
                           color: AppColors.primaryMuted,
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Text(
                           _user?.subscriptionTier ?? 'free',
-                          style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: AppColors.primary),
+                          style: const TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.primary),
                         ),
                       ),
                     ],
@@ -283,15 +308,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     color: AppColors.surfaceMuted,
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.person_outline, color: AppColors.textMuted, size: 24),
+                  child: const Icon(Icons.person_outline,
+                      color: AppColors.textMuted, size: 24),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('غير مسجل الدخول', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
-                      Text('سجل دخولك للوصول لجميع الميزات', style: AppTypography.bodySmall),
+                      const Text('غير مسجل الدخول',
+                          style: TextStyle(
+                              fontSize: 14, fontWeight: FontWeight.w600)),
+                      Text('سجل دخولك للوصول لجميع الميزات',
+                          style: AppTypography.bodySmall),
                     ],
                   ),
                 ),
@@ -323,7 +352,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
             children: [
               Container(
                 padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(color: AppColors.primaryMuted, borderRadius: BorderRadius.circular(8)),
+                decoration: BoxDecoration(
+                    color: AppColors.primaryMuted,
+                    borderRadius: BorderRadius.circular(8)),
                 child: Icon(icon, size: 18, color: AppColors.primary),
               ),
               const SizedBox(width: 12),
@@ -338,7 +369,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
               ),
               if (child != null)
-                child
+                Expanded(child: child)
               else if (onTap != null)
                 const Icon(Icons.chevron_left, color: AppColors.textMuted),
             ],
@@ -367,7 +398,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
         children: [
           Container(
             padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(color: AppColors.primaryMuted, borderRadius: BorderRadius.circular(8)),
+            decoration: BoxDecoration(
+                color: AppColors.primaryMuted,
+                borderRadius: BorderRadius.circular(8)),
             child: Icon(icon, size: 18, color: AppColors.primary),
           ),
           const SizedBox(width: 12),
@@ -376,7 +409,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(title, style: AppTypography.titleSmall),
-                if (subtitle != null) Text(subtitle, style: AppTypography.bodySmall),
+                if (subtitle != null)
+                  Text(subtitle, style: AppTypography.bodySmall),
               ],
             ),
           ),
@@ -406,18 +440,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('إلغاء')),
+            TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('إلغاء')),
             ElevatedButton(
               onPressed: () {
                 api.setBaseUrl(ctrl.text.trim());
                 _saveSetting('server_url', ctrl.text.trim());
                 Navigator.pop(ctx);
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('تم تحديث الخادم: ${ctrl.text.trim()}')),
+                  SnackBar(
+                      content: Text('تم تحديث الخادم: ${ctrl.text.trim()}')),
                 );
               },
-              style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
-              child: const Text('حفظ', style: TextStyle(color: AppColors.white)),
+              style:
+                  ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
+              child:
+                  const Text('حفظ', style: TextStyle(color: AppColors.white)),
             ),
           ],
         ),
@@ -439,7 +478,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
       );
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('❌ فشل الاتصال: $e'), backgroundColor: AppColors.danger),
+        SnackBar(
+            content: Text('❌ فشل الاتصال: $e'),
+            backgroundColor: AppColors.danger),
       );
     }
   }

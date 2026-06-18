@@ -5,7 +5,6 @@
 
 import 'package:flutter/material.dart';
 import '../theme/colors.dart';
-import '../theme/typography.dart';
 import '../api/client.dart';
 import '../widgets/skeleton_loader.dart';
 import '../widgets/state_view.dart';
@@ -48,7 +47,6 @@ class _AlertsScreenState extends State<AlertsScreen> {
   }
 
   Future<void> _showCreateDialog() async {
-    final typeCtrl = TextEditingController();
     final tickerCtrl = TextEditingController();
     final targetCtrl = TextEditingController();
     String selectedType = _alertTypes.first;
@@ -314,7 +312,7 @@ class _AlertsScreenState extends State<AlertsScreen> {
                             ]),
                             const SizedBox(height: 4),
                             Text(
-                                '${_alertTypeLabel(type ?? '')}: ${target?.toString() ?? '-'}',
+                                '${_alertTypeLabel(type ?? '')}: ${target.isEmpty ? '-' : target}',
                                 style: const TextStyle(
                                     fontSize: 11,
                                     color: AppColors.textSecondary)),

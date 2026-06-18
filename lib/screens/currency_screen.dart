@@ -33,10 +33,13 @@ class _CurrencyScreenState extends State<CurrencyScreen> {
   Future<List<Currency>> _fetchCurrencies() async {
     try {
       final response = await api.getCurrency();
-      if (response is Map && response['data'] is List) {
-        return (response['data'] as List)
-            .map((e) => Currency.fromJson(e as Map<String, dynamic>))
-            .toList();
+      if (response is Map) {
+        final rawList = response['data'] ?? response['rates'] ?? response['currencies'];
+        if (rawList is List) {
+          return rawList
+              .map((e) => Currency.fromJson(Map<String, dynamic>.from(e as Map)))
+              .toList();
+        }
       }
       return [];
     } catch (_) {

@@ -1,7 +1,7 @@
 # 📚 دليل الاستثمار - Mobile Application API Handbook
 
 > **Platform Name:** دليل الاستثمار (EGX Investment Platform)
-> **Version:** 17.0 (Mobile Edition) | **Last Updated:** January 2026
+> **Version:** 18.0 (Phase 11 Audit Edition) | **Last Updated:** June 2026
 > **Audience:** Mobile developers (iOS / Android / Flutter / React Native / .NET MAUI)
 >
 > **Base URLs:**
@@ -41,13 +41,15 @@
 13. [🤖 AI Chat APIs](#-ai-chat-apis)
 14. [🏹 Hunter APIs](#-hunter-apis)
 15. [📱 Mobile-Specific Endpoints](#-mobile-specific-endpoints)
-16. [🔔 Alerts & Notifications APIs](#-alerts--notifications-apis)
-17. [📚 Learning APIs](#-learning-apis)
-18. [⚙️ Admin APIs (brief)](#-admin-apis-brief)
-19. [❌ Error Handling](#-error-handling)
-20. [⏱️ Rate Limits & Timeouts](#-rate-limits--timeouts)
-21. [📝 Common JSON Schemas](#-common-json-schemas)
-22. [🚀 Mobile Integration Guide](#-mobile-integration-guide)
+16. [📋 Phase 11 Mobile API Audit (Complete Documentation)](#-phase-11-mobile-api-audit-complete-documentation)
+17. [🔐 Authentication Requirements](#-authentication-requirements)
+18. [🔔 Alerts & Notifications APIs](#-alerts--notifications-apis)
+19. [📚 Learning APIs](#-learning-apis)
+20. [⚙️ Admin APIs (brief)](#-admin-apis-brief)
+21. [❌ Error Handling](#-error-handling)
+22. [⏱️ Rate Limits & Timeouts](#-rate-limits--timeouts)
+23. [📝 Common JSON Schemas](#-common-json-schemas)
+24. [🚀 Mobile Integration Guide](#-mobile-integration-guide)
 
 ---
 
@@ -2532,7 +2534,7 @@ Expires: 0
 
 ### 12. GET `/api/stocks/advanced-analysis` — تحليل متقدم
 
----
+---------------------------------------------------------------------------
 
 ## 📱 Mobile-Specific Endpoints
 
@@ -2761,6 +2763,1461 @@ Expires: 0
 ---
 
 ### 23. GET `/api/mobile/market/recommendations/ai-insights` — AI insights
+
+---
+
+## 📋 Phase 11 Mobile API Audit (Complete Documentation)
+
+> **Audit Date:** June 2026 (Task #14)
+> **Audited by:** Code Agent
+> **Scope:** All 9 Phase 11 mobile endpoints + fixed endpoints + POST endpoints
+> **Live Test Status:** ✅ All free (no-auth) endpoints returned 200 OK on `localhost:3000`
+
+### 🧪 Live Audit Test Results
+
+| Endpoint | Method | HTTP Status | Response Time | Notes |
+|----------|--------|-------------|---------------|-------|
+| `/api/mobile/dashboard` | GET | ✅ 200 | 0.54s | Real gold 24K = 3756.37 EGP |
+| `/api/mobile/market/overview` | GET | ✅ 200 | 0.24s | 858 stocks, 246 gainers / 465 losers |
+| `/api/mobile/recommendations?limit=3` | GET | ✅ 200 | 0.23s | 858 analyzed, 221 passed filter |
+| `/api/mobile/predictions?limit=3` | GET | ✅ 200 | 0.24s | Empty list (no predictions in DB) |
+| `/api/mobile/news` | GET | ✅ 200 | 0.94s | EGXPilot + CoinGecko + Fear/Greed |
+| `/api/mobile/gold` | GET | ✅ 200 | 0.24s | 6 karats + silver = 44.95 EGP |
+| `/api/mobile/currency` | GET | ✅ 200 | 0.23s | 6 currencies, source=fallback |
+| `/api/mobile/stocks/COMI` | GET | ✅ 200 | 0.51s | Real price = 132.39 EGP |
+| `/api/mobile/market/recommendations/ai-insights` | GET | ✅ 200 | 0.22s | Neutral sentiment, confidence 50 |
+| `/api/auth/me` (no token) | GET | ✅ 401 | 0.25s | Correctly rejects unauthenticated |
+
+> ⚠️ **Python Backend (port 8010) was offline during the audit** — all endpoints successfully fell back to local DBs (`data_engine.db`, `egx.db`, Prisma). This proves the fallback chain is healthy.
+
+---
+
+### 🟢 Free (No-Auth) Mobile Endpoints
+
+#### 1. GET `/api/mobile/dashboard`
+
+**الوصف:** لوحة التحكم الشاملة للموبايل - بيرجع كل بيانات الـ Home screen في طلب واحد (market overview + gold + currency + top movers + indices).
+
+**Auth:** غير مطلوب (free)
+
+**Query params:** none
+
+**Response 200 OK:**
+```json
+{
+  "success": true,
+  "timestamp": "2026-06-18T17:50:19.443Z",
+  "market_status": {
+    "is_open": false,
+    "status": "closed",
+    "session": "closed",
+    "next_open": "غداً 10:00 صباحاً",
+    "current_time": "٨:٥٠:١٩ م"
+  },
+  "summary": { "total_stocks": 858, "gainers": 246, "losers": 465, "unchanged": 147 },
+  "indices": [
+    { "name": "EGX 30", "name_ar": "مؤشر EGX 30", "value": 0, "change": 0, "change_percent": 0 }
+  ],
+  "top_movers": {
+    "gainers": [{ "ticker": "COMI", "name_ar": "البنك التجاري الدولي", "price": 65.45, "change_percent": 9.95, "volume": 12500000, "change_type": "gainer" }],
+    "losers": [{ "ticker": "HRHO", "name_ar": "EFG Hermes", "price": 24.10, "change_percent": -5.20, "volume": 3200000, "change_type": "loser" }],
+    "most_active": [...]
+  },
+  "gold_prices": {
+    "karat_24": 3756.37,
+    "karat_21": 3286.82,
+    "karat_18": 2817.28,
+    "change_24k": 0,
+    "silver": 44.948,
+    "last_updated": "2026-06-18 11:32:44"
+  },
+  "currency_rates": { "USD": { "buy": 50.5, "sell": 50.7 }, "EUR": { "buy": 54.2, "sell": 54.6 } },
+  "market_overview": { "...": "full python /api/market/overview payload" },
+  "source": "mobile_dashboard_api"
+}
+```
+
+**Fallback chain:**
+1. Python Backend `/api/market/overview` (timeout 10s)
+2. `data_engine.db` for top movers (`getTopMovers`, `getStocksByMarket`)
+3. `data_engine.db` for gold (`getLatestGoldPrices`, `getLatestSilverPrices`) - filters `country === 'مصر'`
+4. Python Backend `/api/currency/list` (timeout 5s)
+5. Market status computed locally (Egypt timezone, weekend = Fri/Sat, hours 10:00–14:30)
+
+**Errors:**
+- `500` `{ "success": false, "error": "<message>", "timestamp": "..." }` — only if everything fails catastrophically (graceful degradation: missing sections are `null`).
+
+**📱 ملاحظة:** اعمل poll كل 5 دقايق وقت السوق المفتوح، وكل 30 دقيقة لو مقفل.
+
+---
+
+#### 2. GET `/api/mobile/market/overview`
+
+**الوصف:** نفس بيانات `/api/market/overview` بتاع الويب - بيضمن إن الموبايل والويب يعرضوا نفس البيانات.
+
+**Auth:** غير مطلوب (free)
+
+**Query params:** none
+
+**Response 200 OK:**
+```json
+{
+  "success": true,
+  "timestamp": "2026-06-18T17:50:19.691Z",
+  "market_status": { "is_open": false, "status": "closed", "next_open": null, "next_close": null, "current_session": "closed" },
+  "summary": {
+    "total_stocks": 858,
+    "gainers": 246,
+    "losers": 465,
+    "unchanged": 147,
+    "egx30_stocks": 0,
+    "egx70_stocks": 0,
+    "egx100_stocks": 0,
+    "egx30_value": 17342
+  },
+  "indices": [],
+  "top_gainers": [{ "ticker": "COMI", "name": "...", "name_ar": "...", "current_price": 65.45, "change_percent": 9.95, "volume": 12500000 }],
+  "top_losers": [...],
+  "most_active": [...],
+  "last_updated": "2026-06-18T17:50:19.691Z",
+  "source": "python_backend"
+}
+```
+
+**Fallback chain:**
+1. Python Backend `/api/market/overview` (timeout 15s) → `source: "python_backend"`
+2. `data_engine.db` `SELECT symbol, name, price, change_percent, volume, market FROM stocks WHERE price > 0` → `source: "local_fallback"`
+
+**Errors:**
+- `503` `{ "success": false, "error": "No stocks found in database" }` — only when DB has 0 stocks
+- `500` `{ "success": false, "error": "Failed to get market overview" }` — generic catch-all
+
+---
+
+#### 3. GET `/api/mobile/recommendations`
+
+**الوصف:** توصيات الأسهم بناءً على persona. بيستخدم Python Backend أولاً وبعدين local DB.
+
+**Auth:** غير مطلوب (free) — ⚠️ **ملاحظة:** الكود الحالي **مش بيفرض** حد 3 عناصر للمستخدمين المجانيين، فلازم العميل يبعت `limit=3` بنفسه. (شوف قسم [Rate Limits & Quotas](#-rate-limits--timeouts))
+
+**Query params:**
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `persona` | string | `balanced` | `conservative` (threshold 75), `balanced` (65), `gambler` (50) |
+| `limit` | int | 10 | عدد النتائج. للمستخدم المجاني استخدم `limit=3` |
+
+**Response 200 OK:**
+```json
+{
+  "success": true,
+  "source": "python_backend",
+  "timestamp": "2026-06-18T17:50:21.363Z",
+  "persona": "balanced",
+  "threshold": 65,
+  "recommendations": [
+    {
+      "ticker": "COMI",
+      "name": "Commercial International Bank",
+      "name_ar": "البنك التجاري الدولي",
+      "sector": "Banks",
+      "current_price": 65.45,
+      "change_percent": 1.95,
+      "score": 85,
+      "recommendation": "buy",
+      "signals": ["positive_momentum", "high_liquidity"],
+      "target_price": 75.27,
+      "stop_loss": 60.21
+    }
+  ],
+  "total_analyzed": 858,
+  "passed_filter": 221
+}
+```
+
+**Fallback chain:**
+1. Python Backend `/api/recommendations?persona=&limit=` via `pythonFetch` → `source: "python_backend"`
+2. `data_engine.db` stocks table + local scoring algorithm (change_percent + volume heuristic) → `source: "local_db"`. Recommendations derived:
+   - score ≥ 85 → `strong_buy`
+   - score ≥ 70 → `buy`
+   - score ≥ 50 → `hold`
+   - else → `avoid`
+
+**Errors:**
+- `500` `{ "success": false, "error": "Failed to get recommendations", "detail": "..." }`
+
+---
+
+#### 4. GET `/api/mobile/predictions`
+
+**الوصف:** التوقعات - بيرجع نفس بيانات `/api/predictions` بتاع الويب من Prisma DB.
+
+**Auth:** غير مطلوب (free) — ⚠️ **ملاحظة:** الكود الحالي **مش بيفرض** حد 3 عناصر للمستخدمين المجانيين، فلازم العميل يبعت `limit=3`.
+
+**Query params:**
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `limit` | int | 50 | عدد النتائج. للمستخدم المجاني استخدم `limit=3` |
+| `status` | string | (none) | فلتر بـ `result`: `SUCCESS`, `FAIL` |
+
+**Response 200 OK:**
+```json
+{
+  "success": true,
+  "predictions": [
+    {
+      "id": "pred_001",
+      "symbol": "COMI",
+      "market": "EGX",
+      "signal": "STRONG_BUY",
+      "confidence": 85,
+      "entry_price": 65.45,
+      "target_price": 72.00,
+      "stop_loss": 62.00,
+      "reasoning": "text",
+      "indicators": { "rsi": 58.4, "macd": "bullish", "ma_trend": "uptrend" },
+      "news_summary": "text",
+      "created_at": "2026-01-15T14:30:00.000Z",
+      "verify_date": "2026-01-22",
+      "verified": false,
+      "result": null,
+      "final_price": null,
+      "profit_loss_pct": null
+    }
+  ],
+  "stats": {
+    "total_predictions": 145,
+    "verified_predictions": 89,
+    "successful": 71,
+    "failed": 18,
+    "success_rate": 79.8
+  }
+}
+```
+
+**Fallback chain:**
+1. Prisma `db.deepSeekPrediction.findMany()` — same DB as website
+2. On any error → returns `success: true` with **empty** predictions and zeroed stats (graceful, never throws 500). هذا يضمن إن الـ mobile app ما يكسرش لو DB فيه مشكلة.
+
+**Errors:**
+- لا يوجد 500 — الكود بيلت catch-all بيارجع `success: true` مع empty array.
+
+---
+
+#### 5. GET `/api/mobile/news`
+
+**الوصف:** آخر الأخبار الموحدة - بيجمع أخبار EGX + crypto prices + Fear & Greed Index.
+
+**Auth:** غير مطلوب (free)
+
+**Query params:** none
+
+**Response 200 OK:**
+```json
+{
+  "success": true,
+  "cached": false,
+  "timestamp": "2026-06-18T17:50:19.000Z",
+  "news": [
+    {
+      "id": "egx-123",
+      "title": "خبر من البورصة المصرية",
+      "summary": "...",
+      "source": "EGXPilot",
+      "timestamp": "2026-06-18T14:00:00.000Z",
+      "category": "egx",
+      "importance": "high",
+      "url": "https://...",
+      "tickers": ["COMI"]
+    },
+    {
+      "id": "fear-greed-index",
+      "title": "مؤشر الخوف والطمع: 42 (Fear)",
+      "summary": "الخوف في السوق - حذر من الشراء العاطفي",
+      "source": "Alternative.me",
+      "timestamp": "2026-06-18T17:50:00.000Z",
+      "category": "sentiment",
+      "importance": "medium"
+    },
+    {
+      "id": "btc-price",
+      "title": "Bitcoin: $67,500 (+2.3%)",
+      "summary": "البيتكوين صاعد",
+      "source": "CoinGecko",
+      "timestamp": "2026-06-18T17:50:00.000Z",
+      "category": "crypto",
+      "importance": "low"
+    }
+  ],
+  "summary": { "total": 12, "egx": 10, "crypto": 2, "sentiment": 1 }
+}
+```
+
+**Fallback chain:**
+1. EGXPilot API `https://egxpilot.com/api/news/` (timeout 15s) — top 10 EGX news
+2. Alternative.me Fear & Greed `https://api.alternative.me/fng/?limit=1` (timeout 10s)
+3. CoinGecko `https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,solana` (timeout 10s)
+4. All fetched in parallel via `Promise.all`
+5. In-memory cache for 5 minutes (`CACHE_DURATION = 300`) — `cached: true` flag indicates cache hit
+
+**POST variant:** `POST /api/mobile/news` بيفرض الكاش ويعيد التحميل (force refresh).
+
+**Errors:**
+- `500` `{ "success": false, "error": "<message>", "news": [] }` — every error returns empty news, never breaks the client
+
+---
+
+#### 6. GET `/api/mobile/gold`
+
+**الوصف:** أسعار الذهب والفضة في مصر - بيستخدم `data_engine.db`.
+
+**Auth:** غير مطلوب (free)
+
+**Query params:** none
+
+**Response 200 OK:**
+```json
+{
+  "success": true,
+  "timestamp": "2026-06-18T17:50:19.934Z",
+  "last_updated": "2026-06-18 11:32:44",
+  "source": "data_engine.db",
+  "prices": {
+    "karats": [
+      { "key": "24", "name_ar": "عيار 24", "price_per_gram": 3756.37, "change": null, "currency": "EGP" },
+      { "key": "22", "name_ar": "عيار 22", "price_per_gram": 3443.46, "change": null, "currency": "EGP" },
+      { "key": "21", "name_ar": "عيار 21", "price_per_gram": 3286.82, "change": null, "currency": "EGP" },
+      { "key": "18", "name_ar": "عيار 18", "price_per_gram": 2817.28, "change": null, "currency": "EGP" },
+      { "key": "14", "name_ar": "عيار 14", "price_per_gram": 2191.09, "change": null, "currency": "EGP" },
+      { "key": "10", "name_ar": "عيار 10", "price_per_gram": 1565.28, "change": null, "currency": "EGP" }
+    ],
+    "ounce": null,
+    "silver": { "price_per_gram": 44.948, "change": null, "currency": "EGP", "name_ar": "فضة" },
+    "silver_ounce": null,
+    "bullion": []
+  },
+  "summary": {
+    "gold_24k": 3756.37,
+    "gold_21k": 3286.82,
+    "gold_18k": 2817.28,
+    "silver": 44.948
+  }
+}
+```
+
+**Fallback chain:** Single source — `data_engine.db` (`getLatestGoldPrices`, `getLatestSilverPrices`). يتم فلتر البيانات بـ `country === 'مصر'` والـ karat يكون في `[24, 22, 21, 18, 14, 12, 10, 8]`.
+
+**Errors:**
+- `404` `{ "success": false, "error": "لا توجد بيانات أسعار الذهب", "timestamp": "..." }` — when no gold rows
+- `500` `{ "success": false, "error": "<message>" }`
+
+---
+
+#### 7. GET `/api/mobile/currency`
+
+**الوصف:** أسعار العملات مقابل الجنيه المصري.
+
+**Auth:** غير مطلوب (free)
+
+**Query params:** none
+
+**Response 200 OK:**
+```json
+{
+  "success": true,
+  "timestamp": "2026-06-18T17:50:20.171Z",
+  "count": 6,
+  "rates": [
+    { "code": "USD", "name": "US Dollar", "name_ar": "دولار أمريكي", "symbol": "$", "rate_to_egp": 50.5 },
+    { "code": "EUR", "name": "Euro", "name_ar": "يورو", "symbol": "€", "rate_to_egp": 54.8 },
+    { "code": "GBP", "name": "British Pound", "name_ar": "جنيه إسترليني", "symbol": "£", "rate_to_egp": 64.2 },
+    { "code": "SAR", "name": "Saudi Riyal", "name_ar": "ريال سعودي", "symbol": "﷼", "rate_to_egp": 13.5 },
+    { "code": "AED", "name": "UAE Dirham", "name_ar": "درهم إماراتي", "symbol": "د.إ", "rate_to_egp": 13.8 },
+    { "code": "KWD", "name": "Kuwaiti Dinar", "name_ar": "دينار كويتي", "symbol": "د.ك", "rate_to_egp": 165 }
+  ],
+  "base_currency": "EGP",
+  "source": "python_backend"
+}
+```
+
+**Fallback chain:**
+1. Python Backend `/api/currency/list` (timeout 10s) → `source: "python_backend"`
+2. Static fallback with 6 common currencies → `source: "fallback"`. الـ rates هنا تقريبية (USD=50.5, EUR=54.8, ...)
+
+**Errors:** لا يوجد 500 — دايماً بيرجع static fallback حتى لو Python مش شغّال.
+
+---
+
+#### 8. GET `/api/mobile/stocks/[ticker]`
+
+**الوصف:** بيانات سهم معين للجوال.
+
+**Auth:** غير مطلوب (free)
+
+**Path params:** `ticker` (string, required) - رمز السهم (case-insensitive)
+
+**Query params:** none
+
+**Response 200 OK:**
+```json
+{
+  "success": true,
+  "source": "local_db",
+  "data": {
+    "ticker": "COMI",
+    "name_ar": "البنك التجاري الدولي",
+    "name": "البنك التجاري الدولي",
+    "sector": "القطاع المالي",
+    "current_price": 132.39,
+    "previous_close": 132.39,
+    "open": 132.97,
+    "high": 133.5,
+    "low": 131.62,
+    "volume": "1.37 M",
+    "market_cap": "447.58 B EGP",
+    "pe_ratio": null,
+    "pb_ratio": 1.7,
+    "dividend_yield": 6.37,
+    "eps": 5.77,
+    "roe": 18,
+    "is_active": 1,
+    "last_update": "2026-06-18T11:32:43.044891"
+  }
+}
+```
+
+**Fallback chain:**
+1. Python Backend `/api/stocks/{TICKER}` via `pythonFetch` (timeout default) → `source: "python_backend"`
+2. `egx.db` SQLite `SELECT * FROM stocks WHERE ticker = ? COLLATE NOCASE` → `source: "local_db"`
+
+**Errors:**
+- `404` `{ "success": false, "error": "Stock not found", "ticker": "COMI" }` — stock not in DB
+- `500` `{ "success": false, "error": "Failed to load stock data" }` — generic catch
+
+---
+
+#### 9. GET `/api/mobile/market/recommendations/ai-insights`
+
+**الوصف:** رؤى AI للسوق - sentiment + recommendation. بيستخدم Python Backend أولاً وبعدين local DB fallback.
+
+**Auth:** غير مطلوب (free)
+
+**Query params:** none
+
+**Response 200 OK:**
+```json
+{
+  "success": true,
+  "source": "local_db",
+  "overall_sentiment": "neutral",
+  "sentiment_ar": "محايد",
+  "confidence": 50,
+  "key_factors": ["السوق متوازن"],
+  "recommendation": "hold",
+  "recommendation_ar": "احتفاظ"
+}
+```
+
+**Sentiment values:**
+- `bullish` → `صعودي` (لو >40% من الأسهم صاعدة >2%)
+- `bearish` → `هبوطي` (لو >40% من الأسهم هابطة >2%)
+- `neutral` → `محايد`
+
+**Recommendation logic:**
+- `bullish` + confidence > 60 → `buy` / `شراء`
+- `bearish` + confidence > 60 → `sell` / `بيع`
+- else → `hold` / `احتفاظ`
+
+**Fallback chain:**
+1. Python Backend `/api/market/recommendations/ai-insights` via `pythonFetch` → `source: "python_backend"`
+2. `data_engine.db` stocks table — يحسب bullish/bearish counts من change_percent → `source: "local_db"`
+3. On error → `success: true` with neutral sentiment (graceful, never throws 500)
+
+**Errors:** لا يوجد 500 — دايماً بيرجع safe default بـ neutral sentiment.
+
+---
+
+### 🔒 Auth-Required Mobile Endpoints
+
+#### 10. GET `/api/mobile/portfolio`
+
+**الوصف:** محفظة المستخدم - بترجع الأسهم + الذهب + الشهادات + الصناديق.
+
+**Auth:** مطلوب - `Authorization: Bearer <token>`
+
+**Headers:**
+```
+Authorization: Bearer egx_<user_id>_<uuid>_<timestamp>
+```
+
+**Response 200 OK:**
+```json
+{
+  "success": true,
+  "items": [
+    {
+      "id": 1,
+      "type": "stock",
+      "name": "البنك التجاري الدولي",
+      "ticker": "COMI",
+      "quantity": 100,
+      "avg_cost": 60.00,
+      "current_price": 132.39,
+      "market_value": 13239.00,
+      "cost_basis": 6000.00,
+      "unrealized_pnl": 7239.00,
+      "unrealized_pnl_percent": 120.65,
+      "change_percent": 0,
+      "status": "heavy_gain",
+      "status_ar": "ربح كبير",
+      "added_at": "2026-01-10 10:00:00"
+    }
+  ],
+  "positions": [...],
+  "summary": {
+    "total_items": 1,
+    "total_positions": 1,
+    "total_invested": 6000,
+    "total_market_value": 13239,
+    "total_unrealized_pnl": 7239,
+    "total_unrealized_pnl_percent": 120.65,
+    "stocks_count": 1,
+    "gold_items": 0,
+    "certificates_count": 0,
+    "winning_positions": 1,
+    "losing_positions": 0
+  },
+  "by_type": {
+    "stocks": [...],
+    "gold": [...],
+    "certificates": [...],
+    "funds": []
+  }
+}
+```
+
+**Status values (computed from pnl %):**
+| Range | Status | Status AR |
+|-------|--------|-----------|
+| `<= -15%` | `heavy_loss` | خسارة كبيرة |
+| `<= -5%` | `moderate_loss` | خسارة متوسطة |
+| `< 0%` | `slight_loss` | تحت التكلفة |
+| `< 10%` | `slight_gain` | ربح بسيط |
+| `< 25%` | `moderate_gain` | ربح جيد |
+| `>= 25%` | `heavy_gain` | ربح كبير |
+
+**POST variant:** `POST /api/mobile/portfolio` — لإضافة أصل (stock/gold/certificate/fund).
+
+**DELETE variant:** `DELETE /api/mobile/portfolio?id=<asset_id>` — لحذف أصل.
+
+**Fallback chain:**
+1. Prisma `db.$queryRaw` على `portfolio_assets` table
+2. `egx.db` للأسعار الحالية للأسهم
+3. لو السهم مش موجود في `egx.db` → بيستخدم `avg_buy_price` كـ current price
+
+**Errors:**
+- `401` `{ "success": false, "error": "Unauthorized", "error_ar": "يجب تسجيل الدخول" }` — token missing or expired
+- `500` `{ "success": false, "error": "Failed to fetch portfolio", "detail": "...", "items": [], "positions": [] }`
+
+---
+
+#### 11. GET `/api/auth/me`
+
+**الوصف:** بيانات المستخدم الحالي باستخدام Bearer token.
+
+**Auth:** مطلوب - `Authorization: Bearer <token>`
+
+**Response 200 OK:**
+```json
+{
+  "success": true,
+  "user": {
+    "id": "uuid",
+    "email": "user@example.com",
+    "username": "username",
+    "name": "User Name",
+    "image": "https://...|null",
+    "subscription_tier": "free|normal|premium|admin",
+    "default_risk_tolerance": "low|medium|high",
+    "is_admin": false,
+    "is_active": true,
+    "email_verified": true,
+    "last_login": "2026-01-15T10:30:00Z",
+    "created_at": "2024-01-01T00:00:00Z"
+  }
+}
+```
+
+**Fallback chain:**
+1. Prisma `db.apiToken.findUnique({ where: { token }, include: { User: true } })`
+2. `db.userSubscription.findUnique` للـ subscription info — لو مش موجود، بيرجع `user.subscription_tier`
+3. بينشّط `last_used` لكل token valid
+
+**Errors:**
+- `401` `{ "success": false, "error": "Authorization header مطلوب" }` — no header
+- `401` `{ "success": false, "error": "Token غير موجود", "error_en": "Token not found" }` — invalid token
+- `401` `{ "success": false, "error": "Token منتهي الصلاحية", "error_en": "Token expired" }` — expired (auto-deleted)
+- `403` `{ "success": false, "error": "الحساب غير مفعل", "error_en": "Account is deactivated" }` — inactive user
+- `500` `{ "success": false, "error": "حدث خطأ أثناء جلب بيانات المستخدم" }`
+
+---
+
+### 🔧 Phase 11 Fixed Endpoints (Non-Mobile)
+
+#### 12. GET `/api/predictions`
+
+**الوصف:** التوقعات من Python Backend مع fallback لـ predictions.db.
+
+**Auth:** غير مطلوب
+
+**Query params:**
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `type` | string | `all` | فلترة بـ signal: `STRONG_BUY`, `BUY`, `SELL`, etc. |
+| `limit` | int | 50 | عدد النتائج |
+| `market` | string | (none) | فلتر بـ `EGX`, `TADAWUL`, `KSE`, `QSE` |
+
+**Response 200 OK:**
+```json
+{
+  "success": true,
+  "data": [{ "id": "pred_001", "symbol": "COMI", "signal": "BUY", "confidence": 85, "..." : "..." }],
+  "stats": { "total": 50, "avgScore": 78 },
+  "source": "python_backend"
+}
+```
+
+**Fallback chain (3 levels):**
+1. Python Backend `/api/v2/predictions?limit=&signal=&market=` (timeout 8s) → `source: "python_backend"`
+2. `predictions.db` (`getLightDb`) `SELECT * FROM predictions ORDER BY created_at DESC LIMIT ?` → `source: "local_db"`
+3. Empty success → `source: "empty"` with note `"لا توجد توقعات متاحة حالياً"`
+
+**POST variant:** `POST /api/predictions` — بيحوّل لـ Python `/api/v2/predictions` (timeout 15s). بيارجع 500 لو Python مش شغّال.
+
+---
+
+#### 13. GET `/api/stocks/movement-classification`
+
+**الوصف:** تصنيف حركة الأسهم (alive/slow/dead) من `data_engine.db`.
+
+**Auth:** غير مطلوب
+
+**Query params:**
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `ticker` | string | (none) | سهم محدد (case-insensitive) |
+| `min_score` | int | (none) | أقل درجة حركة (0-100) |
+| `type` | string | (none) | فلتر بـ `alive`, `slow`, `dead` |
+
+**Response 200 OK:**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "ticker": "COMI",
+      "name": "البنك التجاري الدولي",
+      "change_percent": 1.95,
+      "volume": 12500000,
+      "movement_type": "alive",
+      "movement_score": 78,
+      "movement_label": "نشط"
+    }
+  ],
+  "count": 245,
+  "total_analyzed": 500,
+  "source": "data_engine"
+}
+```
+
+**Fallback chain:**
+1. `data_engine.db` `SELECT symbol, name, price, change_percent, volume FROM stocks WHERE price > 0 LIMIT 500`
+2. `classifyStockMovement()` per stock (uses change_percent + volume heuristic)
+3. If classifier throws → `getTopMovers('EGX', 50)` fallback → `source: "top_movers_fallback"`
+
+**Errors:**
+- `404` `{ "error": "Stock not found", "ticker": "..." }` — ticker param not found
+- `500` `{ "success": false, "error": "Failed to classify stocks", "detail": "..." }` — both DB and fallback failed
+
+---
+
+#### 14. GET `/api/market/investing`
+
+**الوصف:** بيانات السوق بأسلوب Investing.com - بيستخدم `data_engine.db` (الأصل كان بيعمل scrape من investing.com).
+
+**Auth:** غير مطلوب
+
+**Query params:**
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `market` | string | `EGX` | `EGX`, `TADAWUL`, `KSE`, `QSE` |
+| `limit` | int | 50 | عدد الأسهم |
+
+**Response 200 OK:**
+```json
+{
+  "success": true,
+  "market": "EGX",
+  "source": "data_engine",
+  "fetched_at": "2026-06-18T17:50:19.000Z",
+  "summary": {
+    "total_stocks": 858,
+    "gainers": 246,
+    "losers": 465,
+    "unchanged": 147,
+    "market_breadth": 28.7
+  },
+  "top_gainers": [...],
+  "top_losers": [...],
+  "most_active": [...]
+}
+```
+
+**Fallback chain:**
+1. `data_engine.db` stocks + `getMarketStats(market)` + `getTopMovers(market, min(limit, 20))` → `source: "data_engine"`
+2. On error → `getTopMovers('EGX', 10)` → `source: "fallback"` (EGX only)
+3. Final → `500` `{ "success": false, "error": "Failed to fetch market data" }`
+
+---
+
+#### 15. GET `/api/mobile/maestro`
+
+**الوصف:** نظام المايسترو - التنسيق والتحليل المتقدم.
+
+**Auth:** غير مطلوب
+
+**Query params:**
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `action` | string | `status` | `status`, `signals`, `config`, `personas` |
+
+**Response 200 OK (action=status):**
+```json
+{
+  "success": true,
+  "timestamp": "2026-06-18T17:50:19.000Z",
+  "status": "active",
+  "mode": "balanced",
+  "personas": [
+    { "id": "conservative", "name": "محافظ", "name_en": "Conservative", "risk_level": 1 },
+    { "id": "balanced", "name": "متوازن", "name_en": "Balanced", "risk_level": 2 },
+    { "id": "aggressive", "name": "عدواني", "name_en": "Aggressive", "risk_level": 3 }
+  ],
+  "signals": [],
+  "config": { "max_signals_per_day": 10, "min_confidence": 60, "risk_per_trade": 5, "max_open_positions": 5 },
+  "last_run": "2026-06-18T17:50:19.000Z",
+  "source": "fallback"
+}
+```
+
+**POST variant:** `POST /api/mobile/maestro` — بيحوّل لـ Python `/api/maestro/run` (timeout 30s).
+
+**Fallback chain:**
+1. Python Backend `/api/maestro/{action}` (timeout 15s) → `source: "python_backend"`
+2. Default personas + config → `source: "fallback"`. لو `action=signals`، بيقرأ من `egx.db` (`getHeavyDb`) ويصنف إشارات BUY/SELL/HOLD بناءً على change_percent.
+
+---
+
+#### 16. GET `/api/currency`
+
+**الوصف:** أسعار العملات (compatibility endpoint).
+
+**Auth:** غير مطلوب
+
+**Query params:**
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `action` | string | `list` | `list`, `convert`, etc. |
+
+**Response 200 OK:**
+```json
+{
+  "success": true,
+  "rates": [{ "code": "USD", "rate_to_egp": 50.5 }],
+  "count": 8,
+  "source": "data_engine",
+  "timestamp": "2026-06-18T17:50:19.000Z"
+}
+```
+
+**Fallback chain (3 levels):**
+1. Python Backend `/api/currency/{action}` (timeout 8s)
+2. `data_engine.db` `getLatestExchangeRates()` → `source: "data_engine"`
+3. Empty success → `source: "empty"` مع note `"بيانات العملات غير متاحة حالياً"`
+
+---
+
+#### 17. GET `/api/market/gold`
+
+**الوصف:** أسعار الذهب (compatibility endpoint - نفس `/api/mobile/gold`).
+
+**Auth:** غير مطلوب
+
+**Response 200 OK:**
+```json
+{
+  "success": true,
+  "gold_prices": {
+    "karat_24": 3756.37,
+    "karat_22": 3443.46,
+    "karat_21": 3286.82,
+    "karat_18": 2817.28,
+    "silver": 44.948,
+    "last_updated": "2026-06-18 11:32:44"
+  },
+  "all_countries": { "مصر": { "عيار 24": 3756.37, "عيار 21": 3286.82 }, "السعودية": { "..." : "..." } },
+  "source": "data_engine",
+  "timestamp": "2026-06-18T17:50:19.000Z"
+}
+```
+
+**Fallback chain:** Single source — `data_engine.db` (`getLatestGoldPrices`, `getLatestSilverPrices`). بيفلتر `country === 'مصر'` للـ gold_prices وبيرجع كل الدول في `all_countries`.
+
+**Errors:**
+- `500` `{ "success": false, "error": "فشل في جلب أسعار الذهب", "gold_prices": null }`
+
+---
+
+### 💳 POST Endpoints (Payments, AI, Backtest)
+
+#### 18. POST `/api/instapay` (Create Payment Request)
+
+**الوصف:** إنشاء طلب دفع InstaPay جديد.
+
+**Auth:** مطلوب (user_id in body)
+
+**Request Body:**
+```json
+{
+  "user_id": "uuid",
+  "package_id": "pkg_3",
+  "custom_amount": 100
+}
+```
+
+**Response 200 OK:**
+```json
+{
+  "payment": { "id": "pay_001", "user_id": "uuid", "amount": 85, "points_amount": 1150, "status": "pending", "expires_at": "..." },
+  "instapay_link": "https://ipn.eg/S/enmohsen20111975/instapay/0JMx6z",
+  "instapay_email": "enmohsen20111975@instapay",
+  "instructions": { "ar": ["المبلغ المطلوب: 85 جنيه", "النقاط التي ستستلمها: 1150", "..."] }
+}
+```
+
+**GET variant:** `GET /api/instapay?user_id=<id>` — بيرجع الإعدادات + packages + pending payments.
+
+**Fallback chain:** Prisma `db.pointsPackage.findMany` — لو مفيش packages، بيرجع 5 default packages (Starter 10 EGP → Ultimate 380 EGP).
+
+---
+
+#### 19. POST `/api/instapay/verify`
+
+**الوصف:** إرسال بيانات التحويل للتحقق (بعد ما المستخدم يحوّل عبر InstaPay).
+
+**Auth:** مطلوب (user_id in body - matching payment.user_id)
+
+**Request Body:**
+```json
+{
+  "payment_id": "pay_001",
+  "user_id": "uuid",
+  "sender_name": "Ahmed Ali",
+  "sender_phone": "01012345678",
+  "instapay_ref": "IPX123456789",
+  "notes": "تم التحويل من حسابي"
+}
+```
+
+**Response 200 OK:**
+```json
+{
+  "success": true,
+  "message": "تم إرسال بيانات التحويل بنجاح",
+  "note": "سيتم مراجعة طلبك وإضافة النقاط خلال دقائق"
+}
+```
+
+**GET variant:** `GET /api/instapay/verify?admin_id=<id>&status=pending` — للأدمن، بيرجع المدفوعات المعلقة.
+
+**Fallback chain:**
+1. Prisma `db.instaPayPayment.findUnique`
+2. لو Prisma فشل → `better-sqlite3` direct على `db/auth.db` مع `CREATE TABLE IF NOT EXISTS instaPayPayment`
+3. Update عبر Prisma → fallback لـ SQLite raw UPDATE
+
+**Errors:**
+- `400` `{ "error": "البيانات غير مكتملة" }` — missing payment_id or user_id
+- `403` `{ "error": "غير مصرح" }` — payment.user_id !== body.user_id
+- `404` `{ "error": "طلب الدفع غير موجود" }` — payment not found
+- `500` `{ "error": "حدث خطأ" }`
+
+---
+
+#### 20. POST `/api/paymob/create-payment`
+
+**الوصف:** إنشاء session دفع Paymob (card payment).
+
+**Auth:** مطلوب (NextAuth session, not Bearer token)
+
+**Request Body:**
+```json
+{
+  "plan_id": "normal|premium",
+  "billing_period": "monthly|yearly"
+}
+```
+
+**Response 200 OK:**
+```json
+{
+  "success": true,
+  "payment_url": "https://accept.paymob.com/api/acceptance/iframes/1039291?payment_token=...",
+  "order_id": 12345678,
+  "merchant_order_id": "GLM-<userId>-normal-1718700000000"
+}
+```
+
+**Plan prices (EGP piastres):**
+| Plan | Monthly | Yearly |
+|------|---------|--------|
+| `normal` | 9900 (99 EGP) | 99000 (990 EGP) |
+| `premium` | 19900 (199 EGP) | 199000 (1990 EGP) |
+
+**Errors:**
+- `401` `{ "success": false, "error": "يجب تسجيل الدخول أولاً" }` — no NextAuth session
+- `400` `{ "success": false, "error": "الباقة غير صالحة" }` — invalid plan_id
+- `404` `{ "success": false, "error": "المستخدم غير موجود" }`
+- `500` `{ "success": false, "error": "حدث خطأ أثناء إنشاء عملية الدفع" }`
+
+---
+
+#### 21. POST `/api/subscription/upgrade`
+
+**الوصف:** ترقية الاشتراك - بيولّد JWT payment token وبيوجّه المستخدم لـ `m2y.net/checkout`.
+
+**Auth:** مطلوب (NextAuth session)
+
+**Request Body:**
+```json
+{
+  "plan_id": "normal|premium",
+  "billing_period": "monthly|yearly",
+  "payment_type": "card|instapay"
+}
+```
+
+**Response 200 OK:**
+```json
+{
+  "success": true,
+  "redirect_url": "https://m2y.net/checkout?token=<jwt>",
+  "checkout_url": "https://m2y.net/checkout?token=<jwt>",
+  "token": "<jwt>",
+  "plan_info": {
+    "plan_name": "normal",
+    "plan_name_ar": "عادى",
+    "price": 99,
+    "billing_period": "monthly"
+  }
+}
+```
+
+**Errors:**
+- `401` `{ "success": false, "error": "يجب تسجيل الدخول أولاً" }`
+- `400` `{ "success": false, "error": "يرجى اختيار باقة" }` — missing plan_id
+- `400` `{ "success": false, "error": "الباقة غير موجودة أو غير متاحة" }`
+- `400` `{ "success": false, "error": "لا يمكن الترقية للباقة المجانية. استخدم بدء الفترة التجريبية." }`
+- `404` `{ "success": false, "error": "المستخدم غير موجود" }`
+- `500` `{ "success": false, "error": "حدث خطأ أثناء معالجة الترقية" }`
+
+---
+
+#### 22. POST `/api/ai/chat`
+
+**الوصف:** محادثة مع DeepSeek AI مع memory و web search.
+
+**Auth:** مطلوب (تنفيذي عبر rate limits، شوف [AI Chat APIs](#-ai-chat-apis))
+
+**Request Body:**
+```json
+{
+  "message": "ايه رأيك في سهم COMI؟",
+  "context": { "page": "stock_detail", "ticker": "COMI" }
+}
+```
+
+**Response 200 OK:**
+```json
+{
+  "success": true,
+  "reply": "بناءً على تحليلي لسهم COMI...",
+  "model": "deepseek-chat",
+  "tool_used": "deepseek-v3",
+  "confidence": "high",
+  "reasoning": null,
+  "memory_used": true,
+  "response_time_ms": 1250
+}
+```
+
+شوف التفاصيل الكاملة في قسم [AI Chat APIs](#-ai-chat-apis).
+
+---
+
+#### 23. POST `/api/ai/batch-analysis`
+
+**الوصف:** تحليل دفعي لمجموعة من الأسهم دفعة واحدة.
+
+**Auth:** غير مطلوب (لكن rate-limited)
+
+**Request Body:**
+```json
+{
+  "tickers": ["COMI", "HRHO", "EMGR"],
+  "options": {
+    "horizon": "short|medium|long",
+    "risk_level": "low|medium|high",
+    "include_fundamentals": true
+  }
+}
+```
+
+**Response 200 OK:**
+```json
+{
+  "success": true,
+  "results": [
+    {
+      "ticker": "COMI",
+      "analysis": "السهم في وضع صاعد قوي مع زخم إيجابي",
+      "score": 85,
+      "recommendation": "شراء قوي"
+    }
+  ],
+  "source": "python|stub"
+}
+```
+
+**Fallback chain:**
+1. Python Backend `/api/v2/batch-analysis` (timeout 10s) → `source: "python"`
+2. Stub per ticker (hash-based deterministic) → `source: "stub"` + message `"تم استخدام ردود افتراضية لأن Python backend غير متاح"`
+3. On any error → `success: true` مع `results: []` (200 OK, never 500)
+
+**Stub scoring:**
+- score 80-99 → `شراء قوي`
+- score 65-79 → `شراء`
+- score 50-64 → `تجميع`
+- score < 50 → `مراقبة`
+
+**GET variant:** `GET /api/ai/batch-analysis?tickers=COMI,HRHO` — بيرجع stub فقط.
+
+---
+
+#### 24. POST `/api/kimi/backtest/run`
+
+**الوصف:** تشغيل Backtest لاستراتيجية معينة باستخدام Kimi.
+
+**Auth:** غير مطلوب
+
+**Request Body:**
+```json
+{
+  "strategy": "rsi_divergence",
+  "start_date": "2024-01-01",
+  "end_date": "2024-12-31",
+  "initial_capital": 100000,
+  "tickers": ["COMI", "HRHO"]
+}
+```
+
+**Response 200 OK:**
+```json
+{
+  "success": true,
+  "results": {
+    "total_return": 12.5,
+    "win_rate": 65.0,
+    "trades_count": 24,
+    "equity_curve": [
+      { "date": "2024-01-01", "equity": 100000 },
+      { "date": "2024-01-02", "equity": 100500 }
+    ],
+    "strategy": "rsi_divergence",
+    "start_date": "2024-01-01",
+    "end_date": "2024-12-31",
+    "initial_capital": 100000,
+    "final_capital": 112500
+  },
+  "source": "python|stub"
+}
+```
+
+**Fallback chain:**
+1. Python Backend `/api/kimi/backtest/run` (timeout 10s) → `source: "python"`
+2. Stub with 30-day flat equity curve → `source: "stub"` + message `"تم استخدام ردود افتراضية لأن خدمة Kimi backtest غير متاحة"`. القيم: `total_return: 0, win_rate: 0, trades_count: 0`.
+3. On error → `success: true` مع stub results (200 OK, never 500)
+
+**GET variant:** بيرجع instructions + stub sample.
+
+---
+
+#### 25. POST `/api/walk-forward/run`
+
+**الوصف:** تشغيل Walk-Forward Analysis لاستراتيجية وسهم معين.
+
+**Auth:** غير مطلوب
+
+**Request Body:**
+```json
+{
+  "strategy": "mean_reversion",
+  "ticker": "COMI",
+  "start_date": "2024-01-01",
+  "end_date": "2024-12-31"
+}
+```
+
+**Response 200 OK:**
+```json
+{
+  "success": true,
+  "results": {
+    "periods": [
+      { "name": "فترة 1", "return": 2.5, "sharpe": 1.2, "drawdown": -3.5 },
+      { "name": "فترة 2", "return": -1.0, "sharpe": -0.5, "drawdown": -5.0 }
+    ],
+    "avg_return": 1.5,
+    "sharpe_ratio": 0.8,
+    "max_drawdown": -5.0,
+    "strategy": "mean_reversion",
+    "ticker": "COMI"
+  },
+  "source": "python|stub"
+}
+```
+
+**Fallback chain:**
+1. Python Backend `/api/walk-forward/run` (timeout 10s) → `source: "python"`
+2. Stub with 6 periods of zeros → `source: "stub"`
+3. On error → `success: true` مع stub results (200 OK, never 500)
+
+---
+
+#### 26. POST `/api/unified-learning/iterative`
+
+**الوصف:** تشغيل دورة تعلم تكرارية.
+
+**Auth:** غير مطلوب
+
+**Request Body:**
+```json
+{
+  "iterations": 10,
+  "learning_rate": 0.01,
+  "persona": "balanced",
+  "target_win_rate": 75
+}
+```
+
+**Response 200 OK:**
+```json
+{
+  "success": true,
+  "iteration": 10,
+  "accuracy": 0.78,
+  "loss": 0.42,
+  "source": "python|stub"
+}
+```
+
+**Fallback chain:**
+1. Python Backend `/api/unified-learning/iterative` (timeout 10s) → `source: "python"`
+2. Stub → `iteration: 0, accuracy: 0.5, loss: 1.0` → `source: "stub"`
+3. On error → `success: true` مع stub (200 OK)
+
+---
+
+#### 27. POST `/api/unified-learning/mine-lessons`
+
+**الوصف:** استخراج دروس من فترة زمنية محددة.
+
+**Auth:** غير مطلوب
+
+**Request Body:**
+```json
+{
+  "start_date": "2024-01-01",
+  "end_date": "2024-12-31",
+  "min_confidence": 0.5
+}
+```
+
+**Response 200 OK:**
+```json
+{
+  "success": true,
+  "lessons": [
+    {
+      "pattern": "rsi_oversold_bounce",
+      "success_rate": 78.5,
+      "examples_count": 24
+    }
+  ],
+  "source": "python|stub"
+}
+```
+
+**Fallback chain:**
+1. Python Backend `/api/unified-learning/mine-lessons` (timeout 10s) → `source: "python"`
+2. Stub → `lessons: []` → `source: "stub"`
+3. On error → `success: true` مع `lessons: []` (200 OK)
+
+---
+
+#### 28. POST `/api/auth/login`
+
+**الوصف:** تسجيل دخول الموبايل - بيرجع Bearer token.
+
+**Auth:** غير مطلوب (هذا هو endpoint الـ login)
+
+**Request Body:**
+```json
+{
+  "username_or_email": "user@example.com",
+  "password": "password123"
+}
+```
+
+**Response 200 OK:**
+```json
+{
+  "success": true,
+  "message": "Login successful",
+  "message_ar": "تم تسجيل الدخول بنجاح",
+  "user": {
+    "id": "uuid",
+    "email": "user@example.com",
+    "username": "username",
+    "name": "User Name",
+    "image": null,
+    "subscription_tier": "free",
+    "is_admin": false
+  },
+  "token": "egx_<user_id>_<uuid>_<timestamp>",
+  "token_type": "Bearer",
+  "expires_in": 2592000
+}
+```
+
+**Token format:** `egx_<user_id>_<uuid>_<timestamp>` — بيتبعت في `Authorization: Bearer <token>` لكل الـ endpoints المحتاجة auth.
+
+**Token expiry:** 30 days (2,592,000 seconds)
+
+**Errors:**
+- `400` `{ "success": false, "error": "اسم المستخدم أو البريد الإلكتروني مطلوب" }` — missing field
+- `400` `{ "success": false, "error": "كلمة المرور مطلوبة" }` — missing password
+- `401` `{ "success": false, "error": "المستخدم غير موجود" }` — user not found
+- `401` `{ "success": false, "error": "كلمة المرور غير صحيحة" }` — wrong password
+- `401` `{ "success": false, "error": "يرجى تسجيل الدخول عبر جوجل" }` — Google-only account
+- `403` `{ "success": false, "error": "الحساب غير مفعل" }` — inactive
+- `503` `{ "success": false, "error": "قاعدة البيانات غير متاحة حالياً" }` — DB error
+- `500` `{ "success": false, "error": "حدث خطأ أثناء تسجيل الدخول" }`
+
+---
+
+#### 29. POST `/api/auth/register`
+
+**الوصف:** تسجيل مستخدم جديد.
+
+**Auth:** غير مطلوب
+
+**Request Body:**
+```json
+{
+  "email": "user@example.com",
+  "username": "username",
+  "password": "password123",
+  "risk_tolerance": "low|medium|high"
+}
+```
+
+**Response 200 OK:**
+```json
+{
+  "success": true,
+  "message": "تم إنشاء الحساب بنجاح",
+  "user": {
+    "id": "uuid",
+    "email": "user@example.com",
+    "username": "username",
+    "default_risk_tolerance": "medium"
+  },
+  "api_key": "egx_<user_id>_<timestamp>"
+}
+```
+
+**Validation:**
+- email: required (string)
+- username: required (string, ≥ 3 chars)
+- password: required (string, ≥ 8 chars)
+
+**Errors:**
+- `400` `{ "success": false, "error": "<field> مطلوب" }` — missing field
+- `400` `{ "success": false, "error": "اسم المستخدم يجب أن يكون 3 أحرف على الأقل" }`
+- `400` `{ "success": false, "error": "كلمة المرور يجب أن تكون 8 أحرف على الأقل" }`
+- `409` `{ "success": false, "error": "البريد الإلكتروني مستخدم بالفعل" }`
+- `409` `{ "success": false, "error": "اسم المستخدم مستخدم بالفعل" }`
+- `503` `{ "success": false, "error": "قاعدة البيانات غير متاحة حالياً. يرجى المحاولة لاحقاً." }` — DB connection failed
+- `500` `{ "success": false, "error": "حدث خطأ أثناء إنشاء الحساب" }`
+
+---
+
+#### 30. POST `/api/auth/google`
+
+**الوصف:** تسجيل دخول الموبايل عبر Google ID Token.
+
+**Auth:** غير مطلوب
+
+**Request Body:**
+```json
+{
+  "id_token": "google_id_token_from_sdk"
+}
+```
+
+**Response 200 OK:**
+```json
+{
+  "success": true,
+  "message": "Google login successful",
+  "message_ar": "تم تسجيل الدخول عبر جوجل بنجاح",
+  "user": {
+    "id": "uuid",
+    "email": "user@gmail.com",
+    "username": "user",
+    "name": "User Name",
+    "image": "https://lh3.google...",
+    "subscription_tier": "free",
+    "is_admin": false
+  },
+  "token": "egx_<user_id>_<uuid>_<timestamp>",
+  "token_type": "Bearer",
+  "expires_in": 2592000,
+  "is_new_user": false
+}
+```
+
+**Verification:**
+- بيستخدم Google OAuth `https://oauth2.googleapis.com/tokeninfo?id_token=...`
+- بيقبل Web Client ID (`GOOGLE_CLIENT_ID`) أو أي من `GOOGLE_ANDROID_CLIENT_IDS` (comma-separated)
+
+**Errors:**
+- `400` `{ "success": false, "error": "Google ID token مطلوب" }` — missing id_token
+- `400` `{ "success": false, "error": "لم يتم العثور على بريد إلكتروني" }` — no email in token
+- `401` `{ "success": false, "error": "فشل التحقق من Google token", "error_en": "..." }` — verification failed
+- `403` `{ "success": false, "error": "الحساب غير مفعل" }` — inactive user
+- `500` `{ "success": false, "error": "حدث خطأ أثناء تسجيل الدخول عبر جوجل", "error_en": "..." }`
+
+---
+
+## 🔐 Authentication Requirements
+
+> **مرجع سريع:** كل الـ endpoints مقسّمة لـ 3 مجموعات بناءً على نوع الـ auth المطلوب.
+
+### 🟢 Free (No Auth Required)
+
+الـ endpoints دي بتشتغل من غير token، أي حد ممكن يطلبها. مفياش حد أقصى للمستخدمين المجانيين على مستوى الـ API (الحدود بتكون على مستوى الـ rate limit العام).
+
+| Endpoint | Method | Quota |
+|----------|--------|-------|
+| `/api/mobile/dashboard` | GET | — |
+| `/api/mobile/market/overview` | GET | — |
+| `/api/mobile/recommendations` | GET | ⚠️ لا يوجد حد 3 عناصر إجباري — العميل يبعت `limit=3` |
+| `/api/mobile/predictions` | GET | ⚠️ لا يوجد حد 3 عناصر إجباري — العميل يبعت `limit=3` |
+| `/api/mobile/news` | GET | — |
+| `/api/mobile/gold` | GET | — |
+| `/api/mobile/currency` | GET | — |
+| `/api/mobile/stocks/[ticker]` | GET | — |
+| `/api/mobile/market/recommendations/ai-insights` | GET | — |
+| `/api/mobile/maestro` | GET/POST | — |
+| `/api/predictions` | GET/POST | — |
+| `/api/stocks/movement-classification` | GET | — |
+| `/api/market/investing` | GET | — |
+| `/api/market/gold` | GET | — |
+| `/api/market/overview` | GET | — |
+| `/api/currency` | GET | — |
+| `/api/stocks` | GET | — |
+| `/api/stocks/[ticker]` | GET | — |
+| `/api/health` | GET | — |
+| `/api/ai/batch-analysis` | POST/GET | rate-limited |
+| `/api/kimi/backtest/run` | POST/GET | rate-limited (stub fallback) |
+| `/api/walk-forward/run` | POST/GET | rate-limited (stub fallback) |
+| `/api/unified-learning/iterative` | POST/GET | rate-limited (stub fallback) |
+| `/api/unified-learning/mine-lessons` | POST/GET | rate-limited (stub fallback) |
+
+### 🔒 Bearer Token Required (401 لو مفيش token)
+
+الـ endpoints دي بترجع `401 Unauthorized` لو الـ `Authorization: Bearer <token>` header مش موجود أو الـ token منتهي/غير صالح.
+
+| Endpoint | Method | Notes |
+|----------|--------|-------|
+| `/api/auth/me` | GET | بيانات المستخدم الحالي |
+| `/api/mobile/portfolio` | GET/POST/DELETE | محفظة المستخدم (stocks, gold, certificates) |
+| `/api/mobile/alerts/settings` | GET/POST/DELETE | إعدادات التنبيهات |
+| `/api/mobile/notifications` | GET/POST | الإشعارات (بترجع empty لو مفيش token، مش 401 — هذه ملاحظة مهمة) |
+| `/api/watchlist` | GET/POST | قائمة المراقبة |
+| `/api/watchlist/[id]` | DELETE | حذف من القائمة |
+| `/api/portfolio` | GET/POST | محفظة الويب |
+| `/api/subscription/current` | GET | الاشتراك الحالي |
+| `/api/subscription/check-access` | GET | فحص الصلاحيات |
+
+**Token format:** `egx_<user_id>_<uuid>_<timestamp>` (يتولّد من `/api/auth/login` أو `/api/auth/google`).
+**Expiry:** 30 يوم (2,592,000 ثانية).
+**Storage:** في Prisma `api_tokens` table.
+
+### 🍪 NextAuth Session Required (Not Bearer)
+
+الـ endpoints دي بتستخدم NextAuth session (cookie-based)، مش Bearer token. مهمين للويب مش للموبايل.
+
+| Endpoint | Method | Notes |
+|----------|--------|-------|
+| `/api/paymob/create-payment` | POST | إنشاء دفع Paymob |
+| `/api/subscription/upgrade` | POST | ترقية الاشتراك |
+| `/api/subscription/activate` | POST | تفعيل الاشتراك |
+| `/api/subscription/start-trial` | POST | بدء فترة تجريبية |
+| `/api/subscription/deactivate` | POST | إلغاء الاشتراك |
+| `/api/admin/*` | GET/POST | كل endpoints الأدمن |
+
+> 📱 **للموبايل:** استخدم `/api/auth/login` أو `/api/auth/google` للحصول على Bearer token، وبعدين استخدمه في كل الطلبات. الـ NextAuth session endpoints دي للويب بس.
+
+### 🔑 Body-Based Auth (user_id in body)
+
+الـ endpoints دي بتعتمد على `user_id` في الـ body (مش الـ header). مهمة للـ InstaPay flow.
+
+| Endpoint | Method | Notes |
+|----------|--------|-------|
+| `/api/instapay` | POST | إنشاء طلب دفع (user_id + package_id) |
+| `/api/instapay/verify` | POST | التحقق من التحويل (user_id + payment_id) — لازم يطابق payment.user_id |
+
+> ⚠️ **تحذير أمان:** الـ body-based auth أقل أماناً من الـ Bearer token. يُفضّل ترحيل الـ InstaPay endpoints لاستخدام Bearer token في Phase قادمة.
+
+### 🔑 Admin Required (subscription_tier = 'admin')
+
+الـ endpoints دي بترجع `403 Forbidden` لو المستخدم مش admin.
+
+| Endpoint | Method | Notes |
+|----------|--------|-------|
+| `/api/admin/*` | GET/POST | كل endpoints الأدمن |
+| `/api/instapay/verify?admin_id=...` | GET | جلب المدفوعات المعلقة |
+| `/api/instapay/approve` | POST | اعتماد InstaPay يدوياً |
+
+**Admin check:** `user.subscription_tier === 'admin'`
 
 ---
 
@@ -3177,6 +4634,49 @@ Expires: 0
 - **Authenticated:** 300 requests/minute
 - **Premium:** 1000 requests/minute
 - **AI chat:** 20 messages/minute per user
+
+### 🆓 Free User Quotas & Limits
+
+الـ quotas دي خاصة بـ free tier (`subscription_tier === 'free'`). مهمة لمطوري الموبايل عشان يعرفوا الحدود.
+
+| Resource | Free Tier | Normal Tier | Premium Tier |
+|----------|-----------|-------------|--------------|
+| Watchlist items | 5 | 25 | 100 |
+| Portfolio positions | 1 | 10 | 50 |
+| Active alerts | 3 | 15 | 50 |
+| AI analysis per day | 0 (blocked) | 20 | unlimited |
+| Deep analysis (R1) | 0 (blocked) | 5/day | unlimited |
+| Priority support | ❌ | ❌ | ✅ |
+| Predictions export PDF | ❌ | ✅ | ✅ |
+| Multi-market data | EGX only | EGX + TADAWUL | All 7 markets |
+
+#### ⚠️ مهم: حدود الـ Mobile Endpoints
+
+**`/api/mobile/recommendations` و `/api/mobile/predictions`** — الكود الحالي **لا يفرض** حد 3 عناصر إجباري على المستخدم المجاني. العميل (Flutter/React Native) لازم يبعت `limit=3` بنفسه:
+
+```dart
+// ✅ صح: حد صريح 3 عناصر للمستخدم المجاني
+final response = await http.get(
+  Uri.parse('$baseUrl/api/mobile/recommendations?limit=3'),
+);
+
+// ❌ غلط: الكود بيرجع 10 افتراضياً (مش 3)
+final response = await http.get(
+  Uri.parse('$baseUrl/api/mobile/recommendations'),
+);
+```
+
+> 📌 **التوصية:** يُفضّل إضافة middleware للسيرفر يفرض `limit=3` على free users تلقائياً في Phase قادمة.
+
+#### 🚫 Endpoints المحجوبة عن Free Users
+
+الـ endpoints دي بترجع `403 Forbidden` للمستخدمين المجانيين (لو الـ auth middleware شغّال):
+
+- `/api/advanced-analysis` (deep analysis)
+- `/api/ai/chat` (لو `subscription_tier === 'free'` — لكن الكود الحالي مش بيفرض ده، اعتماداً على rate limits)
+- `/api/predictions/export-pdf`
+- `/api/finance/smart-confluence` (لو اتحطت ورا paywall)
+- Multi-market data لـ TADAWUL/KSE/QSE (لو فعلتها)
 
 ### Recommended Mobile Polling Intervals
 
@@ -4010,6 +5510,7 @@ Authorization: Bearer <your_token>
 - **Total API routes (Next.js):** 360
 - **Python blueprints:** 42
 - **Mobile-specific endpoints:** 24+
+- **Phase 11 audited endpoints:** 30 (9 mobile free + 2 mobile auth + 7 fixed + 12 POST/auth)
 - **Total documented endpoints:** 200+
 - **Multi-market support:** 7 markets (EGX, TADAWUL, KSE, QSE, DFM, ADX, BSE)
 - **Auth methods:** Email/Password, Google OAuth
@@ -4022,6 +5523,7 @@ Authorization: Bearer <your_token>
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 18.0 | Jun 2026 | **Phase 11 Mobile API Audit (Task #14):** Added comprehensive Phase 11 Mobile API Audit section documenting all 9 mobile endpoints + 8 fixed endpoints + 11 POST endpoints. New "Authentication Requirements" section classifying endpoints into Free / Bearer Token / NextAuth / Body-based / Admin. New "Free User Quotas & Limits" subsection in Rate Limits & Timeouts. Per-endpoint Error Handling documentation. Live audit verified all 9 free endpoints return 200 OK; `/api/auth/me` correctly returns 401 without token. |
 | 17.0 | Jan 2026 | Complete rewrite for mobile app. Added Mobile Integration Guide, JSON schemas, polling intervals, caching strategy, retry logic. |
 | 16.0 | Dec 2025 | Initial API Handbook |
 

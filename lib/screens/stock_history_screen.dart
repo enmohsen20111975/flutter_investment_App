@@ -51,7 +51,8 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
       }),
       api.getStockDetail(widget.ticker, flat: true).then((dynamic response) {
         if (response is Map) {
-          return Stock.fromJson(Map<String, dynamic>.from(response));
+          final dataMap = response['data'] ?? response;
+          return Stock.fromJson(Map<String, dynamic>.from(dataMap as Map));
         }
         return Stock(ticker: widget.ticker);
       }).catchError((e) {
@@ -508,7 +509,7 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
   }
 
   Widget _buildAnalysisContent(Map<String, dynamic> analysis) {
-    final rawAnalysis = analysis['analysis'];
+    final rawAnalysis = analysis['analysis'] ?? analysis['data'];
     final Map<String, dynamic> data = (rawAnalysis is Map)
         ? Map<String, dynamic>.from(rawAnalysis)
         : analysis;
@@ -596,11 +597,28 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
 
   Widget _buildFundamentalsCard(Map<String, dynamic> f) {
     final fields = <MapEntry<String, String>>[];
-    final rawFundamentals = f['fundamentals'];
-    final Map<String, dynamic> entries = (rawFundamentals is Map)
-        ? Map<String, dynamic>.from(rawFundamentals)
-        : f;
-    for (final e in entries.entries) {
+    
+    Map<String, dynamic>? entriesMap;
+    if (f['data'] is List && (f['data'] as List).isNotEmpty) {
+      entriesMap = Map<String, dynamic>.from((f['data'] as List).first as Map);
+    } else if (f['fundamentals'] is Map) {
+      entriesMap = Map<String, dynamic>.from(f['fundamentals'] as Map);
+    } else if (f['data'] is Map) {
+      entriesMap = Map<String, dynamic>.from(f['data'] as Map);
+    } else {
+      final cleanMap = Map<String, dynamic>.from(f);
+      cleanMap.removeWhere((key, value) => 
+        key == 'success' || key == 'total' || key == 'fetched' || 
+        key == 'failed' || key == 'errors' || key == 'source' || key == 'timestamp'
+      );
+      if (cleanMap.isNotEmpty) {
+        entriesMap = cleanMap;
+      }
+    }
+    
+    if (entriesMap == null || entriesMap.isEmpty) return const SizedBox.shrink();
+
+    for (final e in entriesMap.entries) {
       if (e.value != null && e.value is! Map && e.value is! List) {
         fields.add(MapEntry(e.key, e.value.toString()));
       }

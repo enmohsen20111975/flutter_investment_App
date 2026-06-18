@@ -88,6 +88,8 @@ class _MainNavigatorState extends State<MainNavigator> {
     _loadSelectedMarket();
     _loadMarketOptions();
     _startNotificationPolling();
+    // Restore auth token into singleton so interceptors send it on every request
+    _restoreAuthToken();
     // Defer auth check to post-frame callback to avoid blocking UI
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _checkAuth();
@@ -110,15 +112,24 @@ class _MainNavigatorState extends State<MainNavigator> {
 
   Future<void> _fetchNotificationCount() async {
     try {
-      final data = await api.getMobileNotifications();
-      final items = data['notifications'] ?? data['data'] ?? data;
-      final list = items is List ? items : [];
+      final response = await api.getMobileNotifications();
+      final Map<String, dynamic> data = <String, dynamic>{};
+      if (response is Map) {
+        final Map<dynamic, dynamic> rawMap = response as Map<dynamic, dynamic>;
+        for (final entry in rawMap.keys) {
+          final key = entry.toString();
+          data[key] = rawMap[entry];
+        }
+      }
+      final dynamic rawNotifications = data['notifications'] ?? data['data'];
+      final List<dynamic> list =
+          rawNotifications is List ? rawNotifications : <dynamic>[];
       int unread = 0;
       for (final item in list) {
-        if (item is Map) {
-          final isRead = item['is_read'] == true || item['read'] == true;
-          if (!isRead) unread++;
-        }
+        final Map<dynamic, dynamic> map =
+            item is Map ? item as Map<dynamic, dynamic> : <dynamic, dynamic>{};
+        final isRead = map['is_read'] == true || map['read'] == true;
+        if (!isRead) unread++;
       }
       if (mounted) {
         setState(() => _notificationCount = unread);
@@ -211,6 +222,16 @@ class _MainNavigatorState extends State<MainNavigator> {
         }
       });
     }
+  }
+
+  Future<void> _restoreAuthToken() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('auth_token');
+      if (token != null && token.isNotEmpty) {
+        api.setAuthToken(token);
+      }
+    } catch (_) {}
   }
 
   Future<void> _loadUserData() async {

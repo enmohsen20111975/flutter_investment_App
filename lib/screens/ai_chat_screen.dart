@@ -6,9 +6,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../theme/colors.dart';
-import '../theme/typography.dart';
 import '../api/client.dart';
-import '../widgets/state_view.dart';
 
 class ChatMessage {
   final String role;
