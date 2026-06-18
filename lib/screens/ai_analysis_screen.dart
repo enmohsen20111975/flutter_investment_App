@@ -246,9 +246,9 @@ class _AiAnalysisScreenState extends State<AiAnalysisScreen>
         parseDouble(data['confidence'] ?? data['overall_confidence'] ?? 0) ??
             0.0;
     final signals =
-        (data['signals'] as List?)?.cast<Map<String, dynamic>>() ?? [];
+        (data['signals'] as List?)?.map((e) => Map<String, dynamic>.from(e as Map)).toList() ?? <Map<String, dynamic>>[];
     final recommendations =
-        (data['recommendations'] as List?)?.cast<Map<String, dynamic>>() ?? [];
+        (data['recommendations'] as List?)?.map((e) => Map<String, dynamic>.from(e as Map)).toList() ?? <Map<String, dynamic>>[];
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

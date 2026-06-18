@@ -63,8 +63,7 @@ class _RecommendationsScreenState extends State<RecommendationsScreen> {
       final aiInsights = await api.getMarketAiInsights();
       final reportsResponse = await api.getMorningReports();
       final reports =
-          (reportsResponse['reports'] as List?)?.cast<Map<String, dynamic>>() ??
-              [];
+          (reportsResponse['reports'] as List?)?.map((e) => Map<String, dynamic>.from(e as Map)).toList() ?? <Map<String, dynamic>>[];
 
       return RecommendationsData(
         recommendations: recs,
@@ -472,8 +471,7 @@ class _RecommendationsScreenState extends State<RecommendationsScreen> {
         insights['market_outlook']?.toString() ??
         '';
     final recommendations =
-        (insights['recommendations'] as List?)?.cast<Map<String, dynamic>>() ??
-            [];
+        (insights['recommendations'] as List?)?.map((e) => Map<String, dynamic>.from(e as Map)).toList() ?? <Map<String, dynamic>>[];
 
     return Container(
       padding: const EdgeInsets.all(14),

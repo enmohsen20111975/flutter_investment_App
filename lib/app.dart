@@ -324,7 +324,7 @@ class _MainNavigatorState extends State<MainNavigator> {
           child: BottomNavigationBar(
             currentIndex: _currentIndex,
             onTap: (index) => setState(() => _currentIndex = index),
-            items: [
+            items: const [
               BottomNavigationBarItem(
                 icon: Icon(Icons.home_rounded, color: AppColors.textMuted),
                 activeIcon: Icon(Icons.home, color: AppColors.primaryGlow),

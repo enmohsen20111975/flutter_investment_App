@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../api/client.dart';
+import '../models/json_helpers.dart';
 
 class FeatureAccessResult {
   final String feature;
@@ -28,17 +29,17 @@ class FeatureAccessResult {
 
   factory FeatureAccessResult.fromJson(Map<String, dynamic> json) =>
       FeatureAccessResult(
-        feature: json['feature'] ?? '',
-        hasAccess: json['has_access'] ?? false,
-        reason: json['reason'],
-        reasonEn: json['reason_en'],
-        tier: json['tier'] ?? 'free',
-        remainingToday: json['remaining_today'] ?? 0,
-        limitPerDay: json['limit_per_day'] as int?,
+        feature: parseString(json['feature']) ?? '',
+        hasAccess: parseBool(json['has_access']) ?? false,
+        reason: parseString(json['reason']),
+        reasonEn: parseString(json['reason_en']),
+        tier: parseString(json['tier']) ?? 'free',
+        remainingToday: parseInt(json['remaining_today']) ?? 0,
+        limitPerDay: parseInt(json['limit_per_day']),
         resetsAt: json['resets_at'] != null
             ? DateTime.tryParse(json['resets_at'].toString())
             : null,
-        upgradeTo: json['upgrade_to'],
+        upgradeTo: parseString(json['upgrade_to']),
       );
 }
 
@@ -110,13 +111,24 @@ class SubscriptionStatus {
   }
 
   factory SubscriptionStatus.fromJson(Map<String, dynamic> json) {
-    final sub = json['subscription'] as Map<String, dynamic>? ?? json;
-    final usage = json['usage_today'] as Map<String, dynamic>? ?? {};
-    final limitMap = json['limits'] as Map<String, dynamic>? ?? {};
+    final rawSub = json['subscription'];
+    final Map<String, dynamic> sub = (rawSub is Map)
+        ? Map<String, dynamic>.from(rawSub)
+        : json;
+        
+    final rawUsage = json['usage_today'];
+    final Map<String, dynamic> usage = (rawUsage is Map)
+        ? Map<String, dynamic>.from(rawUsage)
+        : {};
+
+    final rawLimits = json['limits'];
+    final Map<String, dynamic> limitMap = (rawLimits is Map)
+        ? Map<String, dynamic>.from(rawLimits)
+        : {};
 
     return SubscriptionStatus(
       tier: (sub['tier'] ?? sub['plan_id'] ?? 'free').toString().toLowerCase(),
-      isTrial: sub['is_trial'] == true,
+      isTrial: parseBool(sub['is_trial']) ?? false,
       isActive: (sub['status'] ?? 'active') == 'active' ||
           (sub['status'] ?? 'active') == 'trialing',
       expiresAt: sub['expires_at'] != null
@@ -125,12 +137,12 @@ class SubscriptionStatus {
       trialEndsAt: sub['trial_ends_at'] != null
           ? DateTime.tryParse(sub['trial_ends_at'].toString())
           : null,
-      paymentProvider: sub['payment_provider']?.toString(),
-      usageToday: usage.map((k, v) => MapEntry(k, v as int? ?? 0)),
-      limits: limitMap.map((k, v) => MapEntry(k, v as int?)),
-      maxWatchlist: limitMap['max_watchlist_items'] as int? ?? 3,
-      maxPortfolio: limitMap['max_portfolio_items'] as int? ?? 3,
-      maxDailyAiAnalysis: limitMap['max_ai_analysis_per_day'] as int? ?? 2,
+      paymentProvider: parseString(sub['payment_provider']),
+      usageToday: usage.map((k, v) => MapEntry(k, parseInt(v) ?? 0)),
+      limits: limitMap.map((k, v) => MapEntry(k, parseInt(v))),
+      maxWatchlist: parseInt(limitMap['max_watchlist_items']) ?? 3,
+      maxPortfolio: parseInt(limitMap['max_portfolio_items']) ?? 3,
+      maxDailyAiAnalysis: parseInt(limitMap['max_ai_analysis_per_day']) ?? 2,
     );
   }
 
@@ -212,7 +224,7 @@ class SubscriptionService {
       return FeatureAccessResult.fromJson(response.data);
     } catch (e) {
       debugPrint('[Subscription] check-access failed: $e');
-      await getStatus(forceRefresh: true);
+      await getStatus(forceRefresh: false);
       final has = _currentStatus?.hasFeature(feature) ?? false;
       return FeatureAccessResult(
         feature: feature,

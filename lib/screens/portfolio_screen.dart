@@ -370,17 +370,20 @@ class _PortfolioScreenState extends State<PortfolioScreen> {
                     const SizedBox(height: 16),
 
                     // Choice Chips Category Selector
-                    Row(
-                      children: [
-                        _buildCategoryChip(
-                            'stock', 'الأسهم 📈', Icons.trending_up),
-                        const SizedBox(width: 8),
-                        _buildCategoryChip('crypto', 'العملات الرقمية ₿',
-                            Icons.currency_bitcoin),
-                        const SizedBox(width: 8),
-                        _buildCategoryChip('gold', 'الذهب والمعادن 💰',
-                            Icons.diamond_outlined),
-                      ],
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: [
+                          _buildCategoryChip(
+                              'stock', 'الأسهم 📈', Icons.trending_up),
+                          const SizedBox(width: 8),
+                          _buildCategoryChip('crypto', 'العملات الرقمية ₿',
+                              Icons.currency_bitcoin),
+                          const SizedBox(width: 8),
+                          _buildCategoryChip('gold', 'الذهب والمعادن 💰',
+                              Icons.diamond_outlined),
+                        ],
+                      ),
                     ),
                     const SizedBox(height: 12),
 
@@ -766,7 +769,7 @@ class _PortfolioScreenState extends State<PortfolioScreen> {
     final diversification = a['diversification_score'] as num?;
     final riskLevel = a['risk_level']?.toString() ?? '';
     final recommendations =
-        (a['recommendations'] as List?)?.cast<String>() ?? [];
+        (a['recommendations'] as List?)?.cast<String>().toList() ?? <String>[];
     final sectorBreakdown =
         a['sector_breakdown'] as Map<String, dynamic>? ?? {};
     final breakdown = _getCategoryBreakdown(data);

@@ -59,9 +59,18 @@ class WatchlistResponse {
   
   WatchlistResponse({required this.success, required this.items, required this.total});
   
-  factory WatchlistResponse.fromJson(Map<String, dynamic> json) => WatchlistResponse(
-        success: json['success'] ?? false,
-        items: (json['items'] as List?)?.map((e) => WatchlistItem.fromJson(e)).toList() ?? [],
-        total: parseInt(json['total']) ?? 0,
-      );
+  factory WatchlistResponse.fromJson(Map<String, dynamic> json) {
+    final rawItems = json['items'];
+    final itemsList = rawItems is List ? rawItems : [];
+    final items = itemsList
+        .map((e) => e is Map ? WatchlistItem.fromJson(Map<String, dynamic>.from(e)) : null)
+        .where((e) => e != null)
+        .cast<WatchlistItem>()
+        .toList();
+    return WatchlistResponse(
+      success: parseBool(json['success']) ?? false,
+      items: items,
+      total: parseInt(json['total']) ?? 0,
+    );
+  }
 }

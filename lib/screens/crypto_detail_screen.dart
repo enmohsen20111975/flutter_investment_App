@@ -476,8 +476,11 @@ class _CryptoDetailScreenState extends State<CryptoDetailScreen> {
   Widget _buildMarketData(Map<String, dynamic> d) {
     final items = <MapEntry<String, String>>[];
 
+    final marketCap = (d['market_cap'] as num?)?.toDouble();
+
     if (marketCap != null) {
-      items.add(MapEntry('القيمة السوقية', '\$${_formatLargeNumber(marketCap)}'));
+      items.add(
+          MapEntry('القيمة السوقية', '\$${_formatLargeNumber(marketCap)}'));
     }
     final volume = (d['total_volume'] as num?)?.toDouble();
     if (volume != null) {

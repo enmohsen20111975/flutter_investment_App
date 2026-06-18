@@ -28,12 +28,12 @@ class _StocksScreenState extends State<StocksScreen> {
   bool _showMovers = false;
 
   List<Map<String, dynamic>> get _gainers =>
-      (_movementData?['gainers'] as List?)?.cast<Map<String, dynamic>>() ?? [];
+      (_movementData?['gainers'] as List?)?.map((e) => Map<String, dynamic>.from(e as Map)).toList() ?? <Map<String, dynamic>>[];
   List<Map<String, dynamic>> get _losers =>
-      (_movementData?['losers'] as List?)?.cast<Map<String, dynamic>>() ?? [];
+      (_movementData?['losers'] as List?)?.map((e) => Map<String, dynamic>.from(e as Map)).toList() ?? <Map<String, dynamic>>[];
   List<Map<String, dynamic>> get _active =>
-      (_movementData?['most_active'] as List?)?.cast<Map<String, dynamic>>() ??
-      [];
+      (_movementData?['most_active'] as List?)?.map((e) => Map<String, dynamic>.from(e as Map)).toList() ??
+      <Map<String, dynamic>>[];
 
   Map<String, dynamic>? _movementData;
   String _activeMarket = 'EGX';
@@ -204,8 +204,8 @@ class _StocksScreenState extends State<StocksScreen> {
                     _movementData = snapshot.data;
                     return Column(
                       children: [
-                        Row(
-                          children: const [
+                        const Row(
+                          children: [
                             Icon(Icons.trending_up,
                                 size: 16, color: AppColors.textSecondary),
                             SizedBox(width: 8),

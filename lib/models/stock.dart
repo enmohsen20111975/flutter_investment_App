@@ -129,12 +129,25 @@ class StockHistoryResponse {
   
   StockHistoryResponse({this.success = true, this.ticker = '', this.data = const [], this.summary});
   
-  factory StockHistoryResponse.fromJson(Map<String, dynamic> json) => StockHistoryResponse(
-        success: parseBool(json['success']) ?? true,
-        ticker: json['ticker'] ?? '',
-        data: (json['data'] as List?)?.map((e) => StockHistory.fromJson(e)).toList() ?? [],
-        summary: json['summary'] != null ? StockHistorySummary.fromJson(json['summary']) : null,
-      );
+  factory StockHistoryResponse.fromJson(Map<String, dynamic> json) {
+    final rawData = json['data'];
+    final listData = rawData is List ? rawData : [];
+    final historyList = listData
+        .map((e) => e is Map ? StockHistory.fromJson(Map<String, dynamic>.from(e)) : null)
+        .where((e) => e != null)
+        .cast<StockHistory>()
+        .toList();
+
+    final rawSummary = json['summary'];
+    final summary = rawSummary is Map ? StockHistorySummary.fromJson(Map<String, dynamic>.from(rawSummary)) : null;
+
+    return StockHistoryResponse(
+      success: parseBool(json['success']) ?? true,
+      ticker: parseString(json['ticker']) ?? '',
+      data: historyList,
+      summary: summary,
+    );
+  }
 }
 
 // Stock Detail Response (wraps VPS/next.js stock detail data)
@@ -168,12 +181,15 @@ class StockDetailResponse {
   String? get effectiveTicker => ticker ?? symbol;
 
   factory StockDetailResponse.fromJson(Map<String, dynamic> json) {
-    final data = json['data'] as Map<String, dynamic>? ?? json;
+    final rawData = json['data'];
+    final Map<String, dynamic> data = (rawData is Map)
+        ? Map<String, dynamic>.from(rawData)
+        : json;
     return StockDetailResponse(
-      ticker: data['ticker'] ?? json['ticker'],
-      symbol: data['symbol'],
-      name: data['name'],
-      nameAr: data['name_ar'],
+      ticker: parseString(data['ticker'] ?? json['ticker']),
+      symbol: parseString(data['symbol']),
+      name: parseString(data['name']),
+      nameAr: parseString(data['name_ar']),
       price: parseDouble(data['price']),
       currentPrice: parseDouble(data['current_price']),
       change: parseDouble(data['change']),
@@ -184,9 +200,9 @@ class StockDetailResponse {
       previousClose: parseDouble(data['previous_close']),
       volume: parseInt(data['volume']),
       valueTraded: parseDouble(data['value_traded']),
-      exchange: data['exchange'],
-      lastUpdated: data['last_updated'],
-      source: json['source'],
+      exchange: parseString(data['exchange']),
+      lastUpdated: parseString(data['last_updated']),
+      source: parseString(json['source']),
     );
   }
 
@@ -230,23 +246,51 @@ class StockRecommendationResponse {
   });
 
   factory StockRecommendationResponse.fromJson(Map<String, dynamic> json) {
-    final rec = json['recommendation'] as Map<String, dynamic>? ?? {};
-    final scores = json['scores'] as Map<String, dynamic>?;
-    final trend = json['trend'] as Map<String, dynamic>?;
-    final priceRange = json['price_range'] as Map<String, dynamic>?;
-    final profAnalysis = json['professional_analysis'] as Map<String, dynamic>?;
+    final rawRec = json['recommendation'];
+    final rec = rawRec is Map ? Map<String, dynamic>.from(rawRec) : <String, dynamic>{};
+
+    final rawScores = json['scores'];
+    final scores = rawScores is Map ? Map<String, dynamic>.from(rawScores) : null;
+
+    final rawTrend = json['trend'];
+    final trend = rawTrend is Map ? Map<String, dynamic>.from(rawTrend) : null;
+
+    final rawPriceRange = json['price_range'];
+    final priceRange = rawPriceRange is Map ? Map<String, dynamic>.from(rawPriceRange) : null;
+
+    final rawProf = json['professional_analysis'];
+    final profAnalysis = rawProf is Map ? Map<String, dynamic>.from(rawProf) : null;
+
+    final rawStrengths = json['key_strengths'];
+    final keyStrengths = rawStrengths is List
+        ? rawStrengths
+            .map((e) => e is Map ? Map<String, dynamic>.from(e) : null)
+            .where((e) => e != null)
+            .cast<Map<String, dynamic>>()
+            .toList()
+        : null;
+
+    final rawRisks = json['key_risks'];
+    final keyRisks = rawRisks is List
+        ? rawRisks
+            .map((e) => e is Map ? Map<String, dynamic>.from(e) : null)
+            .where((e) => e != null)
+            .cast<Map<String, dynamic>>()
+            .toList()
+        : null;
+
     return StockRecommendationResponse(
-      ticker: json['ticker'] ?? '',
-      action: rec['action'],
-      actionAr: rec['action_ar'],
+      ticker: parseString(json['ticker']) ?? '',
+      action: parseString(rec['action']),
+      actionAr: parseString(rec['action_ar']),
       confidence: parseDouble(rec['confidence']),
       scores: scores,
       trend: trend,
       priceRange: priceRange,
       targetPrice: parseDouble(json['target_price']),
-      keyStrengths: (json['key_strengths'] as List?)?.map((e) => Map<String, dynamic>.from(e)).toList(),
-      keyRisks: (json['key_risks'] as List?)?.map((e) => Map<String, dynamic>.from(e)).toList(),
-      note: json['note'],
+      keyStrengths: keyStrengths,
+      keyRisks: keyRisks,
+      note: parseString(json['note']),
       professionalAnalysis: profAnalysis,
     );
   }

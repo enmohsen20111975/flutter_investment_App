@@ -127,21 +127,26 @@ class PortfolioResponse {
   });
 
   factory PortfolioResponse.fromJson(Map<String, dynamic> json) {
-    // Handle different response formats
     List<PortfolioPosition> positionsList = [];
     List<PortfolioPosition> allItemsList = [];
 
     // Parse positions (stocks only)
-    if (json['positions'] is List) {
-      positionsList = (json['positions'] as List)
-          .map((e) => PortfolioPosition.fromJson(e as Map<String, dynamic>))
+    final rawPositions = json['positions'];
+    if (rawPositions is List) {
+      positionsList = rawPositions
+          .map((e) => e is Map ? PortfolioPosition.fromJson(Map<String, dynamic>.from(e)) : null)
+          .where((e) => e != null)
+          .cast<PortfolioPosition>()
           .toList();
     }
 
     // Parse items (all assets)
-    if (json['items'] is List) {
-      allItemsList = (json['items'] as List)
-          .map((e) => PortfolioPosition.fromJson(e as Map<String, dynamic>))
+    final rawItems = json['items'];
+    if (rawItems is List) {
+      allItemsList = rawItems
+          .map((e) => e is Map ? PortfolioPosition.fromJson(Map<String, dynamic>.from(e)) : null)
+          .where((e) => e != null)
+          .cast<PortfolioPosition>()
           .toList();
     }
 
@@ -152,23 +157,27 @@ class PortfolioResponse {
 
     // Parse by_type if available
     Map<String, List<PortfolioPosition>>? byType;
-    if (json['by_type'] is Map) {
-      final byTypeData = json['by_type'] as Map<String, dynamic>;
+    final rawByType = json['by_type'];
+    if (rawByType is Map) {
       byType = {};
-      for (final entry in byTypeData.entries) {
-        if (entry.value is List) {
-          byType[entry.key] = (entry.value as List)
-              .map((e) => PortfolioPosition.fromJson(e as Map<String, dynamic>))
+      for (final entry in rawByType.entries) {
+        final val = entry.value;
+        if (val is List) {
+          byType[entry.key.toString()] = val
+              .map((e) => e is Map ? PortfolioPosition.fromJson(Map<String, dynamic>.from(e)) : null)
+              .where((e) => e != null)
+              .cast<PortfolioPosition>()
               .toList();
         }
       }
     }
 
+    final rawSummary = json['summary'];
     return PortfolioResponse(
-      success: json['success'] as bool? ?? true,
+      success: parseBool(json['success']) ?? true,
       positions: positionsList,
       items: allItemsList.isNotEmpty ? allItemsList : null,
-      summary: json['summary'] != null ? PortfolioSummary.fromJson(json['summary']) : null,
+      summary: rawSummary is Map ? PortfolioSummary.fromJson(Map<String, dynamic>.from(rawSummary)) : null,
       byType: byType,
     );
   }

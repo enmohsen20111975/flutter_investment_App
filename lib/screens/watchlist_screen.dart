@@ -244,8 +244,9 @@ class _WatchlistScreenState extends State<WatchlistScreen> {
                           final below = double.tryParse(alertBelowCtrl.text);
                           if (above != null) data['alert_price_above'] = above;
                           if (below != null) data['alert_price_below'] = below;
-                          if (notesCtrl.text.trim().isNotEmpty)
+                          if (notesCtrl.text.trim().isNotEmpty) {
                             data['notes'] = notesCtrl.text.trim();
+                          }
 
                           await api.addToWatchlist(data);
                           if (mounted) {

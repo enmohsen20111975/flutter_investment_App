@@ -34,9 +34,15 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
         api.getCurrentSubscription(),
       ]);
 
-      final plansData = results[0] as Map<String, dynamic>;
-      final plansList =
-          (plansData['plans'] as List?)?.cast<Map<String, dynamic>>() ?? [];
+      final rawPlans = results[0];
+      final List<Map<String, dynamic>> plansList;
+      if (rawPlans is Map) {
+        plansList = (rawPlans['plans'] as List?)?.map((e) => Map<String, dynamic>.from(e as Map)).toList() ?? <Map<String, dynamic>>[];
+      } else if (rawPlans is List) {
+        plansList = rawPlans.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+      } else {
+        plansList = <Map<String, dynamic>>[];
+      }
       final currentSub = results[1] as Map<String, dynamic>?;
 
       return SubscriptionData(plans: plansList, currentSub: currentSub);
@@ -97,7 +103,6 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
     final price = (plan['price'] as num?)?.toDouble() ?? 0.0;
 
     if (price == 0.0) {
-      // Free plan: subscribe directly
       _subscribeToPlan(planId, currentSub);
       return;
     }
@@ -131,8 +136,6 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                       fontSize: 13, color: AppColors.textSecondary),
                 ),
                 const SizedBox(height: 20),
-
-                // PayMob
                 ListTile(
                   leading: const CircleAvatar(
                     backgroundColor: AppColors.primaryMuted,
@@ -141,16 +144,13 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                   title: const Text('بطاقة ائتمان / محفظة إلكترونية (PayMob)',
                       style: TextStyle(color: AppColors.text)),
                   subtitle: const Text('دفع فوري آمن عبر الإنترنت',
-                      style:
-                          TextStyle(fontSize: 11, color: AppColors.textMuted)),
+                      style: TextStyle(fontSize: 11, color: AppColors.textMuted)),
                   onTap: () {
                     Navigator.pop(context);
                     _processPaymobPayment(planId, price);
                   },
                 ),
                 const Divider(color: AppColors.border),
-
-                // InstaPay
                 ListTile(
                   leading: const CircleAvatar(
                     backgroundColor: AppColors.successLight,
@@ -159,26 +159,23 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                   title: const Text('تحويل مباشر عبر InstaPay',
                       style: TextStyle(color: AppColors.text)),
                   subtitle: const Text('تفعيل يدوي سريع بالرقم المرجعي',
-                      style:
-                          TextStyle(fontSize: 11, color: AppColors.textMuted)),
+                      style: TextStyle(fontSize: 11, color: AppColors.textMuted)),
                   onTap: () {
                     Navigator.pop(context);
                     _showInstapayDialog(planId);
                   },
                 ),
                 const Divider(color: AppColors.border),
-
-                // Google Play
                 ListTile(
                   leading: const CircleAvatar(
                     backgroundColor: AppColors.infoLight,
                     child: Icon(Icons.shop_two_outlined, color: AppColors.info),
                   ),
-                  title: const Text('شراء عبر Google Play',
-                      style: TextStyle(color: AppColors.text)),
+                  title:
+                      const Text('شراء عبر Google Play',
+                          style: TextStyle(color: AppColors.text)),
                   subtitle: const Text('دفع سريع عبر حساب جوجل الخاص بك',
-                      style:
-                          TextStyle(fontSize: 11, color: AppColors.textMuted)),
+                      style: TextStyle(fontSize: 11, color: AppColors.textMuted)),
                   onTap: () {
                     Navigator.pop(context);
                     _processGooglePlayPayment(planId);
@@ -207,14 +204,12 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
           result['payment_url'] ?? result['iframe_url'] ?? result['url'];
       if (paymentUrl != null && paymentUrl.toString().isNotEmpty) {
         if (!mounted) return;
-        // Launch WebViewScreen
         await Navigator.push(
           context,
           MaterialPageRoute(
             builder: (_) => WebViewScreen(initialUrl: paymentUrl.toString()),
           ),
         );
-        // Refresh subscription state
         _refresh();
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
@@ -235,10 +230,11 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
             backgroundColor: AppColors.danger),
       );
     } finally {
-      if (mounted)
+      if (mounted) {
         setState(() {
           _subscribing = false;
         });
+      }
     }
   }
 
@@ -340,10 +336,11 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                           backgroundColor: AppColors.danger),
                     );
                   } finally {
-                    if (mounted)
+                    if (mounted) {
                       setState(() {
                         _subscribing = false;
                       });
+                    }
                   }
                 },
                 child: const Text('تأكيد وإرسال'),
@@ -383,10 +380,11 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
             backgroundColor: AppColors.danger),
       );
     } finally {
-      if (mounted)
+      if (mounted) {
         setState(() {
           _subscribing = false;
         });
+      }
     }
   }
 
@@ -413,8 +411,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
       }
     } catch (e) {
       messenger.showSnackBar(
-        SnackBar(
-            content: Text('حدث خطأ: $e'), backgroundColor: AppColors.danger),
+        SnackBar(content: Text('حدث خطأ: $e'), backgroundColor: AppColors.danger),
       );
     } finally {
       setState(() {
@@ -482,8 +479,8 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                       const StateView(
                           empty: true, emptyMessage: 'لا توجد خطط متاحة حالياً')
                     else
-                      ...data.plans
-                          .map((plan) => _buildPlanCard(plan, data.currentSub)),
+                       ...data.plans
+                           .map((plan) => _buildPlanCard(plan, data.currentSub, _subscribing, _showPaymentMethodDialog, _subscribeToPlan)),
                     const SizedBox(height: 16),
                     SizedBox(
                       width: double.infinity,
@@ -517,205 +514,202 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
       ),
     );
   }
+}
 
-  Widget _buildCurrentSubscription(Map<String, dynamic> currentSub) {
-    final tier =
-        currentSub['subscription_tier'] ?? currentSub['plan'] ?? 'free';
-    final expiresAt = currentSub['expires_at'] ?? currentSub['end_date'];
-    final isActive = currentSub['is_active'] ?? true;
+Widget _buildCurrentSubscription(Map<String, dynamic> currentSub) {
+  final tier = currentSub['subscription_tier'] ?? currentSub['plan'] ?? 'free';
+  final expiresAt = currentSub['expires_at'] ?? currentSub['end_date'];
+  final isActive = currentSub['is_active'] ?? true;
 
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(colors: [
-          isActive ? AppColors.primaryDark : AppColors.textMuted,
-          isActive ? AppColors.primary : AppColors.textSecondary,
-        ]),
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Column(
-        children: [
-          Text('الاشتراك الحالي',
-              style: TextStyle(
-                  fontSize: 14, color: AppColors.white.withValues(alpha: 0.7))),
+  return Container(
+    padding: const EdgeInsets.all(20),
+    decoration: BoxDecoration(
+      gradient: LinearGradient(colors: [
+        isActive ? AppColors.primaryDark : AppColors.textMuted,
+        isActive ? AppColors.primary : AppColors.textSecondary,
+      ]),
+      borderRadius: BorderRadius.circular(16),
+    ),
+    child: Column(
+      children: [
+        Text('الاشتراك الحالي',
+            style: TextStyle(
+                fontSize: 14, color: AppColors.white.withValues(alpha: 0.7))),
+        const SizedBox(height: 8),
+        Text(
+          _getPlanNameAr(tier),
+          style: const TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.w800,
+              color: AppColors.white),
+        ),
+        if (expiresAt != null) ...[
           const SizedBox(height: 8),
           Text(
-            _getPlanNameAr(tier),
+            'ينتهي: $expiresAt',
+            style: TextStyle(
+                fontSize: 12, color: AppColors.white.withValues(alpha: 0.7)),
+          ),
+        ],
+        const SizedBox(height: 8),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+          decoration: BoxDecoration(
+            color: isActive ? AppColors.success : AppColors.danger,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Text(
+            isActive ? 'نشط' : 'منتهي',
             style: const TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.w800,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
                 color: AppColors.white),
           ),
-          if (expiresAt != null) ...[
-            const SizedBox(height: 8),
-            Text(
-              'ينتهي: $expiresAt',
-              style: TextStyle(
-                  fontSize: 12, color: AppColors.white.withValues(alpha: 0.7)),
-            ),
-          ],
-          const SizedBox(height: 8),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-            decoration: BoxDecoration(
-              color: isActive ? AppColors.success : AppColors.danger,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Text(
-              isActive ? 'نشط' : 'منتهي',
-              style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.white),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPlanCard(
-      Map<String, dynamic> plan, Map<String, dynamic>? currentSub) {
-    final id = plan['id'] ?? '';
-    final name = plan['name'] ?? '';
-    final nameAr = plan['name_ar'] ?? name;
-    final price = (plan['price'] as num?)?.toDouble() ?? 0;
-    final features = (plan['features'] as List?)?.cast<String>() ?? [];
-    final isPopular = plan['is_popular'] == true;
-    final isCurrentPlan =
-        currentSub?['subscription_tier'] == id || currentSub?['plan'] == id;
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: isPopular ? AppColors.primary : AppColors.border,
-          width: isPopular ? 2 : 1,
         ),
+      ],
+    ),
+  );
+}
+
+Widget _buildPlanCard(
+    Map<String, dynamic> plan,
+    Map<String, dynamic>? currentSub,
+    bool subscribing,
+    void Function(Map<String, dynamic> plan, Map<String, dynamic>? currentSub) onShowPayment,
+    void Function(String planId, Map<String, dynamic>? currentSub) onSubscribe) {
+  final id = plan['id'] ?? '';
+  final name = plan['name'] ?? '';
+  final nameAr = plan['name_ar'] ?? name;
+  final price = (plan['price'] as num?)?.toDouble() ?? 0;
+  final features = (plan['features'] as List?)?.cast<String>().toList() ?? <String>[];
+  final isPopular = plan['is_popular'] == true;
+  final isCurrentPlan =
+      currentSub?['subscription_tier'] == id || currentSub?['plan'] == id;
+
+  return Container(
+    margin: const EdgeInsets.only(bottom: 16),
+    decoration: BoxDecoration(
+      color: AppColors.surface,
+      borderRadius: BorderRadius.circular(16),
+      border: Border.all(
+        color: isPopular ? AppColors.primary : AppColors.border,
+        width: isPopular ? 2 : 1,
       ),
-      child: Column(
-        children: [
-          // Header
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color:
-                  isPopular ? AppColors.primaryMuted : AppColors.surfaceMuted,
-              borderRadius:
-                  const BorderRadius.vertical(top: Radius.circular(16)),
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(nameAr, style: AppTypography.titleMedium),
-                      if (isPopular) ...[
-                        const SizedBox(height: 4),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: AppColors.primary,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: const Text('الأكثر شعبية',
-                              style: TextStyle(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w600,
-                                  color: AppColors.white)),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
+    ),
+    child: Column(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color:
+                isPopular ? AppColors.primaryMuted : AppColors.surfaceMuted,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      price == 0 ? 'مجاني' : '$price ج.م',
-                      style: const TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.w800,
-                          color: AppColors.text),
-                    ),
-                    if (price > 0)
-                      const Text('/ شهرياً',
-                          style: TextStyle(
-                              fontSize: 11, color: AppColors.textMuted)),
+                    Text(nameAr, style: AppTypography.titleMedium),
+                    if (isPopular) ...[
+                      const SizedBox(height: 4),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: AppColors.primary,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Text('الأكثر شعبية',
+                            style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.white)),
+                      ),
+                    ],
                   ],
                 ),
-              ],
+              ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    price == 0 ? 'مجاني' : '$price ج.م',
+                    style: const TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.text),
+                  ),
+                  if (price > 0)
+                    const Text('/ شهرياً',
+                        style: TextStyle(
+                            fontSize: 11, color: AppColors.textMuted)),
+                ],
+              ),
+            ],
+          ),
+        ),
+        if (features.isNotEmpty) ...[
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              children: features
+                  .map((f) => Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.check_circle,
+                                size: 16, color: AppColors.success),
+                            const SizedBox(width: 8),
+                            Expanded(
+                                child:
+                                    Text(f, style: AppTypography.bodyMedium)),
+                          ],
+                        ),
+                      ))
+                  .toList(),
             ),
           ),
-          // Features
-          if (features.isNotEmpty) ...[
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                children: features
-                    .map((f) => Padding(
-                          padding: const EdgeInsets.only(bottom: 8),
-                          child: Row(
-                            children: [
-                              const Icon(Icons.check_circle,
-                                  size: 16, color: AppColors.success),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                  child:
-                                      Text(f, style: AppTypography.bodyMedium)),
-                            ],
-                          ),
-                        ))
-                    .toList(),
-              ),
-            ),
-          ],
-          // Action button
-          if (!isCurrentPlan)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-              child: SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: _subscribing
-                      ? null
-                      : () => _showPaymentMethodDialog(plan, currentSub),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor:
-                        isPopular ? AppColors.primary : AppColors.surfaceMuted,
-                    foregroundColor:
-                        isPopular ? AppColors.white : AppColors.text,
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10)),
-                  ),
-                  child: Text(
-                    price == 0 ? 'الخطة الحالية' : 'اشترك الآن',
-                    style: const TextStyle(fontWeight: FontWeight.w600),
-                  ),
+        ],
+        if (!isCurrentPlan)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            child: SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: subscribing ? null : () => onShowPayment(plan, currentSub),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor:
+                      isPopular ? AppColors.primary : AppColors.surfaceMuted,
+                  foregroundColor:
+                      isPopular ? AppColors.white : AppColors.text,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10)),
+                ),
+                child: Text(
+                  price == 0 ? 'الخطة الحالية' : 'اشترك الآن',
+                  style: const TextStyle(fontWeight: FontWeight.w600),
                 ),
               ),
             ),
-        ],
-      ),
-    );
-  }
+          ),
+      ],
+    ),
+  );
+}
 
-  String _getPlanNameAr(String tier) {
-    switch (tier.toLowerCase()) {
-      case 'free':
-        return 'مجاني';
-      case 'plus':
-        return 'بلس';
-      case 'premium':
-        return 'بريميوم';
-      default:
-        return tier;
-    }
+String _getPlanNameAr(String tier) {
+  switch (tier.toLowerCase()) {
+    case 'free':
+      return 'مجاني';
+    case 'plus':
+      return 'بلس';
+    case 'premium':
+      return 'بريميوم';
+    default:
+      return tier;
   }
 }
 

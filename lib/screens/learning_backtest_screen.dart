@@ -699,8 +699,8 @@ class _LearningBacktestScreenState extends State<LearningBacktestScreen>
   }
 
   Widget _buildMinedLessonsCard(Map<String, dynamic> result) {
-    final lessons = (result['lessons'] as List?)?.cast<String>() ?? [];
-    final patterns = (result['patterns'] as List?)?.cast<String>() ?? [];
+    final lessons = (result['lessons'] as List?)?.cast<String>().toList() ?? <String>[];
+    final patterns = (result['patterns'] as List?)?.cast<String>().toList() ?? <String>[];
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(

@@ -63,7 +63,27 @@ List<String> parseStringList(dynamic value) {
 
 Map<String, dynamic>? parseJsonMap(dynamic value) {
   if (value is Map) {
-    return value.cast<String, dynamic>();
+    try {
+      return Map<String, dynamic>.from(value);
+    } catch (_) {
+      try {
+        return value.map((k, v) => MapEntry(k.toString(), v));
+      } catch (_) {
+        return null;
+      }
+    }
   }
   return null;
 }
+
+List<Map<String, dynamic>> parseMapList(dynamic value) {
+  if (value is List) {
+    return value
+        .map((item) => parseJsonMap(item))
+        .where((item) => item != null)
+        .cast<Map<String, dynamic>>()
+        .toList();
+  }
+  return [];
+}
+

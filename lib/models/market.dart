@@ -83,69 +83,94 @@ class MarketOverview {
   MarketOverview({this.marketStatus, this.summary, this.indices, this.topGainers, this.topLosers, this.mostActive, this.lastUpdated, this.source, this.totalStocks, this.gainers, this.losers});
   
   factory MarketOverview.fromJson(Map<String, dynamic> json) {
-    debugPrint('[MarketOverview] Parsing JSON keys: \${json.keys}');
+    debugPrint('[MarketOverview] Parsing JSON keys: ${json.keys}');
     
-    final summaryData = json['summary'] as Map<String, dynamic>?;
-    final dataWrapper = json['data'] as Map<String, dynamic>?;
+    final rawSummary = json['summary'];
+    final summaryData = rawSummary is Map ? Map<String, dynamic>.from(rawSummary) : null;
+    
+    final rawDataWrapper = json['data'];
+    final dataWrapper = rawDataWrapper is Map ? Map<String, dynamic>.from(rawDataWrapper) : null;
     
     // Handle wrapped response format: {data: {...}, source: "vps"}
-    final actualData = dataWrapper ?? json;
+    final Map<String, dynamic> actualData = dataWrapper ?? json;
     
     // Parse indices from different formats
     List<MarketIndex>? indicesList;
-    if (actualData['indices'] is List) {
-      indicesList = (actualData['indices'] as List)
-          .map((e) => MarketIndex.fromJson(e as Map<String, dynamic>))
+    final rawIndices = actualData['indices'];
+    if (rawIndices is List) {
+      indicesList = rawIndices
+          .map((e) => e is Map ? MarketIndex.fromJson(Map<String, dynamic>.from(e)) : null)
+          .where((e) => e != null)
+          .cast<MarketIndex>()
           .toList();
     }
     
     // Parse top gainers from different formats
     List<MarketStock>? gainersList;
-    if (actualData['top_gainers'] is List) {
-      gainersList = (actualData['top_gainers'] as List)
-          .map((e) => MarketStock.fromJson(e as Map<String, dynamic>))
+    final rawTopGainers = actualData['top_gainers'];
+    final rawGainers = actualData['gainers'];
+    if (rawTopGainers is List) {
+      gainersList = rawTopGainers
+          .map((e) => e is Map ? MarketStock.fromJson(Map<String, dynamic>.from(e)) : null)
+          .where((e) => e != null)
+          .cast<MarketStock>()
           .toList();
-    } else if (actualData['gainers'] is List) {
-      gainersList = (actualData['gainers'] as List)
-          .map((e) => MarketStock.fromJson(e as Map<String, dynamic>))
+    } else if (rawGainers is List) {
+      gainersList = rawGainers
+          .map((e) => e is Map ? MarketStock.fromJson(Map<String, dynamic>.from(e)) : null)
+          .where((e) => e != null)
+          .cast<MarketStock>()
           .toList();
     }
     
     // Parse top losers from different formats
     List<MarketStock>? losersList;
-    if (actualData['top_losers'] is List) {
-      losersList = (actualData['top_losers'] as List)
-          .map((e) => MarketStock.fromJson(e as Map<String, dynamic>))
+    final rawTopLosers = actualData['top_losers'];
+    final rawLosers = actualData['losers'];
+    if (rawTopLosers is List) {
+      losersList = rawTopLosers
+          .map((e) => e is Map ? MarketStock.fromJson(Map<String, dynamic>.from(e)) : null)
+          .where((e) => e != null)
+          .cast<MarketStock>()
           .toList();
-    } else if (actualData['losers'] is List) {
-      losersList = (actualData['losers'] as List)
-          .map((e) => MarketStock.fromJson(e as Map<String, dynamic>))
+    } else if (rawLosers is List) {
+      losersList = rawLosers
+          .map((e) => e is Map ? MarketStock.fromJson(Map<String, dynamic>.from(e)) : null)
+          .where((e) => e != null)
+          .cast<MarketStock>()
           .toList();
     }
     
     // Parse most active
     List<MarketStock>? activeList;
-    if (actualData['most_active'] is List) {
-      activeList = (actualData['most_active'] as List)
-          .map((e) => MarketStock.fromJson(e as Map<String, dynamic>))
+    final rawMostActive = actualData['most_active'];
+    if (rawMostActive is List) {
+      activeList = rawMostActive
+          .map((e) => e is Map ? MarketStock.fromJson(Map<String, dynamic>.from(e)) : null)
+          .where((e) => e != null)
+          .cast<MarketStock>()
           .toList();
     }
     
+    final rawMarketStatus1 = actualData['market_status'];
+    final rawMarketStatus2 = actualData['marketStatus'];
+    final rawSummary2 = actualData['summary'];
+
     return MarketOverview(
-      marketStatus: actualData['market_status'] != null 
-          ? MarketStatus.fromJson(actualData['market_status']) 
-          : actualData['marketStatus'] != null
-              ? MarketStatus.fromJson(actualData['marketStatus'])
+      marketStatus: rawMarketStatus1 is Map 
+          ? MarketStatus.fromJson(Map<String, dynamic>.from(rawMarketStatus1)) 
+          : rawMarketStatus2 is Map
+              ? MarketStatus.fromJson(Map<String, dynamic>.from(rawMarketStatus2))
               : null,
-      summary: actualData['summary'] != null 
-          ? MarketSummary.fromJson(actualData['summary']) 
+      summary: rawSummary2 is Map 
+          ? MarketSummary.fromJson(Map<String, dynamic>.from(rawSummary2)) 
           : null,
       indices: indicesList,
       topGainers: gainersList,
       topLosers: losersList,
       mostActive: activeList,
-      lastUpdated: actualData['last_updated'] ?? actualData['lastUpdated'],
-      source: actualData['source'],
+      lastUpdated: parseString(actualData['last_updated'] ?? actualData['lastUpdated']),
+      source: parseString(actualData['source']),
       totalStocks: parseInt(actualData['total_stocks'] ?? actualData['totalStocks']) 
           ?? parseInt(summaryData?['total_stocks']),
       gainers: parseInt(actualData['gainers']) 

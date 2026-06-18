@@ -45,37 +45,87 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
 
   Future<Map<String, dynamic>> _loadAllFutures() async {
     final results = await Future.wait([
-      api.getStockHistory(widget.ticker, days: 30),
-      api
-          .getStockDetail(widget.ticker, flat: true)
-          .then((response) => Stock.fromJson(response)),
-      api.getStockFundamentals(ticker: widget.ticker),
-      api.getStockNews(widget.ticker).then((response) =>
-          (response['news'] as List?)?.cast<Map<String, dynamic>>() ?? []),
+      api.getStockHistory(widget.ticker, days: 30).catchError((e) {
+        debugPrint('Error getting stock history: $e');
+        return StockHistoryResponse(data: [], summary: null);
+      }),
+      api.getStockDetail(widget.ticker, flat: true).then((dynamic response) {
+        if (response is Map) {
+          return Stock.fromJson(Map<String, dynamic>.from(response));
+        }
+        return Stock(ticker: widget.ticker);
+      }).catchError((e) {
+        debugPrint('Error getting stock detail: $e');
+        return Stock(ticker: widget.ticker);
+      }),
+      api.getStockFundamentals(ticker: widget.ticker).then((dynamic response) {
+        if (response is Map) {
+          return Map<String, dynamic>.from(response);
+        }
+        return <String, dynamic>{};
+      }).catchError((e) {
+        debugPrint('Error getting stock fundamentals: $e');
+        return <String, dynamic>{};
+      }),
+      api.getStockNews(widget.ticker).then((dynamic response) {
+        if (response is Map) {
+          final newsList = response['news'];
+          if (newsList is List) {
+            return newsList
+                .map((e) => e is Map ? Map<String, dynamic>.from(e) : null)
+                .where((e) => e != null)
+                .cast<Map<String, dynamic>>()
+                .toList();
+          }
+        }
+        return <Map<String, dynamic>>[];
+      }).catchError((e) {
+        debugPrint('Error getting stock news: $e');
+        return <Map<String, dynamic>>[];
+      }),
     ]);
 
     final historyResponse = results[0] as StockHistoryResponse?;
     final stockDetail = results[1] as Stock?;
     final fundamentals = results[2] as Map<String, dynamic>?;
-    final news = results[3] as List<Map<String, dynamic>>;
+    final news = results[3] as List<Map<String, dynamic>>?;
 
-    final recAccess =
-        await SubscriptionService.instance.checkAccess('recommendations');
-    final anaAccess =
-        await SubscriptionService.instance.checkAccess('ai_analysis');
+    final accessResults = await Future.wait([
+      SubscriptionService.instance.checkAccess('recommendations'),
+      SubscriptionService.instance.checkAccess('ai_analysis'),
+    ]);
+    final recAccess = accessResults[0];
+    final anaAccess = accessResults[1];
 
     final recommendation = recAccess.hasAccess
-        ? await api.getStockRecommendation(widget.ticker)
+        ? await api.getStockRecommendation(widget.ticker).then((dynamic response) {
+            if (response is Map) {
+              return Map<String, dynamic>.from(response);
+            }
+            return <String, dynamic>{};
+          }).catchError((e) {
+            debugPrint('Error getting stock recommendation: $e');
+            return <String, dynamic>{};
+          })
         : null;
+
     final analysis = anaAccess.hasAccess
-        ? await api.getStockProfessionalAnalysis(widget.ticker)
+        ? await api.getStockProfessionalAnalysis(widget.ticker).then((dynamic response) {
+            if (response is Map) {
+              return Map<String, dynamic>.from(response);
+            }
+            return <String, dynamic>{};
+          }).catchError((e) {
+            debugPrint('Error getting stock analysis: $e');
+            return <String, dynamic>{};
+          })
         : null;
 
     return {
       'history': historyResponse,
       'stock': stockDetail,
       'fundamentals': fundamentals,
-      'news': news,
+      'news': news ?? <Map<String, dynamic>>[],
       'recommendation': recommendation,
       'analysis': analysis,
     };
@@ -127,8 +177,8 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
               return StateView(
                   error: snapshot.error.toString(),
                   onRetry: () => setState(() {
-                    _refreshData();
-                  }));
+                        _refreshData();
+                      }));
             }
 
             final data = snapshot.data!;
@@ -174,12 +224,14 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
                     children: [
                       _buildHistoryTab(historyData, stock),
                       _buildRecommendationTab(
-                          data['recommendation'] as Map<String, dynamic>?),
+                          data['recommendation'] is Map ? Map<String, dynamic>.from(data['recommendation'] as Map) : null),
                       _buildAnalysisTab(
-                          data['analysis'] as Map<String, dynamic>?),
+                          data['analysis'] is Map ? Map<String, dynamic>.from(data['analysis'] as Map) : null),
                       _buildNewsTab(
-                          data['fundamentals'] as Map<String, dynamic>?,
-                          data['news'] as List<Map<String, dynamic>>),
+                          data['fundamentals'] is Map ? Map<String, dynamic>.from(data['fundamentals'] as Map) : null,
+                          data['news'] is List
+                              ? (data['news'] as List).cast<Map<String, dynamic>>()
+                              : <Map<String, dynamic>>[]),
                     ],
                   ),
                 ),
@@ -296,7 +348,7 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
     if (!sub.hasAccess('recommendations')) {
       return _buildLockedTab('recommendations');
     }
-    if (rec == null) {
+    if (rec == null || rec.isEmpty) {
       return const Center(
           child: StateView(
               empty: true, emptyMessage: 'لا توجد توصية متاحة لهذا السهم'));
@@ -308,13 +360,22 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
   }
 
   Widget _buildRecommendationContent(Map<String, dynamic> rec) {
-    final recommendation = rec['recommendation'] as Map<String, dynamic>?;
+    final rawRecommendation = rec['recommendation'];
+    final Map<String, dynamic>? recommendation = (rawRecommendation is Map)
+        ? Map<String, dynamic>.from(rawRecommendation)
+        : null;
     final action = parseString(recommendation?['action']) ?? '';
     final actionAr = parseString(recommendation?['action_ar']) ?? '';
     final confidence = parseDouble(recommendation?['confidence']) ?? 0;
-    final scores = rec['scores'] as Map<String, dynamic>?;
+    
+    final rawScores = rec['scores'];
+    final Map<String, dynamic>? scores = (rawScores is Map)
+        ? Map<String, dynamic>.from(rawScores)
+        : null;
     final totalScore = parseDouble(scores?['total_score']);
-    final keyStrengths = (rec['key_strengths'] as List?) ?? [];
+    
+    final rawStrengths = rec['key_strengths'];
+    final List keyStrengths = rawStrengths is List ? rawStrengths : [];
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -434,7 +495,7 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
     if (!sub.hasAccess('ai_analysis')) {
       return _buildLockedTab('ai_analysis');
     }
-    if (analysis == null) {
+    if (analysis == null || analysis.isEmpty) {
       return const Center(
           child: StateView(
               empty: true,
@@ -447,8 +508,14 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
   }
 
   Widget _buildAnalysisContent(Map<String, dynamic> analysis) {
-    final data = analysis['analysis'] as Map<String, dynamic>? ?? analysis;
-    final scores = data['scores'] as Map<String, dynamic>?;
+    final rawAnalysis = analysis['analysis'];
+    final Map<String, dynamic> data = (rawAnalysis is Map)
+        ? Map<String, dynamic>.from(rawAnalysis)
+        : analysis;
+    final rawScores = data['scores'];
+    final Map<String, dynamic>? scores = (rawScores is Map)
+        ? Map<String, dynamic>.from(rawScores)
+        : null;
     final compositeScore = parseDouble(scores?['composite']);
 
     return Column(
@@ -529,7 +596,10 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
 
   Widget _buildFundamentalsCard(Map<String, dynamic> f) {
     final fields = <MapEntry<String, String>>[];
-    final entries = f['fundamentals'] as Map<String, dynamic>? ?? f;
+    final rawFundamentals = f['fundamentals'];
+    final Map<String, dynamic> entries = (rawFundamentals is Map)
+        ? Map<String, dynamic>.from(rawFundamentals)
+        : f;
     for (final e in entries.entries) {
       if (e.value != null && e.value is! Map && e.value is! List) {
         fields.add(MapEntry(e.key, e.value.toString()));
