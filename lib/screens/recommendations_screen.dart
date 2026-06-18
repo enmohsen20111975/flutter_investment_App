@@ -9,6 +9,7 @@ import '../theme/typography.dart';
 import '../api/client.dart';
 import '../models/types.dart';
 import '../widgets/state_view.dart';
+import '../widgets/skeleton_loader.dart';
 
 class RecommendationsScreen extends StatefulWidget {
   const RecommendationsScreen({super.key});
@@ -29,45 +30,70 @@ class _RecommendationsScreenState extends State<RecommendationsScreen> {
 
   Future<RecommendationsData?> _fetchData() async {
     try {
-      final response = await api.getExpertRecommendations(
-          status: _statusFilter != 'all' ? _statusFilter : null);
+      // Use mobile recommendations endpoint with persona filter
+      final rawRecs = await api.getMobileRecommendations(
+          persona: _statusFilter != 'all' ? _statusFilter : null);
 
-      var recs = (response['recommendations'] as List?)
-              ?.map((e) => ExpertRecommendation.fromJson(e))
-              .toList() ??
-          [];
+      List<ExpertRecommendation> recs = rawRecs
+          .map((e) =>
+              ExpertRecommendation.fromJson(e is Map<String, dynamic> ? e : {}))
+          .toList();
+
+      // Fallback to expert recommendations if empty
       if (recs.isEmpty) {
-        recs = (response['data'] as List?)
-                ?.map((e) => ExpertRecommendation.fromJson(e))
+        final response = await api.getExpertRecommendations(
+            status: _statusFilter != 'all' ? _statusFilter : null);
+        recs = (response['recommendations'] as List?)
+                ?.map((e) => ExpertRecommendation.fromJson(
+                    Map<String, dynamic>.from(e as Map)))
                 .toList() ??
             [];
-      }
+        if (recs.isEmpty) {
+          recs = (response['data'] as List?)
+                  ?.map((e) => ExpertRecommendation.fromJson(
+                      Map<String, dynamic>.from(e as Map)))
+                  .toList() ??
+              [];
+        }
 
-      var stats = (response['expertStats'] as List?)
-              ?.map((e) => ExpertStats.fromJson(e))
-              .toList() ??
-          [];
-      if (stats.isEmpty) {
-        stats = (response['stats'] as List?)
-                ?.map((e) => ExpertStats.fromJson(e))
+        var stats = (response['expertStats'] as List?)
+                ?.map((e) =>
+                    ExpertStats.fromJson(Map<String, dynamic>.from(e as Map)))
                 .toList() ??
             [];
-      }
-      if (stats.isEmpty) {
-        stats = (response['experts_stats'] as List?)
-                ?.map((e) => ExpertStats.fromJson(e))
+        if (stats.isEmpty) {
+          stats = (response['stats'] as List?)
+                  ?.map((e) =>
+                      ExpertStats.fromJson(Map<String, dynamic>.from(e as Map)))
+                  .toList() ??
+              [];
+        }
+
+        final aiInsights = await api.getMarketAiInsights();
+        final reportsResponse = await api.getMorningReports();
+        final reports = (reportsResponse['reports'] as List?)
+                ?.map((e) => Map<String, dynamic>.from(e as Map))
                 .toList() ??
-            [];
+            <Map<String, dynamic>>[];
+
+        return RecommendationsData(
+          recommendations: recs,
+          expertStats: stats,
+          aiInsights: aiInsights,
+          morningReports: reports,
+        );
       }
 
       final aiInsights = await api.getMarketAiInsights();
       final reportsResponse = await api.getMorningReports();
-      final reports =
-          (reportsResponse['reports'] as List?)?.map((e) => Map<String, dynamic>.from(e as Map)).toList() ?? <Map<String, dynamic>>[];
+      final reports = (reportsResponse['reports'] as List?)
+              ?.map((e) => Map<String, dynamic>.from(e as Map))
+              .toList() ??
+          <Map<String, dynamic>>[];
 
       return RecommendationsData(
         recommendations: recs,
-        expertStats: stats,
+        expertStats: [],
         aiInsights: aiInsights,
         morningReports: reports,
       );
@@ -84,16 +110,16 @@ class _RecommendationsScreenState extends State<RecommendationsScreen> {
   Color _actionColor(String? action) {
     if (action == null) return AppColors.textMuted;
     final a = action.toUpperCase();
-    if (a == 'BUY') return AppColors.success;
-    if (a == 'SELL') return AppColors.danger;
+    if (a == 'BUY' || a == 'STRONG_BUY') return AppColors.success;
+    if (a == 'SELL' || a == 'STRONG_SELL') return AppColors.danger;
     return AppColors.warning;
   }
 
   IconData _actionIcon(String? action) {
     if (action == null) return Icons.remove_circle_outline;
     final a = action.toUpperCase();
-    if (a == 'BUY') return Icons.trending_up;
-    if (a == 'SELL') return Icons.trending_down;
+    if (a == 'BUY' || a == 'STRONG_BUY') return Icons.trending_up;
+    if (a == 'SELL' || a == 'STRONG_SELL') return Icons.trending_down;
     return Icons.swap_horiz;
   }
 
@@ -135,12 +161,7 @@ class _RecommendationsScreenState extends State<RecommendationsScreen> {
           future: _dataFuture,
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(
-                child: Padding(
-                  padding: EdgeInsets.all(32),
-                  child: CircularProgressIndicator(color: AppColors.primary),
-                ),
-              );
+              return const SkeletonRecommendations();
             }
             if (snapshot.hasError || snapshot.data == null) {
               return StateView(
@@ -166,7 +187,6 @@ class _RecommendationsScreenState extends State<RecommendationsScreen> {
                       subtitle: 'تابع توصيات الخبراء وأداءهم',
                     ),
                     const SizedBox(height: 16),
-
                     // Status Filter Chips
                     SizedBox(
                       height: 40,
@@ -182,7 +202,6 @@ class _RecommendationsScreenState extends State<RecommendationsScreen> {
                       ),
                     ),
                     const SizedBox(height: 16),
-
                     // Expert Stats
                     if (data.expertStats.isNotEmpty) ...[
                       const SectionHeader(
@@ -202,7 +221,8 @@ class _RecommendationsScreenState extends State<RecommendationsScreen> {
                       ...data.recommendations
                           .map((rec) => _buildRecommendationCard(rec)),
                     // AI Insights
-                    if (data.aiInsights != null) ...[
+                    if (data.aiInsights != null &&
+                        data.aiInsights!.isNotEmpty) ...[
                       const SizedBox(height: 20),
                       const SectionHeader(
                           title: 'تحليلات AI للسوق', icon: Icons.auto_awesome),
@@ -257,76 +277,58 @@ class _RecommendationsScreenState extends State<RecommendationsScreen> {
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                    color: AppColors.primaryMuted,
-                    borderRadius: BorderRadius.circular(8)),
-                child: const Icon(Icons.person,
-                    color: AppColors.primary, size: 18),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(stat.expertName, style: AppTypography.titleSmall),
-              ),
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: AppColors.border)),
+      child: Column(children: [
+        Row(children: [
+          Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                  color: AppColors.primaryMuted,
+                  borderRadius: BorderRadius.circular(8)),
+              child:
+                  const Icon(Icons.person, color: AppColors.primary, size: 18)),
+          const SizedBox(width: 10),
+          Expanded(
+              child: Text(stat.expertName, style: AppTypography.titleSmall)),
+          Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
                   color: stat.successRate >= 60
                       ? AppColors.successLight
                       : AppColors.warningLight,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  '${stat.successRate.toStringAsFixed(0)}% نجاح',
+                  borderRadius: BorderRadius.circular(12)),
+              child: Text('${stat.successRate.toStringAsFixed(0)}% نجاح',
                   style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: stat.successRate >= 60
-                        ? AppColors.success
-                        : AppColors.warning,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              Expanded(
-                  child: _buildStatItem(
-                      'التوصيات', '${stat.totalRecommendations}')),
-              Expanded(
-                  child: _buildStatItem(
-                      'ناجحة', '${stat.successfulRecommendations}')),
-              Expanded(
-                  child: _buildStatItem(
-                      'متوسط العائد', '${stat.avgReturn.toStringAsFixed(1)}%')),
-            ],
-          ),
-        ],
-      ),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: stat.successRate >= 60
+                          ? AppColors.success
+                          : AppColors.warning))),
+        ]),
+        const SizedBox(height: 10),
+        Row(children: [
+          Expanded(
+              child:
+                  _buildStatItem('التوصيات', '${stat.totalRecommendations}')),
+          Expanded(
+              child:
+                  _buildStatItem('ناجحة', '${stat.successfulRecommendations}')),
+          Expanded(
+              child: _buildStatItem(
+                  'متوسط العائد', '${stat.avgReturn.toStringAsFixed(1)}%')),
+        ]),
+      ]),
     );
   }
 
   Widget _buildStatItem(String label, String value) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label, style: AppTypography.bodySmall),
-        const SizedBox(height: 2),
-        Text(value, style: AppTypography.titleSmall),
-      ],
-    );
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Text(label, style: AppTypography.bodySmall),
+      const SizedBox(height: 2),
+      Text(value, style: AppTypography.titleSmall)
+    ]);
   }
 
   Widget _buildRecommendationCard(ExpertRecommendation rec) {
@@ -335,187 +337,145 @@ class _RecommendationsScreenState extends State<RecommendationsScreen> {
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: AppColors.border)),
+      child: Column(children: [
+        Row(children: [
+          Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
                   color: actionColor.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child:
-                    Icon(_actionIcon(rec.action), color: actionColor, size: 20),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
+                  borderRadius: BorderRadius.circular(8)),
+              child:
+                  Icon(_actionIcon(rec.action), color: actionColor, size: 20)),
+          const SizedBox(width: 10),
+          Expanded(
+              child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      children: [
-                        Text(rec.stockSymbol ?? '',
-                            style: AppTypography.titleSmall),
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: actionColor.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Text(
-                            rec.action ?? '',
-                            style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
-                                color: actionColor),
-                          ),
-                        ),
-                      ],
-                    ),
-                    Text(rec.expertName ?? '', style: AppTypography.bodySmall),
-                  ],
-                ),
-              ),
-              // Status badge
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
+                Row(children: [
+                  Text(rec.stockSymbol ?? '', style: AppTypography.titleSmall),
+                  const SizedBox(width: 8),
+                  Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                          color: actionColor.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(8)),
+                      child: Text(rec.action ?? '',
+                          style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: actionColor))),
+                ]),
+                Text(rec.expertName ?? '', style: AppTypography.bodySmall),
+              ])),
+          Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
                   color: _statusColor(rec.status).withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  _statusAr(rec.status),
+                  borderRadius: BorderRadius.circular(8)),
+              child: Text(_statusAr(rec.status),
                   style: TextStyle(
                       fontSize: 10,
                       fontWeight: FontWeight.w600,
-                      color: _statusColor(rec.status)),
-                ),
-              ),
-            ],
-          ),
-          const Divider(height: 16),
-          Row(
-            children: [
-              Expanded(child: _buildPriceItem('الدخول', rec.entryPrice)),
-              Expanded(child: _buildPriceItem('الهدف', rec.targetPrice)),
-              Expanded(child: _buildPriceItem('وقف الخسارة', rec.stopLoss)),
-              if (rec.profitLossPercent != null)
-                Expanded(
-                  child: Column(
+                      color: _statusColor(rec.status)))),
+        ]),
+        const Divider(height: 16),
+        Row(children: [
+          Expanded(child: _buildPriceItem('الدخول', rec.entryPrice)),
+          Expanded(child: _buildPriceItem('الهدف', rec.targetPrice)),
+          Expanded(child: _buildPriceItem('وقف الخسارة', rec.stopLoss)),
+          if (rec.profitLossPercent != null)
+            Expanded(
+                child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('النتيجة', style: AppTypography.bodySmall),
-                      const SizedBox(height: 2),
-                      Text(
-                        '${rec.profitLossPercent! >= 0 ? '+' : ''}${rec.profitLossPercent!.toStringAsFixed(1)}%',
-                        style: TextStyle(
+                  const Text('النتيجة', style: AppTypography.bodySmall),
+                  const SizedBox(height: 2),
+                  Text(
+                      '${rec.profitLossPercent! >= 0 ? '+' : ''}${rec.profitLossPercent!.toStringAsFixed(1)}%',
+                      style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
                           color: rec.profitLossPercent! >= 0
                               ? AppColors.success
-                              : AppColors.danger,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-            ],
-          ),
-          if (rec.notes != null && rec.notes!.isNotEmpty) ...[
-            const SizedBox(height: 8),
-            Container(
+                              : AppColors.danger)),
+                ])),
+        ]),
+        if (rec.notes != null && rec.notes!.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
                   color: AppColors.surfaceMuted,
                   borderRadius: BorderRadius.circular(8)),
-              child: Text(rec.notes!, style: AppTypography.bodySmall),
-            ),
-          ],
-          if (rec.recommendationDate != null) ...[
-            const SizedBox(height: 6),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                const Icon(Icons.calendar_today,
-                    size: 12, color: AppColors.textMuted),
-                const SizedBox(width: 4),
-                Text(rec.recommendationDate!, style: AppTypography.bodySmall),
-              ],
-            ),
-          ],
+              child: Text(rec.notes!, style: AppTypography.bodySmall)),
         ],
-      ),
+        if (rec.recommendationDate != null) ...[
+          const SizedBox(height: 6),
+          Row(mainAxisAlignment: MainAxisAlignment.end, children: [
+            const Icon(Icons.calendar_today,
+                size: 12, color: AppColors.textMuted),
+            const SizedBox(width: 4),
+            Text(rec.recommendationDate!, style: AppTypography.bodySmall)
+          ]),
+        ],
+      ]),
     );
   }
 
   Widget _buildPriceItem(String label, double? value) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label, style: AppTypography.bodySmall),
-        const SizedBox(height: 2),
-        Text(value?.toStringAsFixed(2) ?? '-', style: AppTypography.titleSmall),
-      ],
-    );
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Text(label, style: AppTypography.bodySmall),
+      const SizedBox(height: 2),
+      Text(value?.toStringAsFixed(2) ?? '-', style: AppTypography.titleSmall)
+    ]);
   }
 
   Widget _buildAiInsightsCard(Map<String, dynamic> insights) {
     final summary = insights['summary']?.toString() ??
         insights['market_outlook']?.toString() ??
         '';
-    final recommendations =
-        (insights['recommendations'] as List?)?.map((e) => Map<String, dynamic>.from(e as Map)).toList() ?? <Map<String, dynamic>>[];
-
+    final recommendations = (insights['recommendations'] as List?)
+            ?.map((e) => Map<String, dynamic>.from(e as Map))
+            .toList() ??
+        <Map<String, dynamic>>[];
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: AppColors.primaryMuted,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(children: const [
-            Icon(Icons.auto_awesome, size: 18, color: AppColors.primary),
-            SizedBox(width: 8),
-            Text('رؤية AI للسوق', style: AppTypography.titleSmall),
-          ]),
-          if (summary.isNotEmpty) ...[
-            const SizedBox(height: 10),
-            Text(summary, style: AppTypography.bodyMedium),
-          ],
-          if (recommendations.isNotEmpty) ...[
-            const SizedBox(height: 10),
-            ...recommendations.take(3).map((r) => Padding(
-                  padding: const EdgeInsets.only(bottom: 4),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text('• ',
-                          style: TextStyle(color: AppColors.primary)),
-                      Expanded(
-                          child: Text(r['title'] ?? r['ticker'] ?? r.toString(),
-                              style: AppTypography.bodySmall)),
-                    ],
-                  ),
-                )),
-          ],
+          color: AppColors.primaryMuted,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: AppColors.primary.withValues(alpha: 0.3))),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: const [
+          Icon(Icons.auto_awesome, size: 18, color: AppColors.primary),
+          SizedBox(width: 8),
+          Text('رؤية AI للسوق', style: AppTypography.titleSmall)
+        ]),
+        if (summary.isNotEmpty) ...[
+          const SizedBox(height: 10),
+          Text(summary, style: AppTypography.bodyMedium)
         ],
-      ),
+        if (recommendations.isNotEmpty) ...[
+          const SizedBox(height: 10),
+          ...recommendations.take(3).map((r) => Padding(
+              padding: const EdgeInsets.only(bottom: 4),
+              child:
+                  Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                const Text('• ', style: TextStyle(color: AppColors.primary)),
+                Expanded(
+                    child: Text(r['title'] ?? r['ticker'] ?? r.toString(),
+                        style: AppTypography.bodySmall)),
+              ]))),
+        ],
+      ]),
     );
   }
 
   Widget _buildMorningReportCard(Map<String, dynamic> report) {
     final text = report['report_text'] ?? report['content'] ?? '';
-
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(14),
@@ -523,24 +483,21 @@ class _RecommendationsScreenState extends State<RecommendationsScreen> {
           color: AppColors.surface,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: AppColors.border)),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(children: const [
-            Icon(Icons.newspaper, size: 16, color: AppColors.primary),
-            SizedBox(width: 8),
-            Text('تقرير صباحي', style: AppTypography.titleSmall),
-            Spacer(),
-          ]),
-          if (text.isNotEmpty) ...[
-            const SizedBox(height: 8),
-            Text(text,
-                style: AppTypography.bodySmall,
-                maxLines: 4,
-                overflow: TextOverflow.ellipsis),
-          ],
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: const [
+          Icon(Icons.newspaper, size: 16, color: AppColors.primary),
+          SizedBox(width: 8),
+          Text('تقرير صباحي', style: AppTypography.titleSmall),
+          Spacer()
+        ]),
+        if (text.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          Text(text,
+              style: AppTypography.bodySmall,
+              maxLines: 4,
+              overflow: TextOverflow.ellipsis)
         ],
-      ),
+      ]),
     );
   }
 }
@@ -551,9 +508,10 @@ class RecommendationsData {
   final Map<String, dynamic>? aiInsights;
   final List<Map<String, dynamic>> morningReports;
 
-  RecommendationsData(
-      {required this.recommendations,
-      required this.expertStats,
-      this.aiInsights,
-      required this.morningReports});
+  RecommendationsData({
+    required this.recommendations,
+    required this.expertStats,
+    this.aiInsights,
+    required this.morningReports,
+  });
 }

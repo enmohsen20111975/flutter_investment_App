@@ -37,7 +37,8 @@ class _PortfolioScreenState extends State<PortfolioScreen> {
 
   Future<PortfolioResponse?> _fetchPortfolio() async {
     try {
-      return await api.getPortfolio();
+      // Use mobile endpoint for portfolio data
+      return await api.getMobilePortfolio();
     } catch (_) {
       return null;
     }

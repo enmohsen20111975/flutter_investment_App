@@ -3,6 +3,7 @@
 // Bottom Tab Navigator + AppBar + Drawer + Command Bar
 // ============================================================================
 
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'theme/colors.dart';
@@ -22,6 +23,10 @@ import 'screens/settings_screen.dart';
 import 'screens/webview_screen.dart';
 import 'screens/metals_screen.dart';
 import 'screens/learning_backtest_screen.dart';
+import 'screens/hunter_screen.dart';
+import 'screens/notifications_screen.dart';
+import 'screens/alerts_screen.dart';
+import 'screens/news_screen.dart';
 import 'api/client.dart';
 import 'models/types.dart';
 
@@ -42,6 +47,8 @@ class _MainNavigatorState extends State<MainNavigator> {
   User? _user;
   bool _isLoggedIn = false;
   String _selectedMarket = 'EGX';
+  int _notificationCount = 0;
+  Timer? _notificationPollTimer;
   List<_MarketOption> _marketOptions = const [
     _MarketOption('EGX', 'مصر'),
     _MarketOption('TADAWUL', 'السعودية'),
@@ -61,19 +68,62 @@ class _MainNavigatorState extends State<MainNavigator> {
           key: _stocksKey,
           marketVersion: _marketVersion,
         ),
+        const HunterScreen(),
         const CryptoScreen(),
         const PortfolioScreen(),
       ];
+
+  Stream<int> get _notificationCountStream async* {
+    yield _notificationCount;
+    await Future<void>.delayed(const Duration(seconds: 30));
+    while (true) {
+      yield _notificationCount;
+      await Future<void>.delayed(const Duration(seconds: 30));
+    }
+  }
 
   @override
   void initState() {
     super.initState();
     _loadSelectedMarket();
     _loadMarketOptions();
+    _startNotificationPolling();
     // Defer auth check to post-frame callback to avoid blocking UI
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _checkAuth();
     });
+  }
+
+  @override
+  void dispose() {
+    _notificationPollTimer?.cancel();
+    super.dispose();
+  }
+
+  void _startNotificationPolling() {
+    _notificationPollTimer?.cancel();
+    _notificationPollTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+      _fetchNotificationCount();
+    });
+    _fetchNotificationCount();
+  }
+
+  Future<void> _fetchNotificationCount() async {
+    try {
+      final data = await api.getMobileNotifications();
+      final items = data['notifications'] ?? data['data'] ?? data;
+      final list = items is List ? items : [];
+      int unread = 0;
+      for (final item in list) {
+        if (item is Map) {
+          final isRead = item['is_read'] == true || item['read'] == true;
+          if (!isRead) unread++;
+        }
+      }
+      if (mounted) {
+        setState(() => _notificationCount = unread);
+      }
+    } catch (_) {}
   }
 
   Future<void> _loadSelectedMarket() async {
@@ -201,6 +251,49 @@ class _MainNavigatorState extends State<MainNavigator> {
             ),
           ),
           actions: [
+            // Notification Bell
+            StreamBuilder<int>(
+              initialData: _notificationCount,
+              stream: _notificationCountStream,
+              builder: (context, snapshot) {
+                final count = snapshot.data ?? 0;
+                return Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.notifications_rounded,
+                          color: AppColors.text),
+                      onPressed: () => _navigateTo(const NotificationsScreen()),
+                    ),
+                    if (count > 0)
+                      Positioned(
+                        top: 4,
+                        left: 4,
+                        child: Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: BoxDecoration(
+                            color: AppColors.danger,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          constraints: const BoxConstraints(
+                            minWidth: 16,
+                            minHeight: 16,
+                          ),
+                          child: Text(
+                            count > 99 ? '99+' : '$count',
+                            style: const TextStyle(
+                              color: AppColors.white,
+                              fontSize: 9,
+                              fontWeight: FontWeight.w800,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      ),
+                  ],
+                );
+              },
+            ),
             // Market Selector Dropdown
             Theme(
               data: Theme.of(context).copyWith(
@@ -336,6 +429,20 @@ class _MainNavigatorState extends State<MainNavigator> {
                 activeIcon:
                     Icon(Icons.trending_up, color: AppColors.primaryGlow),
                 label: 'الأسهم',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(Icons.currency_bitcoin_rounded,
+                    color: AppColors.textMuted),
+                activeIcon:
+                    Icon(Icons.currency_bitcoin, color: AppColors.primaryGlow),
+                label: 'الكريبتو',
+              ),
+              BottomNavigationBarItem(
+                icon:
+                    Icon(Icons.visibility_rounded, color: AppColors.textMuted),
+                activeIcon:
+                    Icon(Icons.visibility, color: AppColors.primaryGlow),
+                label: 'الفرص',
               ),
               BottomNavigationBarItem(
                 icon: Icon(Icons.currency_bitcoin_rounded,
@@ -508,10 +615,14 @@ class _MainNavigatorState extends State<MainNavigator> {
                       fontWeight: FontWeight.w600,
                       color: AppColors.textMuted)),
             ),
+            _buildDrawerItem(Icons.notifications_outlined, 'الإشعارات',
+                () => _navigateTo(const NotificationsScreen())),
             _buildDrawerItem(Icons.visibility_outlined, 'قائمة المراقبة',
                 () => _navigateTo(const WatchlistScreen())),
             _buildDrawerItem(Icons.history, 'تاريخ الأسهم',
                 () => _navigateTo(const StockHistoryScreen(ticker: 'EGX'))),
+            _buildDrawerItem(Icons.tune_outlined, 'التنبيهات',
+                () => _navigateTo(const AlertsScreen())),
             _buildDrawerItem(Icons.auto_awesome_outlined, 'تحليل AI',
                 () => _navigateTo(const AiAnalysisScreen())),
 
@@ -556,13 +667,15 @@ class _MainNavigatorState extends State<MainNavigator> {
                       fontWeight: FontWeight.w600,
                       color: AppColors.textMuted)),
             ),
+            _buildDrawerItem(Icons.visibility, 'الفرص الاستثمارية',
+                () => _navigateTo(const HunterScreen())),
+            _buildDrawerItem(Icons.article_outlined, 'الأخبار',
+                () => _navigateTo(const NewsScreen())),
             _buildDrawerItem(Icons.lightbulb_outline, 'التوصيات',
                 () => _navigateTo(const RecommendationsScreen())),
             _buildDrawerItem(Icons.calculate_outlined, 'حاسبة الزكاة',
                 () => _navigateTo(const ZakatScreen())),
-            _buildDrawerItem(
-                Icons.analytics_outlined,
-                'التعلم واختبار الاستراتيجيات',
+            _buildDrawerItem(Icons.analytics_outlined, 'التعلم والاستراتيجيات',
                 () => _navigateTo(const LearningBacktestScreen())),
 
             const Divider(),

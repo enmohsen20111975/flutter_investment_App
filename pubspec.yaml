@@ -45,7 +45,7 @@ dependencies:
   # Utils
   intl: ^0.20.2
   url_launcher: ^6.2.0
-  connectivity_plus: ^6.0.0
+  connectivity_plus: ^7.1.1
   # Version checking
   package_info_plus: ^8.0.0
   # Notifications
@@ -53,6 +53,9 @@ dependencies:
   timezone: ^0.11.0
   # Theme management
   flutter_switch: ^0.3.2
+  provider: ^6.1.5+1
+  shimmer: ^3.0.0
+  cached_network_image: ^3.4.1
 
 dev_dependencies:
   flutter_test:

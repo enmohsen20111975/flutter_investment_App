@@ -1,527 +1,402 @@
 // ============================================================================
 // مساعد الاستثمار Flutter - Dashboard Screen
+// Single /api/mobile/dashboard endpoint with live updates
 // ============================================================================
 
+import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../theme/colors.dart';
 import '../theme/typography.dart';
 import '../api/client.dart';
-import '../models/types.dart';
+import '../api/mobile_api.dart';
+import '../models/json_helpers.dart';
 import '../widgets/state_view.dart';
-import '../widgets/bubble_buttons.dart';
+import '../widgets/skeleton_loader.dart';
+import '../widgets/market_status_banner.dart';
+import '../services/polling_service.dart';
 
 class DashboardScreen extends StatefulWidget {
-  const DashboardScreen({super.key, this.marketVersion = 0});
-
   final int marketVersion;
+
+  const DashboardScreen({super.key, this.marketVersion = 0});
 
   @override
   State<DashboardScreen> createState() => _DashboardScreenState();
 }
 
-class _DashboardScreenState extends State<DashboardScreen> {
-  Future<MarketOverview?>? _overviewFuture;
-  Future<Map<String, dynamic>?>? _liveDataFuture;
-  Future<Map<String, dynamic>?>? _investingDataFuture;
-  MarketOverview? _data;
-  Map<String, dynamic>? _liveData;
-  Map<String, dynamic>? _investingData;
-  String _activeMarket = 'EGX';
+class _DashboardScreenState extends State<DashboardScreen>
+    with SingleTickerProviderStateMixin {
+  Future<Map<String, dynamic>>? _dashboardFuture;
+  Map<String, dynamic>? _dashboardData;
+  late TabController _topMoversTabController;
+  StreamSubscription<Map<String, dynamic>>? _pollingSubscription;
 
   @override
   void initState() {
     super.initState();
-    _loadMarketAndFetch();
+    _topMoversTabController = TabController(length: 3, vsync: this);
+    _dashboardFuture = _fetchDashboard();
+    _startPolling();
   }
 
   @override
-  void didUpdateWidget(covariant DashboardScreen oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.marketVersion != widget.marketVersion) {
-      _loadMarketAndFetch();
-    }
+  void dispose() {
+    _topMoversTabController.dispose();
+    _pollingSubscription?.cancel();
+    super.dispose();
   }
 
-  Future<void> _loadMarketAndFetch() async {
-    final prefs = await SharedPreferences.getInstance();
-    if (mounted) {
-      setState(() {
-        _activeMarket = prefs.getString('active_market') ?? 'EGX';
-        _overviewFuture = _fetchOverview(_activeMarket);
-        _liveDataFuture = _fetchLiveData(_activeMarket);
-        _investingDataFuture = _fetchInvestingData(_activeMarket);
-      });
-    }
-  }
-
-  Future<MarketOverview?> _fetchOverview(String market) async {
-    try {
-      return await api.getMarketOverview(market);
-    } catch (e) {
-      debugPrint('[Dashboard] Overview error: $e');
-      return null;
-    }
-  }
-
-  Future<Map<String, dynamic>?> _fetchLiveData(String market) async {
-    try {
-      _liveData = await api.getMarketLiveData(market);
-      return _liveData;
-    } catch (e) {
-      debugPrint('[Dashboard] Live data error: $e');
-      return null;
-    }
-  }
-
-  Future<Map<String, dynamic>?> _fetchInvestingData(String market) async {
-    try {
-      _investingData = await api.getMarketInvesting(market);
-      return _investingData;
-    } catch (e) {
-      debugPrint('[Dashboard] Investing data error: $e');
-      return null;
-    }
-  }
-
-  Future<void> _refreshAll() async {
-    setState(() {
-      _data = null;
-      _liveData = null;
-      _investingData = null;
+  void _startPolling() {
+    _pollingSubscription?.cancel();
+    _pollingSubscription = pollingService.dashboardStream.listen((data) {
+      if (mounted) {
+        setState(() {
+          _dashboardData = data;
+        });
+      }
     });
-    await _loadMarketAndFetch();
+    pollingService.startDashboardPolling();
+  }
+
+  Future<Map<String, dynamic>> _fetchDashboard() async {
+    try {
+      final data = await mobileApi.getDashboard();
+      _dashboardData = data;
+      return data;
+    } catch (e) {
+      debugPrint('[Dashboard] Fetch failed: $e');
+      return {};
+    }
+  }
+
+  Future<void> _refresh() async {
+    setState(() {
+      _dashboardFuture = _fetchDashboard();
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      floatingActionButton: BubbleFloatingButton(
-        icon: Icons.refresh,
-        label: 'تحديث',
-        extended: true,
-        onPressed: _refreshAll,
-      ),
-      body: RefreshIndicator(
-        color: AppColors.primary,
-        onRefresh: _refreshAll,
-        child: SingleChildScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildHeroHeader(),
-              const SizedBox(height: 16),
-              _buildQuickActions(),
-              const SizedBox(height: 20),
-              FutureBuilder<MarketOverview?>(
-                future: _overviewFuture,
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(
-                      child: Padding(
-                        padding: EdgeInsets.all(16),
-                        child:
-                            CircularProgressIndicator(color: AppColors.primary),
-                      ),
-                    );
-                  }
-                  if (snapshot.hasError) {
-                    return StateView(
-                        error: 'خطأ في تحميل البيانات: ${snapshot.error}',
-                        onRetry: _refreshAll);
-                  }
-                  if (snapshot.hasData && snapshot.data != null) {
-                    _data = snapshot.data;
-                    return Column(
-                      children: [
-                        _buildSummaryCards(),
-                        const SizedBox(height: 20),
-                        _buildIndicesSection(),
-                        const SizedBox(height: 20),
-                        _buildTopStocksSection(),
-                      ],
-                    );
-                  }
-                  return const SizedBox.shrink();
-                },
-              ),
-              const SizedBox(height: 20),
-              FutureBuilder<Map<String, dynamic>?>(
-                future: _liveDataFuture,
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const _LoadingIndicator(
-                        text: 'جاري تحميل البيانات المباشرة...');
-                  }
-                  if (snapshot.hasError) {
-                    return StateView(
-                        error: 'خطأ في البيانات المباشرة: ${snapshot.error}',
-                        onRetry: _refreshAll);
-                  }
-                  if (snapshot.hasData &&
-                      snapshot.data != null &&
-                      snapshot.data!.isNotEmpty) {
-                    return _buildLiveDataSection();
-                  }
-                  return const SizedBox.shrink();
-                },
-              ),
-              const SizedBox(height: 20),
-              FutureBuilder<Map<String, dynamic>?>(
-                future: _investingDataFuture,
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const _LoadingIndicator(
-                        text: 'جاري تحميل بيانات Investing.com...');
-                  }
-                  if (snapshot.hasError) {
-                    return StateView(
-                        error: 'خطأ في بيانات Investing: ${snapshot.error}',
-                        onRetry: _refreshAll);
-                  }
-                  if (snapshot.hasData &&
-                      snapshot.data != null &&
-                      snapshot.data!.isNotEmpty) {
-                    return _buildInvestingSection();
-                  }
-                  return const SizedBox.shrink();
-                },
-              ),
-              const SizedBox(height: 90),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildHeroHeader() {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(colors: [
-          AppColors.primaryDark,
-          AppColors.primary,
-          AppColors.primaryLight
-        ]),
-        borderRadius: BorderRadius.all(Radius.circular(20)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                    color: AppColors.white.withValues(alpha: 0.2),
-                    shape: BoxShape.circle),
-                child: const Icon(Icons.trending_up,
-                    color: AppColors.white, size: 28),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: Scaffold(
+        backgroundColor: AppColors.background,
+        body: FutureBuilder<Map<String, dynamic>>(
+          future: _dashboardFuture,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting &&
+                _dashboardData == null) {
+              return const SkeletonDashboard();
+            }
+            if (snapshot.hasError && _dashboardData == null) {
+              return StateView(error: 'فشل تحميل البيانات', onRetry: _refresh);
+            }
+            return RefreshIndicator(
+              color: AppColors.primary,
+              onRefresh: _refresh,
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('مرحباً',
-                        style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.white)),
-                    const Text('مساعد الاستثمار',
-                        style: TextStyle(
-                            fontSize: 22,
-                            fontWeight: FontWeight.w800,
-                            color: AppColors.white)),
-                    Text('لوحة التحكم',
-                        style: TextStyle(
-                            fontSize: 14,
-                            color: AppColors.white.withValues(alpha: 0.8))),
+                    const MarketStatusBanner(),
+                    Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const HeaderCard(
+                            icon: Icons.dashboard_rounded,
+                            title: 'نظرة عامة على السوق',
+                            subtitle: 'آخر تحديث للبيانات',
+                          ),
+                          const SizedBox(height: 16),
+                          _buildIndicesRow(),
+                          const SizedBox(height: 16),
+                          _buildMarketSummary(),
+                          const SizedBox(height: 16),
+                          _buildTopMovers(),
+                          if (_dashboardData?['gold_prices'] != null) ...[
+                            const SizedBox(height: 16),
+                            _buildSectionTitle('أسعار الذهب', Icons.diamond),
+                            const SizedBox(height: 8),
+                            _buildGoldPrices(),
+                          ],
+                          if (_dashboardData?['currency_rates'] != null) ...[
+                            const SizedBox(height: 16),
+                            _buildSectionTitle(
+                                'أسعار العملات', Icons.currency_exchange),
+                            const SizedBox(height: 8),
+                            _buildCurrencyRates(),
+                          ],
+                        ],
+                      ),
+                    ),
                   ],
                 ),
               ),
-            ],
-          ),
-          const SizedBox(height: 16),
-        ],
+            );
+          },
+        ),
       ),
     );
   }
 
-  Widget _buildQuickActions() {
-    return BubbleActionMenu(
-      items: [
-        BubbleMenuItem(
-            icon: Icons.auto_awesome,
-            label: 'تحليل AI',
-            onPressed: () => Navigator.of(context).pushNamed('/ai-analysis')),
-        BubbleMenuItem(
-            icon: Icons.lightbulb_outline,
-            label: 'التوصيات',
-            onPressed: () =>
-                Navigator.of(context).pushNamed('/recommendations')),
-        BubbleMenuItem(
-            icon: Icons.visibility,
-            label: 'قائمة المراقبة',
-            onPressed: () => Navigator.of(context).pushNamed('/watchlist')),
-        BubbleMenuItem(
-            icon: Icons.wallet,
-            label: 'المحفظة',
-            onPressed: () => Navigator.of(context).pushNamed('/portfolio')),
-      ],
-    );
+  Widget _buildSectionTitle(String title, IconData icon) {
+    return Row(children: [
+      Icon(icon, size: 18, color: AppColors.primary),
+      const SizedBox(width: 8),
+      Text(title, style: AppTypography.titleSmall),
+    ]);
   }
 
-  Widget _buildSummaryCards() {
-    final summary = _data?.summary;
-    return Row(
-      children: [
-        Expanded(
-            child: _buildMiniCard('الأسهم', '${summary?.totalStocks ?? '-'}',
-                Icons.bar_chart, AppColors.primary)),
-        const SizedBox(width: 8),
-        Expanded(
-            child: _buildMiniCard('ارتفاعات', '${summary?.gainers ?? '-'}',
-                Icons.trending_up, AppColors.success)),
-        const SizedBox(width: 8),
-        Expanded(
-            child: _buildMiniCard('انخفاضات', '${summary?.losers ?? '-'}',
-                Icons.trending_down, AppColors.danger)),
-      ],
-    );
-  }
-
-  Widget _buildMiniCard(
-      String label, String value, IconData icon, Color color) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-          color: AppColors.surface,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppColors.border)),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              Icon(icon, size: 16, color: color),
-              const SizedBox(width: 4),
-              Text(value,
-                  style: TextStyle(
-                      fontSize: 18, fontWeight: FontWeight.w700, color: color)),
-            ],
-          ),
-          const SizedBox(height: 4),
-          Text(label, style: AppTypography.bodySmall),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildIndicesSection() {
-    final indices = _data?.indices ?? [];
-    if (indices.isEmpty) return const SizedBox.shrink();
-    return Column(
-      children: [
-        const SectionHeader(title: 'المؤشرات', icon: Icons.analytics),
-        const SizedBox(height: 8),
-        ...indices.map((idx) => Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: DataRowWidget(
-                title: idx.nameAr ?? idx.name ?? idx.symbol,
-                value: idx.value?.toStringAsFixed(2) ?? '-',
-                change: idx.changePercent,
-                icon: Icons.show_chart,
-              ),
-            )),
-      ],
-    );
-  }
-
-  Widget _buildTopStocksSection() {
-    final gainers = _data?.topGainers ?? [];
-    final losers = _data?.topLosers ?? [];
-    return Column(
-      children: [
-        if (gainers.isNotEmpty) ...[
-          const SectionHeader(
-              title: 'أعلى الأسهم ارتفاعاً', icon: Icons.trending_up),
-          const SizedBox(height: 8),
-          ...gainers.take(5).map((s) => Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: DataRowWidget(
-                  title: s.nameAr ?? s.name ?? s.ticker,
-                  subtitle: s.ticker,
-                  value: s.currentPrice?.toStringAsFixed(2) ?? '-',
-                  change: s.changePercent,
-                  icon: Icons.trending_up,
-                ),
-              )),
-          const SizedBox(height: 16),
-        ],
-        if (losers.isNotEmpty) ...[
-          const SectionHeader(
-              title: 'أعلى الأسهم انخفاضاً', icon: Icons.trending_down),
-          const SizedBox(height: 8),
-          ...losers.take(5).map((s) => Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: DataRowWidget(
-                  title: s.nameAr ?? s.name ?? s.ticker,
-                  subtitle: s.ticker,
-                  value: s.currentPrice?.toStringAsFixed(2) ?? '-',
-                  change: s.changePercent,
-                  icon: Icons.trending_down,
-                ),
-              )),
-        ],
-      ],
-    );
-  }
-
-  Widget _buildLiveDataSection() {
-    final ld = _liveData!;
-    final stocks = (ld['stocks'] as List?) ?? [];
-    final lastUpdated = ld['last_updated']?.toString() ?? '';
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            const Icon(Icons.live_tv, size: 18, color: AppColors.success),
-            const SizedBox(width: 8),
-            const Text('بيانات مباشرة',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
-            const Spacer(),
-            if (lastUpdated.isNotEmpty)
-              Text(
-                  lastUpdated.length > 16
-                      ? lastUpdated.substring(0, 16)
-                      : lastUpdated,
+  Widget _buildIndicesRow() {
+    final indices =
+        _dashboardData?['indices'] ?? _dashboardData?['market_indices'];
+    if (indices is! List || indices.isEmpty) {
+      return const SkeletonBox(height: 100);
+    }
+    return SizedBox(
+      height: 100,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: indices.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 8),
+        itemBuilder: (_, i) {
+          final idx = indices[i] is Map
+              ? Map<String, dynamic>.from(indices[i])
+              : <String, dynamic>{};
+          final name = idx['name']?.toString() ?? '';
+          final value = parseDouble(idx['value']) ?? 0;
+          final change = parseDouble(idx['change_percent'] ?? idx['change']);
+          final isPositive = change != null && change >= 0;
+          return Container(
+            width: 120,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppColors.border),
+            ),
+            child:
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(name,
                   style: const TextStyle(
                       fontSize: 10, color: AppColors.textMuted)),
-          ],
-        ),
-        const SizedBox(height: 8),
-        if (stocks.isEmpty)
-          const Padding(
-            padding: EdgeInsets.all(16),
-            child: Text('لا توجد بيانات مباشرة متاحة حالياً',
-                style: TextStyle(color: AppColors.textMuted)),
-          )
-        else
-          ...stocks.take(5).map((s) {
-            final m = s as Map<String, dynamic>;
-            final ticker = m['ticker'] ?? m['symbol'] ?? '';
-            final price = (m['current_price'] as num?)?.toDouble() ?? 0;
-            final change = (m['change_percent'] as num?)?.toDouble() ?? 0;
-            final isUp = change >= 0;
-            return Container(
-              margin: const EdgeInsets.only(bottom: 6),
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                  color: AppColors.surface,
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: AppColors.border)),
-              child: Row(
-                children: [
-                  Icon(isUp ? Icons.trending_up : Icons.trending_down,
-                      size: 16,
-                      color: isUp ? AppColors.success : AppColors.danger),
-                  const SizedBox(width: 8),
-                  Expanded(
-                      child: Text(ticker, style: AppTypography.bodyMedium)),
-                  Text('$price', style: AppTypography.bodyMedium),
-                  const SizedBox(width: 8),
-                  Text('${change >= 0 ? '+' : ''}${change.toStringAsFixed(2)}%',
-                      style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: isUp ? AppColors.success : AppColors.danger)),
-                ],
-              ),
-            );
-          }),
-      ],
-    );
-  }
-
-  Widget _buildInvestingSection() {
-    final inv = _investingData!;
-    final items = (inv['data'] as List?) ?? [];
-    if (items.isEmpty) return const SizedBox.shrink();
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const SectionHeader(
-            title: 'بيانات Investing.com', icon: Icons.language),
-        const SizedBox(height: 8),
-        ...items.take(5).map((item) {
-          final m = item as Map<String, dynamic>;
-          final name = m['name'] ?? m['symbol'] ?? '';
-          final price = (m['price'] as num?)?.toDouble() ?? 0;
-          final change = (m['change_percent'] as num?)?.toDouble() ?? 0;
-          final isUp = change >= 0;
-          return Container(
-            margin: const EdgeInsets.only(bottom: 6),
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-                color: AppColors.surface,
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: AppColors.border)),
-            child: Row(
-              children: [
-                Icon(isUp ? Icons.trending_up : Icons.trending_down,
-                    size: 16,
-                    color: isUp ? AppColors.success : AppColors.danger),
-                const SizedBox(width: 8),
-                Expanded(
-                    child: Text(name,
-                        style: AppTypography.bodyMedium,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis)),
-                Text('$price', style: AppTypography.bodyMedium),
-                const SizedBox(width: 8),
-                Text('${change >= 0 ? '+' : ''}${change.toStringAsFixed(2)}%',
+              const SizedBox(height: 4),
+              Text(value.toStringAsFixed(1),
+                  style: const TextStyle(
+                      fontWeight: FontWeight.w800, fontSize: 16)),
+              if (change != null)
+                Text('${isPositive ? '+' : ''}${change.toStringAsFixed(2)}%',
                     style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
-                        color: isUp ? AppColors.success : AppColors.danger)),
-              ],
-            ),
+                        color:
+                            isPositive ? AppColors.success : AppColors.danger)),
+            ]),
           );
-        }),
-      ],
+        },
+      ),
     );
   }
-}
 
-class _LoadingIndicator extends StatelessWidget {
-  final String text;
-  const _LoadingIndicator({required this.text});
-
-  @override
-  Widget build(BuildContext context) {
+  Widget _buildMarketSummary() {
+    final summary =
+        _dashboardData?['market_summary'] ?? _dashboardData?['summary'];
+    if (summary is! Map) return const SizedBox.shrink();
+    final s = Map<String, dynamic>.from(summary);
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
+        gradient: AppColors.gradientPrimary,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [
+        _buildSummaryBadge('🟢', '${s['advances'] ?? 0}', 'مرتفع'),
+        _buildSummaryBadge('🔴', '${s['declines'] ?? 0}', 'منخفض'),
+        _buildSummaryBadge('⚪', '${s['unchanged'] ?? 0}', 'بدون تغيير'),
+      ]),
+    );
+  }
+
+  Widget _buildSummaryBadge(String emoji, String count, String label) {
+    return Column(children: [
+      Text('$emoji $count',
+          style: const TextStyle(
+              fontSize: 18, fontWeight: FontWeight.w800, color: Colors.white)),
+      const SizedBox(height: 4),
+      Text(label, style: const TextStyle(fontSize: 11, color: Colors.white70)),
+    ]);
+  }
+
+  Widget _buildTopMovers() {
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      _buildSectionTitle('أكثر الحركة', Icons.trending_up),
+      const SizedBox(height: 8),
+      Container(
+        decoration: BoxDecoration(
           color: AppColors.surface,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppColors.border)),
-      child: Row(
-        children: [
-          const SizedBox(
-              width: 16,
-              height: 16,
-              child: CircularProgressIndicator(
-                  color: AppColors.primary, strokeWidth: 2)),
-          const SizedBox(width: 12),
-          Text(text,
-              style: const TextStyle(
-                  color: AppColors.textSecondary, fontSize: 13)),
-        ],
+          border: Border.all(color: AppColors.border),
+        ),
+        child: Column(children: [
+          TabBar(
+            controller: _topMoversTabController,
+            indicatorColor: AppColors.primary,
+            labelColor: AppColors.primary,
+            unselectedLabelColor: AppColors.textMuted,
+            tabs: const [
+              Tab(text: 'المرتفعة'),
+              Tab(text: 'المنخفضة'),
+              Tab(text: 'الأكثر نشاطاً'),
+            ],
+          ),
+          SizedBox(
+            height: 200,
+            child: TabBarView(
+              controller: _topMoversTabController,
+              children: [
+                _buildMoversList(_dashboardData?['top_gainers'] ??
+                    _dashboardData?['gainers']),
+                _buildMoversList(
+                    _dashboardData?['top_losers'] ?? _dashboardData?['losers']),
+                _buildMoversList(_dashboardData?['most_active']),
+              ],
+            ),
+          ),
+        ]),
+      ),
+    ]);
+  }
+
+  Widget _buildMoversList(dynamic movers) {
+    if (movers is! List || movers.isEmpty) {
+      return const Center(
+          child: Text('لا توجد بيانات',
+              style: TextStyle(color: AppColors.textMuted)));
+    }
+    return ListView.separated(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      itemCount: movers.length > 5 ? 5 : movers.length,
+      separatorBuilder: (_, __) => const Divider(height: 1),
+      itemBuilder: (_, i) {
+        final m = movers[i] is Map
+            ? Map<String, dynamic>.from(movers[i])
+            : <String, dynamic>{};
+        final ticker = m['ticker']?.toString() ?? m['symbol']?.toString() ?? '';
+        final price = parseDouble(m['price'] ?? m['last_price']);
+        final change = parseDouble(m['change_percent'] ?? m['change']);
+        final isPositive = change != null && change >= 0;
+        return Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: Row(children: [
+            Expanded(
+                child: Text(ticker,
+                    style: const TextStyle(
+                        fontWeight: FontWeight.w600, fontSize: 12))),
+            if (price != null)
+              Text(price.toStringAsFixed(2),
+                  style: const TextStyle(fontSize: 12)),
+            const SizedBox(width: 8),
+            if (change != null)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: (isPositive ? AppColors.success : AppColors.danger)
+                      .withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                    '${isPositive ? '+' : ''}${change.toStringAsFixed(2)}%',
+                    style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color:
+                            isPositive ? AppColors.success : AppColors.danger)),
+              ),
+          ]),
+        );
+      },
+    );
+  }
+
+  Widget _buildGoldPrices() {
+    final gold = _dashboardData?['gold_prices'] ?? _dashboardData?['gold'];
+    if (gold is! List || gold.isEmpty) return const SizedBox.shrink();
+    return SizedBox(
+      height: 80,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: gold.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 8),
+        itemBuilder: (_, i) {
+          final g = gold[i] is Map
+              ? Map<String, dynamic>.from(gold[i])
+              : <String, dynamic>{};
+          final karat = g['karat']?.toString() ?? g['type']?.toString() ?? '';
+          final price = parseDouble(g['price'] ?? g['buy']);
+          return Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: AppColors.warningLight.withValues(alpha: 0.3),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Column(children: [
+              Text(karat,
+                  style: const TextStyle(
+                      fontSize: 11, fontWeight: FontWeight.w600)),
+              if (price != null)
+                Text('${price.toStringAsFixed(0)} ج.م',
+                    style: const TextStyle(fontSize: 12)),
+            ]),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildCurrencyRates() {
+    final rates =
+        _dashboardData?['currency_rates'] ?? _dashboardData?['currencies'];
+    if (rates is! List || rates.isEmpty) return const SizedBox.shrink();
+    return SizedBox(
+      height: 60,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: rates.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 8),
+        itemBuilder: (_, i) {
+          final r = rates[i] is Map
+              ? Map<String, dynamic>.from(rates[i])
+              : <String, dynamic>{};
+          final name = r['code']?.toString() ?? r['currency']?.toString() ?? '';
+          final buy = parseDouble(r['buy'] ?? r['price']);
+          final sell = parseDouble(r['sell']);
+          return Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppColors.border),
+            ),
+            child: Row(children: [
+              Text(name,
+                  style: const TextStyle(
+                      fontWeight: FontWeight.w600, fontSize: 12)),
+              const SizedBox(width: 8),
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                if (buy != null)
+                  Text('شراء: ${buy.toStringAsFixed(2)}',
+                      style: const TextStyle(
+                          fontSize: 9, color: AppColors.textMuted)),
+                if (sell != null)
+                  Text('بيع: ${sell.toStringAsFixed(2)}',
+                      style: const TextStyle(
+                          fontSize: 9, color: AppColors.textMuted)),
+              ]),
+            ]),
+          );
+        },
       ),
     );
   }

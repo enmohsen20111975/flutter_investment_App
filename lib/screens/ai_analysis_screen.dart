@@ -7,8 +7,10 @@ import 'package:flutter/material.dart';
 import '../theme/colors.dart';
 import '../theme/typography.dart';
 import '../api/client.dart';
+import '../api/mobile_api.dart';
 import '../models/json_helpers.dart';
 import '../widgets/state_view.dart';
+import '../widgets/skeleton_loader.dart';
 import '../services/subscription_service.dart';
 import '../widgets/upgrade_modal.dart';
 
@@ -29,7 +31,7 @@ class _AiAnalysisScreenState extends State<AiAnalysisScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(length: 3, vsync: this);
     _analysisFuture = _fetchAnalysis();
     _predictionsFuture = _fetchPredictions();
     _subscriptionFuture = SubscriptionService.instance.getStatus();
@@ -43,7 +45,7 @@ class _AiAnalysisScreenState extends State<AiAnalysisScreen>
 
   Future<Map<String, dynamic>?> _fetchAnalysis() async {
     try {
-      final data = await api.getLiveAnalysis();
+      final data = await mobileApi.getDashboard();
       if (data.isNotEmpty) return data;
       return null;
     } catch (_) {
@@ -53,8 +55,18 @@ class _AiAnalysisScreenState extends State<AiAnalysisScreen>
 
   Future<Map<String, dynamic>?> _fetchPredictions() async {
     try {
-      final data = await api.getPredictions();
+      // Uses /api/mobile/predictions with 120s timeout via aiDio
+      final data = await api.getMobilePredictions(limit: 20);
       return {'predictions': data};
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<Map<String, dynamic>?> _fetchGlobalPredictions() async {
+    try {
+      final data = await api.getGlobalPredictions();
+      return data;
     } catch (_) {
       return null;
     }
@@ -85,12 +97,7 @@ class _AiAnalysisScreenState extends State<AiAnalysisScreen>
           future: _subscriptionFuture,
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(
-                child: Padding(
-                  padding: EdgeInsets.all(32),
-                  child: CircularProgressIndicator(color: AppColors.primary),
-                ),
-              );
+              return const SkeletonAiAnalysis();
             }
             final hasAccess = snapshot.data?.hasFeature('ai_analysis') ?? false;
             return !hasAccess
@@ -119,34 +126,28 @@ class _AiAnalysisScreenState extends State<AiAnalysisScreen>
                             ),
                             child: TabBar(
                               controller: _tabController,
-                              indicatorSize: TabBarIndicatorSize.tab,
-                              indicator: BoxDecoration(
-                                color: AppColors.primary,
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              labelColor: AppColors.white,
-                              unselectedLabelColor: AppColors.textSecondary,
-                              dividerColor: Colors.transparent,
-                              labelStyle: const TextStyle(
-                                  fontSize: 12, fontWeight: FontWeight.w600),
+                              indicatorColor: AppColors.primary,
+                              labelColor: AppColors.primary,
+                              unselectedLabelColor: AppColors.textMuted,
                               tabs: const [
-                                Tab(text: 'الرئيسية'),
-                                Tab(text: 'التنبؤات'),
+                                Tab(text: 'التوقعات'),
+                                Tab(text: 'التحليل المباشر'),
+                                Tab(text: 'توقعات عالمية'),
                               ],
                             ),
                           ),
                           const SizedBox(height: 16),
                           SizedBox(
-                            height: MediaQuery.of(context).size.height - 200,
+                            height: MediaQuery.of(context).size.height * 0.8,
                             child: TabBarView(
                               controller: _tabController,
                               children: [
-                                _buildAnalysisTab(),
                                 _buildPredictionsTab(),
+                                _buildAnalysisTab(),
+                                _buildGlobalPredictionsTab(),
                               ],
                             ),
                           ),
-                          const SizedBox(height: 90),
                         ],
                       ),
                     ),
@@ -157,52 +158,33 @@ class _AiAnalysisScreenState extends State<AiAnalysisScreen>
     );
   }
 
-  Widget _buildLockedView() {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: const BoxDecoration(
-                color: AppColors.primaryMuted,
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(Icons.lock, color: AppColors.primary, size: 36),
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              'التحليل الاحترافي ميزة مدفوعة',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'قم بالترقية إلى بلس للوصول إلى تحليلات AI المتقدمة',
-              style: AppTypography.bodyMedium
-                  .copyWith(color: AppColors.textSecondary),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: () =>
-                  UpgradeModal.show(context, feature: 'ai_analysis'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12)),
-              ),
-              child: const Text('ترقية الآن',
-                  style: TextStyle(
-                      color: AppColors.white, fontWeight: FontWeight.w600)),
-            ),
-          ],
-        ),
-      ),
+  Widget _buildPredictionsTab() {
+    return FutureBuilder<Map<String, dynamic>?>(
+      future: _predictionsFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const SkeletonAiAnalysis();
+        }
+        if (snapshot.hasError || snapshot.data == null) {
+          return StateView(error: 'فشل تحميل التوقعات', onRetry: _refresh);
+        }
+
+        final predictions = snapshot.data!['predictions'] as List? ?? [];
+        if (predictions.isEmpty) {
+          return const StateView(
+              empty: true, emptyMessage: 'لا توجد توقعات متاحة');
+        }
+
+        return ListView.builder(
+          itemCount: predictions.length,
+          itemBuilder: (context, index) {
+            final pred = predictions[index] is Map
+                ? Map<String, dynamic>.from(predictions[index])
+                : <String, dynamic>{};
+            return _buildPredictionCard(pred);
+          },
+        );
+      },
     );
   }
 
@@ -211,291 +193,86 @@ class _AiAnalysisScreenState extends State<AiAnalysisScreen>
       future: _analysisFuture,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(
-            child: Padding(
-              padding: EdgeInsets.all(32),
-              child: CircularProgressIndicator(color: AppColors.primary),
-            ),
-          );
+          return const SkeletonAiAnalysis();
         }
-        if (snapshot.hasError) {
-          return StateView(
-            error: 'فشل تحميل البيانات: ${snapshot.error}',
-            onRetry: _refresh,
-          );
+        if (snapshot.hasError || snapshot.data == null) {
+          return StateView(error: 'فشل تحميل التحليل', onRetry: _refresh);
         }
-        final data = snapshot.data;
-        if (data == null || data.isEmpty) {
-          return const StateView(
-            empty: true,
-            emptyMessage: 'لا توجد تحليلات متاحة حالياً',
-          );
-        }
-        return SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: _buildAnalysisContent(data),
+
+        final data = snapshot.data!;
+        return ListView(
+          children: [
+            _buildMetricCard(
+                'مؤشرات السوق', Icons.show_chart, data['market_summary'] ?? ''),
+            _buildMetricCard(
+                'التوصيات', Icons.lightbulb, data['recommendations'] ?? ''),
+            _buildMetricCard(
+                'تحليل المخاطر', Icons.warning, data['risk_analysis'] ?? ''),
+          ],
         );
       },
     );
   }
 
-  Widget _buildAnalysisContent(Map<String, dynamic> data) {
-    String outlook =
-        parseString(data['outlook'] ?? data['market_outlook'] ?? '') ?? '';
-    double confidence =
-        parseDouble(data['confidence'] ?? data['overall_confidence'] ?? 0) ??
-            0.0;
-    final signals =
-        (data['signals'] as List?)?.map((e) => Map<String, dynamic>.from(e as Map)).toList() ?? <Map<String, dynamic>>[];
-    final recommendations =
-        (data['recommendations'] as List?)?.map((e) => Map<String, dynamic>.from(e as Map)).toList() ?? <Map<String, dynamic>>[];
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        if (outlook.isNotEmpty && confidence > 0) ...[
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: _getOutlookColors(outlook, confidence),
-              ),
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  outlook.toUpperCase(),
-                  style: const TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.w800,
-                    color: AppColors.white,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'مستوى الثقة: ${confidence.toStringAsFixed(0)}%',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: AppColors.white.withValues(alpha: 0.9),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
-        ],
-        if (signals.isNotEmpty) ...[
-          const SectionHeader(title: 'الإشارات الحية', icon: Icons.trending_up),
-          const SizedBox(height: 8),
-          ...signals.map((s) => _buildSignalCard(s)),
-          const SizedBox(height: 16),
-        ],
-        if (recommendations.isNotEmpty) ...[
-          const SectionHeader(title: 'التوصيات', icon: Icons.lightbulb_outline),
-          const SizedBox(height: 8),
-          ...recommendations.map((r) => _buildRecommendationCard(r)),
-          const SizedBox(height: 16),
-        ],
-        const SizedBox(height: 20),
-      ],
-    );
-  }
-
-  Widget _buildSignalCard(Map<String, dynamic> signal) {
-    final ticker = signal['ticker'] ?? signal['symbol'] ?? '';
-    final action =
-        parseString(signal['action'] ?? signal['recommendation'] ?? '') ?? '';
-    final confidence =
-        parseDouble(signal['confidence'] ?? signal['score'] ?? 0);
-    final reason =
-        parseString(signal['reason'] ?? signal['reason_ar'] ?? '') ?? '';
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: _getActionColor(action).withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Icon(
-              _getActionIcon(action),
-              color: _getActionColor(action),
-              size: 20,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Text(ticker, style: AppTypography.titleSmall),
-                    const SizedBox(width: 8),
-                    if (action.isNotEmpty)
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: _getActionColor(action).withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          _getActionAr(action),
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                            color: _getActionColor(action),
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-                if (reason.isNotEmpty)
-                  Text(reason,
-                      style: AppTypography.bodySmall,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis),
-                if (confidence != null)
-                  Text('ثقة: ${confidence.toStringAsFixed(0)}%',
-                      style: const TextStyle(
-                          fontSize: 10, color: AppColors.textMuted)),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildRecommendationCard(Map<String, dynamic> rec) {
-    final title =
-        parseString(rec['title'] ?? rec['ticker'] ?? rec['name'] ?? '') ?? '';
-    final description =
-        parseString(rec['description'] ?? rec['reason'] ?? '') ?? '';
-    final action =
-        parseString(rec['action'] ?? rec['recommendation'] ?? '') ?? '';
-    final impact = parseString(rec['impact'] ?? '') ?? '';
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              if (action.isNotEmpty)
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: _getActionColor(action).withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    _getActionAr(action),
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      color: _getActionColor(action),
-                    ),
-                  ),
-                ),
-              const SizedBox(width: 8),
-              Expanded(child: Text(title, style: AppTypography.titleSmall)),
-            ],
-          ),
-          if (description.isNotEmpty) ...[
-            const SizedBox(height: 8),
-            Text(description, style: AppTypography.bodySmall),
-          ],
-          if (impact.isNotEmpty) ...[
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                const Icon(Icons.show_chart, size: 14, color: AppColors.info),
-                const SizedBox(width: 4),
-                Text(impact, style: AppTypography.bodySmall),
-              ],
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPredictionsTab() {
+  Widget _buildGlobalPredictionsTab() {
     return FutureBuilder<Map<String, dynamic>?>(
-      future: _predictionsFuture,
+      future: _fetchGlobalPredictions(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(
-            child: Padding(
-              padding: EdgeInsets.all(32),
-              child: CircularProgressIndicator(color: AppColors.primary),
-            ),
-          );
+          return const SkeletonAiAnalysis();
         }
-        if (snapshot.hasError) {
+        if (snapshot.hasError || snapshot.data == null) {
           return StateView(
-            error: 'فشل تحميل التنبؤات: ${snapshot.error}',
-            onRetry: _refresh,
-          );
+              error: 'فشل تحميل التوقعات العالمية', onRetry: _refresh);
         }
-        final data = snapshot.data;
-        final predictions = (data != null && data.isNotEmpty)
-            ? (data['predictions'] as List?) ?? []
-            : <dynamic>[];
-        if (predictions.isEmpty) {
-          return const StateView(
-            empty: true,
-            emptyMessage: 'لا توجد تنبؤات متاحة حالياً',
-          );
-        }
-        return SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SectionHeader(title: 'تنبؤات AI', icon: Icons.auto_awesome),
-              const SizedBox(height: 8),
-              ...predictions
-                  .map((p) => _buildPredictionCard(p as Map<String, dynamic>)),
-              const SizedBox(height: 20),
-            ],
-          ),
+
+        final data = snapshot.data!;
+        return ListView(
+          children: [
+            _buildMetricCard(
+                'التوقعات العالمية', Icons.public, data['summary'] ?? ''),
+            if (data['predictions'] is List)
+              ...(data['predictions'] as List).map((p) => _buildPredictionCard(
+                  p is Map
+                      ? Map<String, dynamic>.from(p)
+                      : <String, dynamic>{})),
+          ],
         );
       },
     );
   }
 
-  Widget _buildPredictionCard(Map<String, dynamic> prediction) {
-    final ticker = prediction['ticker'] ?? prediction['symbol'] ?? '';
-    final predictedPrice = (prediction['predicted_price'] as num?)?.toDouble();
-    final currentPrice = (prediction['current_price'] as num?)?.toDouble();
-    final changePercent = (prediction['change_percent'] as num?)?.toDouble();
-    final timeframe = parseString(prediction['timeframe'] ?? '') ?? '';
-    final confidence = parseDouble(prediction['confidence'] ?? 0);
+  Widget _buildPredictionCard(Map<String, dynamic> pred) {
+    final ticker = pred['ticker'] ?? pred['symbol'] ?? '';
+    final signal = pred['signal']?.toString().toUpperCase() ?? '';
+    final confidence = parseDouble(pred['confidence']) ?? 0;
+    final entryPrice = parseDouble(pred['entry_price']);
+    final targetPrice = parseDouble(pred['target_price']);
+    final stopLoss = parseDouble(pred['stop_loss']);
 
-    final isUp = (changePercent ?? 0) >= 0;
-    final changeColor = isUp ? AppColors.success : AppColors.danger;
+    Color signalColor;
+    IconData signalIcon;
+    switch (signal) {
+      case 'STRONG_BUY':
+        signalColor = const Color(0xFFFFD700);
+        signalIcon = Icons.thumb_up;
+        break;
+      case 'BUY':
+        signalColor = AppColors.success;
+        signalIcon = Icons.trending_up;
+        break;
+      case 'SELL':
+        signalColor = AppColors.danger;
+        signalIcon = Icons.trending_down;
+        break;
+      case 'STRONG_SELL':
+        signalColor = Colors.deepOrange;
+        signalIcon = Icons.thumb_down;
+        break;
+      default:
+        signalColor = AppColors.warning;
+        signalIcon = Icons.swap_horiz;
+    }
 
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
@@ -503,160 +280,147 @@ class _AiAnalysisScreenState extends State<AiAnalysisScreen>
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(
+            color: signal == 'STRONG_BUY'
+                ? const Color(0xFFFFD700).withValues(alpha: 0.3)
+                : AppColors.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Icon(
-                isUp ? Icons.trending_up : Icons.trending_down,
-                color: changeColor,
-                size: 20,
-              ),
+          Row(children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                  color: signalColor.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8)),
+              child: Icon(signalIcon, color: signalColor, size: 20),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+                child:
+                    Text(ticker.toString(), style: AppTypography.titleSmall)),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                  color: signalColor.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(8)),
+              child: Text(
+                  signal == 'STRONG_BUY'
+                      ? 'شراء قوي'
+                      : signal == 'STRONG_SELL'
+                          ? 'بيع قوي'
+                          : signal,
+                  style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                      color: signalColor)),
+            ),
+          ]),
+          if (confidence > 0) ...[
+            const SizedBox(height: 10),
+            Row(children: [
+              const Text('نسبة الثقة:',
+                  style: TextStyle(fontSize: 11, color: AppColors.textMuted)),
               const SizedBox(width: 8),
               Expanded(
-                child: Text(ticker, style: AppTypography.titleSmall),
-              ),
-              if (confidence != null)
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: AppColors.primaryMuted,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    'ثقة: ${confidence.toStringAsFixed(0)}%',
-                    style:
-                        const TextStyle(fontSize: 10, color: AppColors.primary),
-                  ),
-                ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: _buildPredictionItem(
-                  'السعر الحالي',
-                  currentPrice != null ? currentPrice.toStringAsFixed(2) : '-',
-                ),
-              ),
-              Expanded(
-                child: _buildPredictionItem(
-                  'السعر المتوقع',
-                  predictedPrice != null
-                      ? predictedPrice.toStringAsFixed(2)
-                      : '-',
-                  color: changeColor,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              if (changePercent != null)
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: changeColor.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    '${isUp ? '+' : ''}${changePercent.toStringAsFixed(2)}%',
-                    style: TextStyle(
-                      fontSize: 12,
+                  child: ClipRRect(
+                      borderRadius: BorderRadius.circular(4),
+                      child: LinearProgressIndicator(
+                          value: confidence / 100,
+                          backgroundColor: AppColors.surfaceMuted,
+                          color: signalColor,
+                          minHeight: 6))),
+              const SizedBox(width: 8),
+              Text('${confidence.toStringAsFixed(0)}%',
+                  style: TextStyle(
+                      fontSize: 11,
                       fontWeight: FontWeight.w600,
-                      color: changeColor,
-                    ),
-                  ),
-                ),
-              if (timeframe.isNotEmpty) ...[
-                const SizedBox(width: 8),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: AppColors.info.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    timeframe,
-                    style: const TextStyle(fontSize: 11, color: AppColors.info),
-                  ),
-                ),
-              ],
-            ],
-          ),
+                      color: signalColor)),
+            ]),
+          ],
+          const Divider(height: 16),
+          Row(children: [
+            if (entryPrice != null)
+              Expanded(child: _buildPriceCol('الدخول', entryPrice!)),
+            if (targetPrice != null)
+              Expanded(child: _buildPriceCol('الهدف', targetPrice!)),
+            if (stopLoss != null)
+              Expanded(child: _buildPriceCol('وقف الخسارة', stopLoss!)),
+          ]),
+          if (pred['reasoning'] != null) ...[
+            const SizedBox(height: 8),
+            Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                    color: AppColors.surfaceMuted,
+                    borderRadius: BorderRadius.circular(8)),
+                child: Text(pred['reasoning'].toString(),
+                    style: const TextStyle(
+                        fontSize: 11, color: AppColors.textSecondary))),
+          ],
         ],
       ),
     );
   }
 
-  Widget _buildPredictionItem(String label, String value, {Color? color}) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label,
-            style: const TextStyle(fontSize: 10, color: AppColors.textMuted)),
-        Text(
-          value,
-          style: TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w700,
-            color: color ?? AppColors.text,
-          ),
-        ),
-      ],
+  Widget _buildPriceCol(String label, double value) {
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Text(label,
+          style: const TextStyle(fontSize: 10, color: AppColors.textMuted)),
+      const SizedBox(height: 2),
+      Text(value.toStringAsFixed(2),
+          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+    ]);
+  }
+
+  Widget _buildMetricCard(String title, IconData icon, String content) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: AppColors.border)),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Icon(icon, size: 18, color: AppColors.primary),
+          const SizedBox(width: 8),
+          Text(title, style: AppTypography.titleSmall)
+        ]),
+        if (content.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          Text(content,
+              style:
+                  const TextStyle(fontSize: 12, color: AppColors.textSecondary))
+        ],
+      ]),
     );
   }
 
-  List<Color> _getOutlookColors(String outlook, double confidence) {
-    final o = outlook.toUpperCase();
-    if (o.contains('BULLISH') || o.contains('صاعد')) {
-      return [AppColors.success.withValues(alpha: 0.8), AppColors.success];
-    }
-    if (o.contains('BEARISH') || o.contains('هابط')) {
-      return [AppColors.danger.withValues(alpha: 0.8), AppColors.danger];
-    }
-    if (o.contains('NEUTRAL') || o.contains('محايد')) {
-      return [AppColors.warning.withValues(alpha: 0.8), AppColors.warning];
-    }
-    if (confidence >= 70) {
-      return [AppColors.success.withValues(alpha: 0.8), AppColors.success];
-    }
-    if (confidence >= 40) {
-      return [AppColors.warning.withValues(alpha: 0.8), AppColors.warning];
-    }
-    return [AppColors.info.withValues(alpha: 0.8), AppColors.info];
-  }
-
-  Color _getActionColor(String action) {
-    final a = action.toUpperCase();
-    if (a.contains('BUY') || a == 'شراء') return AppColors.success;
-    if (a.contains('SELL') || a == 'بيع') return AppColors.danger;
-    if (a.contains('HOLD') || a == 'احتفاظ') return AppColors.warning;
-    return AppColors.info;
-  }
-
-  IconData _getActionIcon(String action) {
-    final a = action.toUpperCase();
-    if (a.contains('BUY') || a == 'شراء') return Icons.trending_up;
-    if (a.contains('SELL') || a == 'بيع') return Icons.trending_down;
-    return Icons.remove;
-  }
-
-  String _getActionAr(String action) {
-    final a = action.toUpperCase();
-    if (a.contains('STRONG_BUY')) return 'شراء قوي';
-    if (a.contains('BUY')) return 'شراء';
-    if (a.contains('STRONG_SELL')) return 'بيع قوي';
-    if (a.contains('SELL')) return 'بيع';
-    if (a.contains('HOLD')) return 'احتفاظ';
-    return action;
+  Widget _buildLockedView() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+          const Icon(Icons.lock_outline, size: 64, color: AppColors.textMuted),
+          const SizedBox(height: 16),
+          const Text('هذه الميزة متاحة للمشتركين فقط',
+              style: TextStyle(fontSize: 16, color: AppColors.textSecondary)),
+          const SizedBox(height: 8),
+          const Text('اشترك الآن للاستفادة من تحليلات الذكاء الاصطناعي',
+              style: TextStyle(fontSize: 12, color: AppColors.textMuted),
+              textAlign: TextAlign.center),
+          const SizedBox(height: 24),
+          ElevatedButton(
+            onPressed: () => UpgradeModal.show(context,
+                feature: 'ai_analysis', reason: 'التحليل بالذكاء الاصطناعي'),
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
+            child: const Text('عرض الباقات',
+                style: TextStyle(color: AppColors.white)),
+          ),
+        ]),
+      ),
+    );
   }
 }

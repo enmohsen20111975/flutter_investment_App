@@ -30,16 +30,20 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
   Future<SubscriptionData?> _fetchData() async {
     try {
       final results = await Future.wait([
-        api.getSubscriptionPlans(),
-        api.getCurrentSubscription(),
+        api.getSubscriptionPlansV2(),
+        api.getSubscriptionCurrent(),
       ]);
 
       final rawPlans = results[0];
       final List<Map<String, dynamic>> plansList;
       if (rawPlans is Map) {
-        plansList = (rawPlans['plans'] as List?)?.map((e) => Map<String, dynamic>.from(e as Map)).toList() ?? <Map<String, dynamic>>[];
+        plansList = (rawPlans['plans'] as List?)
+                ?.map((e) => Map<String, dynamic>.from(e as Map))
+                .toList() ??
+            <Map<String, dynamic>>[];
       } else if (rawPlans is List) {
-        plansList = rawPlans.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+        plansList =
+            rawPlans.map((e) => Map<String, dynamic>.from(e as Map)).toList();
       } else {
         plansList = <Map<String, dynamic>>[];
       }
@@ -144,7 +148,8 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                   title: const Text('بطاقة ائتمان / محفظة إلكترونية (PayMob)',
                       style: TextStyle(color: AppColors.text)),
                   subtitle: const Text('دفع فوري آمن عبر الإنترنت',
-                      style: TextStyle(fontSize: 11, color: AppColors.textMuted)),
+                      style:
+                          TextStyle(fontSize: 11, color: AppColors.textMuted)),
                   onTap: () {
                     Navigator.pop(context);
                     _processPaymobPayment(planId, price);
@@ -159,7 +164,8 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                   title: const Text('تحويل مباشر عبر InstaPay',
                       style: TextStyle(color: AppColors.text)),
                   subtitle: const Text('تفعيل يدوي سريع بالرقم المرجعي',
-                      style: TextStyle(fontSize: 11, color: AppColors.textMuted)),
+                      style:
+                          TextStyle(fontSize: 11, color: AppColors.textMuted)),
                   onTap: () {
                     Navigator.pop(context);
                     _showInstapayDialog(planId);
@@ -171,11 +177,11 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                     backgroundColor: AppColors.infoLight,
                     child: Icon(Icons.shop_two_outlined, color: AppColors.info),
                   ),
-                  title:
-                      const Text('شراء عبر Google Play',
-                          style: TextStyle(color: AppColors.text)),
+                  title: const Text('شراء عبر Google Play',
+                      style: TextStyle(color: AppColors.text)),
                   subtitle: const Text('دفع سريع عبر حساب جوجل الخاص بك',
-                      style: TextStyle(fontSize: 11, color: AppColors.textMuted)),
+                      style:
+                          TextStyle(fontSize: 11, color: AppColors.textMuted)),
                   onTap: () {
                     Navigator.pop(context);
                     _processGooglePlayPayment(planId);
@@ -411,7 +417,8 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
       }
     } catch (e) {
       messenger.showSnackBar(
-        SnackBar(content: Text('حدث خطأ: $e'), backgroundColor: AppColors.danger),
+        SnackBar(
+            content: Text('حدث خطأ: $e'), backgroundColor: AppColors.danger),
       );
     } finally {
       setState(() {
@@ -479,8 +486,12 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                       const StateView(
                           empty: true, emptyMessage: 'لا توجد خطط متاحة حالياً')
                     else
-                       ...data.plans
-                           .map((plan) => _buildPlanCard(plan, data.currentSub, _subscribing, _showPaymentMethodDialog, _subscribeToPlan)),
+                      ...data.plans.map((plan) => _buildPlanCard(
+                          plan,
+                          data.currentSub,
+                          _subscribing,
+                          _showPaymentMethodDialog,
+                          _subscribeToPlan)),
                     const SizedBox(height: 16),
                     SizedBox(
                       width: double.infinity,
@@ -575,13 +586,16 @@ Widget _buildPlanCard(
     Map<String, dynamic> plan,
     Map<String, dynamic>? currentSub,
     bool subscribing,
-    void Function(Map<String, dynamic> plan, Map<String, dynamic>? currentSub) onShowPayment,
-    void Function(String planId, Map<String, dynamic>? currentSub) onSubscribe) {
+    void Function(Map<String, dynamic> plan, Map<String, dynamic>? currentSub)
+        onShowPayment,
+    void Function(String planId, Map<String, dynamic>? currentSub)
+        onSubscribe) {
   final id = plan['id'] ?? '';
   final name = plan['name'] ?? '';
   final nameAr = plan['name_ar'] ?? name;
   final price = (plan['price'] as num?)?.toDouble() ?? 0;
-  final features = (plan['features'] as List?)?.cast<String>().toList() ?? <String>[];
+  final features =
+      (plan['features'] as List?)?.cast<String>().toList() ?? <String>[];
   final isPopular = plan['is_popular'] == true;
   final isCurrentPlan =
       currentSub?['subscription_tier'] == id || currentSub?['plan'] == id;
@@ -601,8 +615,7 @@ Widget _buildPlanCard(
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color:
-                isPopular ? AppColors.primaryMuted : AppColors.surfaceMuted,
+            color: isPopular ? AppColors.primaryMuted : AppColors.surfaceMuted,
             borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
           ),
           child: Row(
@@ -678,12 +691,12 @@ Widget _buildPlanCard(
             child: SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: subscribing ? null : () => onShowPayment(plan, currentSub),
+                onPressed:
+                    subscribing ? null : () => onShowPayment(plan, currentSub),
                 style: ElevatedButton.styleFrom(
                   backgroundColor:
                       isPopular ? AppColors.primary : AppColors.surfaceMuted,
-                  foregroundColor:
-                      isPopular ? AppColors.white : AppColors.text,
+                  foregroundColor: isPopular ? AppColors.white : AppColors.text,
                   padding: const EdgeInsets.symmetric(vertical: 12),
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(10)),
