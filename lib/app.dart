@@ -452,13 +452,6 @@ class _MainNavigatorState extends State<MainNavigator> {
                 label: 'الأسهم',
               ),
               BottomNavigationBarItem(
-                icon: Icon(Icons.currency_bitcoin_rounded,
-                    color: AppColors.textMuted),
-                activeIcon:
-                    Icon(Icons.currency_bitcoin, color: AppColors.primaryGlow),
-                label: 'الكريبتو',
-              ),
-              BottomNavigationBarItem(
                 icon:
                     Icon(Icons.visibility_rounded, color: AppColors.textMuted),
                 activeIcon:
@@ -692,7 +685,7 @@ class _MainNavigatorState extends State<MainNavigator> {
                 () => _navigateTo(const HunterScreen())),
             _buildDrawerItem(Icons.article_outlined, 'الأخبار',
                 () => _navigateTo(const NewsScreen())),
-            _buildDrawerItem(Icons.lightbulb_outline, 'التوصيات',
+            _buildDrawerItem(Icons.lightbulb_outline, 'التوقعات',
                 () => _navigateTo(const RecommendationsScreen())),
             _buildDrawerItem(Icons.calculate_outlined, 'حاسبة الزكاة',
                 () => _navigateTo(const ZakatScreen())),
@@ -850,7 +843,7 @@ class _CommandBarDialogState extends State<_CommandBarDialog> {
     _CommandAction('الذهب والمعادن', Icons.toll_outlined, Icons.toll,
         () => const MetalsScreen(), null),
     // Analysis
-    _CommandAction('التوصيات', Icons.lightbulb_outline, Icons.lightbulb,
+    _CommandAction('التوقعات', Icons.lightbulb_outline, Icons.lightbulb,
         () => const RecommendationsScreen(), null),
     _CommandAction('حاسبة الزكاة', Icons.calculate_outlined, Icons.calculate,
         () => const ZakatScreen(), null),

@@ -383,17 +383,20 @@ class _WatchlistScreenState extends State<WatchlistScreen> {
                     const SizedBox(height: 16),
 
                     // Category Selector Row
-                    Row(
-                      children: [
-                        _buildCategoryChip(
-                            'stock', 'الأسهم 📈', Icons.trending_up),
-                        const SizedBox(width: 8),
-                        _buildCategoryChip('crypto', 'العملات الرقمية ₿',
-                            Icons.currency_bitcoin),
-                        const SizedBox(width: 8),
-                        _buildCategoryChip('gold', 'الذهب والمعادن 💰',
-                            Icons.diamond_outlined),
-                      ],
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: [
+                          _buildCategoryChip(
+                              'stock', 'الأسهم 📈', Icons.trending_up),
+                          const SizedBox(width: 8),
+                          _buildCategoryChip('crypto', 'العملات الرقمية ₿',
+                              Icons.currency_bitcoin),
+                          const SizedBox(width: 8),
+                          _buildCategoryChip('gold', 'الذهب والمعادن 💰',
+                              Icons.diamond_outlined),
+                        ],
+                      ),
                     ),
                     const SizedBox(height: 16),
 

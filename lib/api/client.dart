@@ -346,8 +346,8 @@ class GLMApiClient {
   Future<Map<String, dynamic>> getStockFundamentals(
       {required String ticker}) async {
     try {
-      final response = await _dio.get('/api/stocks/fundamentals',
-          queryParameters: {'ticker': ticker});
+      final response = await _dio
+          .get('/api/stocks/fundamentals', queryParameters: {'ticker': ticker});
       return response.data;
     } catch (e) {
       debugPrint('[API] getStockFundamentals failed: $e');
@@ -472,9 +472,14 @@ class GLMApiClient {
         try {
           debugPrint('[API Watchlist] Fetching...');
           final response = await _dio.get('/api/watchlist');
+          final data = response.data is Map<String, dynamic>
+              ? response.data
+              : Map<String, dynamic>.from(response.data as Map);
           debugPrint(
-              '[API Watchlist] Response items: ${(response.data["items"] as List?)?.length ?? 0}');
-          return WatchlistResponse.fromJson(response.data);
+              '[API Watchlist] Response keys: ${data.keys.toList()}');
+          final result = WatchlistResponse.fromJson(data);
+          debugPrint('[API Watchlist] Parsed items: ${result.items.length}');
+          return result;
         } catch (e) {
           debugPrint('[API] getWatchlist failed: $e');
           return WatchlistResponse(success: false, items: [], total: 0);
@@ -491,9 +496,15 @@ class GLMApiClient {
         try {
           debugPrint('[API Watchlist] Fetching enhanced...');
           final response = await _dio.get('/api/watchlist-enhanced');
+          final data = response.data is Map<String, dynamic>
+              ? response.data
+              : Map<String, dynamic>.from(response.data as Map);
           debugPrint(
-              '[API Watchlist] Enhanced response items: ${(response.data["items"] as List?)?.length ?? 0}');
-          return WatchlistResponse.fromJson(response.data);
+              '[API Watchlist] Enhanced response keys: ${data.keys.toList()}');
+          final result = WatchlistResponse.fromJson(data);
+          debugPrint(
+              '[API Watchlist] Enhanced parsed items: ${result.items.length}');
+          return result;
         } catch (e) {
           debugPrint('[API] getWatchlistEnhanced failed: $e');
           return WatchlistResponse(success: false, items: [], total: 0);
@@ -569,16 +580,54 @@ class GLMApiClient {
     return getMobileRecommendations();
   }
 
-  Future<List<dynamic>> getMobileRecommendations({String? persona}) async {
+  Future<List<dynamic>> getMobileRecommendations(
+      {String? persona, String? market}) async {
     try {
       final queryParams = <String, dynamic>{};
       if (persona != null) queryParams['persona'] = persona;
+      if (market != null) queryParams['market'] = market;
       final response = await _dio.get('/api/mobile/recommendations',
           queryParameters: queryParams);
       if (response.data is List) return response.data;
-      return response.data['recommendations'] ?? response.data['data'] ?? [];
+      final data = response.data is Map<String, dynamic>
+          ? response.data
+          : Map<String, dynamic>.from(response.data as Map);
+      final list = data['recommendations'] ??
+          data['data'] ??
+          data['results'] ??
+          data['stocks'] ??
+          [];
+      return list is List ? list : [];
     } catch (e) {
       debugPrint('[API] getMobileRecommendations failed: $e');
+      return [];
+    }
+  }
+
+  // Market-specific recommendations (supports market in path).
+  // Falls back to all-markets endpoint if the market route 404s.
+  Future<List<dynamic>> getMarketRecommendations(
+      {required String market, String? persona, int limit = 10}) async {
+    try {
+      final queryParams = <String, dynamic>{'limit': limit};
+      if (persona != null) queryParams['persona'] = persona;
+      final response = await _dio.get(
+        '/api/mobile/stocks/$market/recommendation',
+        queryParameters: queryParams,
+      );
+      if (response.data is List) return response.data;
+      final data = response.data is Map<String, dynamic>
+          ? response.data
+          : Map<String, dynamic>.from(response.data as Map);
+      final list = data['recommendations'] ??
+          data['data'] ??
+          data['results'] ??
+          data['stocks'] ??
+          (data['recommendation'] is List ? data['recommendation'] : null) ??
+          [];
+      return list is List ? list : [];
+    } catch (e) {
+      debugPrint('[API] getMarketRecommendations($market) failed: $e');
       return [];
     }
   }
@@ -801,15 +850,15 @@ class GLMApiClient {
     }
   }
 
-  Future<List<dynamic>> getCryptoOHLC(
+  Future<Map<String, dynamic>> getCryptoOHLC(
       {required String coinId, required int days}) async {
     try {
-      final response = await _dio
-          .get('/api/crypto/$coinId/ohlc', queryParameters: {'days': days});
+      final response = await _dio.get('/api/crypto/ohlc',
+          queryParameters: {'coin_id': coinId, 'days': days});
       return response.data;
     } catch (e) {
       debugPrint('[API] getCryptoOHLC failed: $e');
-      return [];
+      return {};
     }
   }
 
@@ -910,6 +959,8 @@ class GLMApiClient {
       await _dio.post('/api/auth/logout');
     } catch (e) {
       debugPrint('[API] logout failed: $e');
+    } finally {
+      await clearAuth();
     }
   }
 
@@ -1365,7 +1416,14 @@ class GLMApiClient {
         'limit': limit,
       });
       if (response.data is List) return response.data;
-      return response.data['opportunities'] ?? response.data['data'] ?? [];
+      final data = response.data is Map<String, dynamic>
+          ? response.data
+          : Map<String, dynamic>.from(response.data as Map);
+      return data['results'] ??
+          data['hunters'] ??
+          data['opportunities'] ??
+          data['data'] ??
+          [];
     } catch (e) {
       debugPrint('[API] getHunterScreener failed: $e');
       return [];

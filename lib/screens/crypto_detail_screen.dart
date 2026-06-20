@@ -40,15 +40,17 @@ class _CryptoDetailScreenState extends State<CryptoDetailScreen> {
 
       final detail = results[0] as Map<String, dynamic>;
       final ohlcResponse = results[1] as Map<String, dynamic>;
+      final ohlcDataWrapper =
+          ohlcResponse['data'] as Map<String, dynamic>? ?? ohlcResponse;
 
-      final ohlcv = (ohlcResponse['ohlcv'] as List?) ?? [];
+      final ohlcv = (ohlcDataWrapper['ohlcv'] as List?) ?? [];
       final ohlcData = ohlcv.map((e) => CryptoOHLCPoint.fromJson(e)).toList();
 
       return CryptoDetailData(
         detail: detail,
         ohlcData: ohlcData,
-        indicators: ohlcResponse['indicators'] as Map<String, dynamic>?,
-        signals: ohlcResponse['signals'] as Map<String, dynamic>?,
+        indicators: ohlcDataWrapper['indicators'] as Map<String, dynamic>?,
+        signals: ohlcDataWrapper['signals'] as Map<String, dynamic>?,
       );
     } catch (_) {
       return null;
@@ -403,7 +405,7 @@ class _CryptoDetailScreenState extends State<CryptoDetailScreen> {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('التوصية',
+                    const Text('التوقع',
                         style: TextStyle(fontSize: 12, color: AppColors.white)),
                     Text(
                       _getActionAr(overall['recommendation'] ?? ''),

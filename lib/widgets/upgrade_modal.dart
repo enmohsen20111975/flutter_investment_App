@@ -68,7 +68,7 @@ class UpgradeModal {
                         'محفظة غير محدودة',
                         'قائمة متابعة غير محدودة',
                         'تحليل ذكي غير محدود',
-                        'توصيات احترافية',
+                        'توقعات احترافية',
                       ],
                       isPrimary: upgradeTo == 'plus',
                     ),
@@ -166,7 +166,7 @@ class UpgradeModal {
       case 'ai_analysis':
         return 'التحليل الذكي ميزة مدفوعة';
       case 'recommendations':
-        return 'التوصيات ميزة مدفوعة';
+        return 'التوقعات ميزة مدفوعة';
       case 'predictions':
         return 'التنبؤات ميزة بريميوم';
       case 'reports_export':

@@ -1,9 +1,10 @@
 // ============================================================================
-// مساعد الاستثمار Flutter - Expert Recommendations Screen
-// Shows expert recommendations with stats and filtering
+// مساعد الاستثمار Flutter - Expert Predictions Screen
+// Shows expert predictions/analysis with stats and filtering
 // ============================================================================
 
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../theme/colors.dart';
 import '../theme/typography.dart';
 import '../api/client.dart';
@@ -21,6 +22,7 @@ class RecommendationsScreen extends StatefulWidget {
 class _RecommendationsScreenState extends State<RecommendationsScreen> {
   Future<RecommendationsData?>? _dataFuture;
   String _statusFilter = 'all';
+  String _activeMarket = 'EGX';
 
   @override
   void initState() {
@@ -28,11 +30,40 @@ class _RecommendationsScreenState extends State<RecommendationsScreen> {
     _dataFuture = _fetchData();
   }
 
+  Future<String> _loadActiveMarket() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      return prefs.getString('active_market') ?? 'EGX';
+    } catch (_) {
+      return 'EGX';
+    }
+  }
+
+  static const Map<String, String> _marketNames = {
+    'EGX': 'السوق المصري',
+    'TADAWUL': 'السوق السعودي',
+    'KSE': 'السوق الكويتي',
+    'QSE': 'السوق القطري',
+  };
+
   Future<RecommendationsData?> _fetchData() async {
     try {
-      // Use mobile recommendations endpoint with persona filter
-      final rawRecs = await api.getMobileRecommendations(
-          persona: _statusFilter != 'all' ? _statusFilter : null);
+      final market = await _loadActiveMarket();
+      if (mounted) setState(() => _activeMarket = market);
+      final persona = _statusFilter != 'all' ? _statusFilter : null;
+
+      // 1) Try market-specific recommendations first (matches the user's
+      //    selected market, e.g. EGX) so predictions aren't from another
+      //    market (e.g. Saudi TADAWUL).
+      List<dynamic> rawRecs = await api.getMarketRecommendations(
+          market: market, persona: persona);
+
+      // 2) Fallback to all-markets mobile endpoint (with market hint) if the
+      //    market route is unavailable or empty.
+      if (rawRecs.isEmpty) {
+        rawRecs =
+            await api.getMobileRecommendations(persona: persona, market: market);
+      }
 
       List<ExpertRecommendation> recs = rawRecs
           .map((e) =>
@@ -123,6 +154,31 @@ class _RecommendationsScreenState extends State<RecommendationsScreen> {
     return Icons.swap_horiz;
   }
 
+  String _actionAr(String? action) {
+    if (action == null || action.isEmpty) return 'انتظار';
+    final a = action.toUpperCase().replaceAll(' ', '_');
+    switch (a) {
+      case 'STRONG_BUY':
+        return 'شراء قوي';
+      case 'BUY':
+        return 'شراء';
+      case 'STRONG_SELL':
+        return 'بيع قوي';
+      case 'SELL':
+        return 'بيع';
+      case 'HOLD':
+        return 'احتفاظ';
+      case 'AVOID':
+        return 'تجنب';
+      case 'ACCUMULATE':
+        return 'تجميع';
+      case 'REDUCE':
+        return 'تخفيف';
+      default:
+        return action;
+    }
+  }
+
   Color _statusColor(String? status) {
     switch (status) {
       case 'HIT_TARGET':
@@ -167,7 +223,7 @@ class _RecommendationsScreenState extends State<RecommendationsScreen> {
               return StateView(
                   error: snapshot.hasError
                       ? snapshot.error.toString()
-                      : 'فشل تحميل التوصيات',
+                      : 'فشل تحميل التوقعات',
                   onRetry: _refresh);
             }
 
@@ -181,10 +237,11 @@ class _RecommendationsScreenState extends State<RecommendationsScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const HeaderCard(
+                    HeaderCard(
                       icon: Icons.lightbulb_outline,
-                      title: 'توصيات الخبراء',
-                      subtitle: 'تابع توصيات الخبراء وأداءهم',
+                      title: 'توقعات الخبراء',
+                      subtitle:
+                          'تابع توقعات الخبراء — ${_marketNames[_activeMarket] ?? _activeMarket}',
                     ),
                     const SizedBox(height: 16),
                     // Status Filter Chips
@@ -212,11 +269,11 @@ class _RecommendationsScreenState extends State<RecommendationsScreen> {
                       const SizedBox(height: 16),
                     ],
                     // Recommendations
-                    const SectionHeader(title: 'التوصيات', icon: Icons.list),
+                    const SectionHeader(title: 'التوقعات', icon: Icons.list),
                     const SizedBox(height: 8),
                     if (data.recommendations.isEmpty)
                       const StateView(
-                          empty: true, emptyMessage: 'لا توجد توصيات')
+                          empty: true, emptyMessage: 'لا توجد توقعات')
                     else
                       ...data.recommendations
                           .map((rec) => _buildRecommendationCard(rec)),
@@ -311,7 +368,7 @@ class _RecommendationsScreenState extends State<RecommendationsScreen> {
         Row(children: [
           Expanded(
               child:
-                  _buildStatItem('التوصيات', '${stat.totalRecommendations}')),
+                  _buildStatItem('التوقعات', '${stat.totalRecommendations}')),
           Expanded(
               child:
                   _buildStatItem('ناجحة', '${stat.successfulRecommendations}')),
@@ -355,7 +412,16 @@ class _RecommendationsScreenState extends State<RecommendationsScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                 Row(children: [
-                  Text(rec.stockSymbol ?? '', style: AppTypography.titleSmall),
+                  Flexible(
+                    child: Text(
+                      (rec.stockSymbol != null &&
+                              rec.stockSymbol!.isNotEmpty)
+                          ? rec.stockSymbol!
+                          : '—',
+                      style: AppTypography.titleSmall,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
                   const SizedBox(width: 8),
                   Container(
                       padding: const EdgeInsets.symmetric(
@@ -363,13 +429,25 @@ class _RecommendationsScreenState extends State<RecommendationsScreen> {
                       decoration: BoxDecoration(
                           color: actionColor.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(8)),
-                      child: Text(rec.action ?? '',
+                      child: Text(_actionAr(rec.action),
                           style: TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.w600,
                               color: actionColor))),
                 ]),
-                Text(rec.expertName ?? '', style: AppTypography.bodySmall),
+                const SizedBox(height: 2),
+                Text(
+                  [
+                    if (rec.nameAr != null && rec.nameAr!.isNotEmpty)
+                      rec.nameAr
+                    else if (rec.name != null && rec.name!.isNotEmpty)
+                      rec.name,
+                    if (rec.expertName != null && rec.expertName!.isNotEmpty)
+                      rec.expertName
+                  ].join(' • '),
+                  style: AppTypography.bodySmall,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ])),
           Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),

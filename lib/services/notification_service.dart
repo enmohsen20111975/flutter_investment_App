@@ -66,8 +66,8 @@ class NotificationService {
     const AndroidNotificationChannel recommendationsChannel =
         AndroidNotificationChannel(
       _recommendationsChannel,
-      'التوصيات',
-      description: 'إشعارات التوصيات الجديدة',
+      'التوقعات',
+      description: 'إشعارات التوقعات الجديدة',
       importance: Importance.high,
       playSound: true,
     );
@@ -143,11 +143,11 @@ class NotificationService {
     const AndroidNotificationDetails androidDetails =
         AndroidNotificationDetails(
       _recommendationsChannel,
-      'التوصيات',
-      channelDescription: 'إشعارات التوصيات الجديدة',
+      'التوقعات',
+      channelDescription: 'إشعارات التوقعات الجديدة',
       importance: Importance.high,
       priority: Priority.high,
-      ticker: 'توصية جديدة',
+      ticker: 'توقع جديد',
     );
     
     const DarwinNotificationDetails iosDetails =
@@ -161,7 +161,7 @@ class NotificationService {
     
     await _notificationsPlugin.show(
       id: _recommendationNotificationId,
-      title: 'توصية جديدة من $expertName',
+      title: 'توقع جديد من $expertName',
       body: '$ticker: $action',
       notificationDetails: notificationDetails,
       payload: 'recommendation_$ticker',

@@ -212,7 +212,7 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
                         fontSize: 12, fontWeight: FontWeight.w600),
                     tabs: const [
                       Tab(text: 'البيانات'),
-                      Tab(text: 'التوصية'),
+                      Tab(text: 'التوقع'),
                       Tab(text: 'تحليل'),
                       Tab(text: 'أخبار'),
                     ],
@@ -352,7 +352,7 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
     if (rec == null || rec.isEmpty) {
       return const Center(
           child: StateView(
-              empty: true, emptyMessage: 'لا توجد توصية متاحة لهذا السهم'));
+              empty: true, emptyMessage: 'لا يوجد توقع متاح لهذا السهم'));
     }
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
@@ -833,14 +833,14 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
             const SizedBox(height: 16),
             Text(
               feature == 'recommendations'
-                  ? 'التوصيات ميزة مدفوعة'
+                  ? 'التوقعات ميزة مدفوعة'
                   : 'التحليل الاحترافي ميزة مدفوعة',
               style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 8),
             Text(
-              'قم بالترقية إلى بلس للوصول إلى ${feature == 'recommendations' ? 'التوصيات الاحترافية' : 'التحليل المتقدم'}',
+              'قم بالترقية إلى بلس للوصول إلى ${feature == 'recommendations' ? 'التوقعات الاحترافية' : 'التحليل المتقدم'}',
               style: AppTypography.bodyMedium
                   .copyWith(color: AppColors.textSecondary),
               textAlign: TextAlign.center,

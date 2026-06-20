@@ -211,7 +211,7 @@ class _AiAnalysisScreenState extends State<AiAnalysisScreen>
             'إجمالي الأسهم التي تم تحليلها: ${market['totalStocksAnalyzed'] ?? 0}\n'
             'الأسهم المجتازة لفلتر الأمان المالي: ${market['passedSafetyFilter'] ?? 0}';
 
-        final recsStr = '${live['aiCommentary'] ?? 'تحليل التوصيات الذكي للمحفظة والأسهم.'}\n\n'
+        final recsStr = '${live['aiCommentary'] ?? 'تحليل التوقعات الذكي للمحفظة والأسهم.'}\n\n'
             'شراء قوي: ${recs['strongBuy'] ?? 0} | شراء: ${recs['buy'] ?? 0}\n'
             'احتفاظ: ${recs['hold'] ?? 0} | تجنب: ${recs['avoid'] ?? 0} | تجنب قوي: ${recs['strongAvoid'] ?? 0}';
 
@@ -227,7 +227,7 @@ class _AiAnalysisScreenState extends State<AiAnalysisScreen>
             _buildMetricCard(
                 'مؤشرات السوق والاتجاه', Icons.show_chart, marketSummaryStr),
             _buildMetricCard(
-                'توصيات وقراءة الذكاء الاصطناعي', Icons.lightbulb, recsStr),
+                'توقعات وقراءة الذكاء الاصطناعي', Icons.lightbulb, recsStr),
             _buildMetricCard(
                 'تحليل المخاطر والسيولة', Icons.warning, riskStr),
           ],

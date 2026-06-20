@@ -33,7 +33,7 @@ class _AiChatScreenState extends State<AiChatScreen> {
   final List<String> _suggestions = [
     'ما أفضل سهم للمضاربة؟',
     'تحليل السوق المصري',
-    'توصيات ذهبية',
+    'توقعات ذهبية',
     'مقارنة بين COMI و EKHO',
     'تحليل فني لـ EGX30',
   ];
@@ -152,7 +152,7 @@ class _AiChatScreenState extends State<AiChatScreen> {
                     fontWeight: FontWeight.w600,
                     color: AppColors.text)),
             const SizedBox(height: 8),
-            const Text('اسألني عن الأسهم، التحليلات، التوصيات وأكثر',
+            const Text('اسألني عن الأسهم، التحليلات، التوقعات وأكثر',
                 style: TextStyle(fontSize: 12, color: AppColors.textMuted)),
           ]),
         ),

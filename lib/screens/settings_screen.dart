@@ -246,6 +246,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
+  String _getUserInitials() {
+    if (_user == null) return 'U';
+    final String displayName = _user!.username ?? _user!.email;
+    if (displayName.trim().isEmpty) return 'U';
+    return displayName.trim()[0].toUpperCase();
+  }
+
   Widget _buildAccountCard() {
     return Container(
       padding: const EdgeInsets.all(16),
@@ -264,7 +271,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     shape: BoxShape.circle,
                   ),
                   child: Text(
-                    (_user?.username ?? _user?.email ?? 'U')[0].toUpperCase(),
+                    _getUserInitials(),
                     style: const TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.w700,

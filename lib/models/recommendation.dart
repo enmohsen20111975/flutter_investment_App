@@ -112,6 +112,8 @@ class AIRecommendation {
 class ExpertRecommendation {
   final String? id;
   final String? stockSymbol;
+  final String? name;
+  final String? nameAr;
   final String? expertName;
   final String? action;
   final double? entryPrice;
@@ -127,6 +129,8 @@ class ExpertRecommendation {
   ExpertRecommendation({
     this.id,
     this.stockSymbol,
+    this.name,
+    this.nameAr,
     this.expertName,
     this.action,
     this.entryPrice,
@@ -142,18 +146,20 @@ class ExpertRecommendation {
   
   factory ExpertRecommendation.fromJson(Map<String, dynamic> json) => ExpertRecommendation(
         id: json['id']?.toString(),
-        stockSymbol: json['stock_symbol'] ?? '',
-        expertName: json['expert_name'] ?? '',
-        action: json['action'] ?? '',
-        entryPrice: parseDouble(json['entry_price']),
+        stockSymbol: (json['stock_symbol'] ?? json['stock_ticker'] ?? json['ticker'] ?? json['symbol'] ?? json['stock'] ?? json['company_symbol'] ?? '').toString(),
+        name: (json['name'] ?? json['company'] ?? json['company_name'] ?? json['stock_name'] ?? '').toString(),
+        nameAr: (json['name_ar'] ?? json['nameAr'] ?? json['arabic_name'] ?? json['name_arabic'] ?? '').toString(),
+        expertName: json['expert_name'] ?? json['expertName'] ?? 'ذكاء اصطناعي',
+        action: (json['action'] ?? json['recommendation'] ?? json['signal'] ?? '').toString(),
+        entryPrice: parseDouble(json['entry_price'] ?? json['current_price'] ?? json['price']),
         targetPrice: parseDouble(json['target_price']),
         stopLoss: parseDouble(json['stop_loss']),
-        recommendationDate: json['recommendation_date'] ?? '',
-        status: json['status'] ?? 'PENDING',
+        recommendationDate: (json['recommendation_date'] ?? json['prediction_date'] ?? json['created_at'] ?? '').toString(),
+        status: (json['status'] ?? 'PENDING').toString(),
         hitTarget: parseBool(json['hit_target']),
         hitStopLoss: parseBool(json['hit_stop_loss']),
-        profitLossPercent: parseDouble(json['profit_loss_percent']),
-        notes: json['notes'],
+        profitLossPercent: parseDouble(json['profit_loss_percent'] ?? json['change_percent'] ?? json['actual_return']),
+        notes: json['notes']?.toString() ?? (json['signals'] is List ? (json['signals'] as List).join(', ') : json['reasoning']?.toString()),
       );
 }
 

@@ -821,7 +821,7 @@ class _PortfolioScreenState extends State<PortfolioScreen> {
             const SizedBox(height: 16),
             const Divider(),
             const SizedBox(height: 8),
-            const Text('توصيات الذكاء الاصطناعي للمحفظة:',
+            const Text('توقعات الذكاء الاصطناعي للمحفظة:',
                 style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.bold,

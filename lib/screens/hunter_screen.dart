@@ -53,7 +53,7 @@ class _HunterScreenState extends State<HunterScreen> {
   }
 
   Color _signalColor(String? signal) {
-    switch (signal?.toUpperCase()) {
+    switch (signal?.toUpperCase().replaceAll(' ', '_')) {
       case 'BUY':
       case 'STRONG_BUY':
         return AppColors.success;
@@ -62,6 +62,31 @@ class _HunterScreenState extends State<HunterScreen> {
         return AppColors.danger;
       default:
         return AppColors.warning;
+    }
+  }
+
+  String _signalAr(String? signal) {
+    if (signal == null || signal.isEmpty) return 'انتظار';
+    final a = signal.toUpperCase().replaceAll(' ', '_');
+    switch (a) {
+      case 'STRONG_BUY':
+        return 'شراء قوي';
+      case 'BUY':
+        return 'شراء';
+      case 'STRONG_SELL':
+        return 'بيع قوي';
+      case 'SELL':
+        return 'بيع';
+      case 'HOLD':
+        return 'احتفاظ';
+      case 'AVOID':
+        return 'تجنب';
+      case 'ACCUMULATE':
+        return 'تجميع';
+      case 'REDUCE':
+        return 'تخفيف';
+      default:
+        return signal;
     }
   }
 
@@ -155,12 +180,21 @@ class _HunterScreenState extends State<HunterScreen> {
     final signal = opp['signal']?.toString() ??
         opp['recommendation']?.toString() ??
         'HOLD';
-    final entryPrice = (opp['entry_price'] as num?)?.toDouble();
+    final entryPrice = (opp['entry_price'] as num?)?.toDouble() ??
+        (opp['current_price'] as num?)?.toDouble();
     final targetPrice = (opp['target_price'] as num?)?.toDouble();
     final stopLoss = (opp['stop_loss'] as num?)?.toDouble();
     final riskReward = (opp['risk_reward'] as num?)?.toDouble();
-    final reasoning =
-        opp['reasoning']?.toString() ?? opp['summary']?.toString() ?? '';
+    final reasoningRaw = opp['reasoning'] ??
+        opp['summary'] ??
+        opp['match_reasons'] ??
+        opp['signals'];
+    final reasoning = reasoningRaw is List
+        ? reasoningRaw.map((e) => e.toString()).join(' • ')
+        : reasoningRaw?.toString() ?? '';
+    final nameAr = opp['name_ar']?.toString() ?? opp['nameAr']?.toString() ?? '';
+    final displayName =
+        nameAr.isNotEmpty ? nameAr : (name.isNotEmpty ? name : ticker);
     final scoreColor = _scoreColor(score);
 
     return Container(
@@ -208,15 +242,21 @@ class _HunterScreenState extends State<HunterScreen> {
                       style: const TextStyle(
                           fontSize: 11, color: AppColors.textMuted)),
                   const SizedBox(width: 8),
-                  Text(ticker,
+                  Flexible(
+                    child: Text(
+                      ticker.isNotEmpty ? ticker : '—',
                       style: const TextStyle(
-                          fontWeight: FontWeight.w800, fontSize: 16)),
+                          fontWeight: FontWeight.w800, fontSize: 16),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
                 ]),
-                if (name.isNotEmpty) ...[
+                if (displayName.isNotEmpty && displayName != ticker) ...[
                   const SizedBox(height: 2),
-                  Text(name,
+                  Text(displayName,
                       style: const TextStyle(
-                          fontSize: 11, color: AppColors.textSecondary)),
+                          fontSize: 11, color: AppColors.textSecondary),
+                      overflow: TextOverflow.ellipsis),
                 ],
               ],
             )),
@@ -227,7 +267,7 @@ class _HunterScreenState extends State<HunterScreen> {
                 color: _signalColor(signal).withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: Text(signal.toUpperCase(),
+              child: Text(_signalAr(signal),
                   style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w700,

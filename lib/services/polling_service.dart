@@ -97,6 +97,7 @@ class PollingService {
     debugPrint(
         '[Polling] Market ${_isMarketOpen ? "OPEN" : "CLOSED"} - Polling every ${interval.inMinutes}min');
 
+    _dashboardTimer?.cancel();
     _dashboardTimer = Timer.periodic(interval, (_) async {
       if (_isPaused) return;
       await _pollDashboard();
