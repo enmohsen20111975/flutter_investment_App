@@ -821,7 +821,17 @@ class GLMApiClient {
       return response.data;
     } catch (e) {
       debugPrint('[API] getCurrency failed: $e');
-      return null;
+      try {
+        final response = await _dio.get('/api/currency/list');
+        final data = response.data;
+        if (data is List) {
+          return {'currencies': data};
+        }
+        return data;
+      } catch (e2) {
+        debugPrint('[API] getCurrencyList fallback failed: $e2');
+        return null;
+      }
     }
   }
 

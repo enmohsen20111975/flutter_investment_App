@@ -134,6 +134,9 @@ class _StocksScreenState extends State<StocksScreen> {
       _displayedStocks = stocks.take(_pageSize).toList();
       _hasMore = stocks.length > _pageSize;
       if (mounted) setState(() {});
+    }).catchError((e) {
+      debugPrint('[Stocks] Load failed: $e');
+      if (mounted) setState(() {});
     });
   }
 

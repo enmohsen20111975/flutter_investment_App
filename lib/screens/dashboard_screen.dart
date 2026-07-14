@@ -8,7 +8,9 @@ import 'package:flutter/material.dart';
 import '../theme/colors.dart';
 import '../theme/typography.dart';
 import '../api/mobile_api.dart';
+import '../api/client.dart';
 import '../models/json_helpers.dart';
+import '../models/market.dart';
 import '../widgets/state_view.dart';
 import '../widgets/skeleton_loader.dart';
 import '../widgets/market_status_banner.dart';
@@ -73,9 +75,86 @@ class _DashboardScreenState extends State<DashboardScreen>
         prefs = await SharedPreferences.getInstance();
       } catch (_) {}
       final market = prefs?.getString('active_market') ?? 'EGX';
-      final data = await mobileApi.getDashboard(market: market);
-      _dashboardData = data;
-      return data;
+
+      // 1) Try the unified mobile dashboard endpoint first
+      try {
+        final data = await mobileApi.getDashboard(market: market);
+        if (data.isNotEmpty &&
+            (data['indices'] != null ||
+                data['market_indices'] != null ||
+                data['market_summary'] != null ||
+                data['top_movers'] != null ||
+                data['top_gainers'] != null)) {
+          _dashboardData = data;
+          return data;
+        }
+        debugPrint('[Dashboard] Primary endpoint returned empty/unusable data');
+      } catch (e) {
+        debugPrint('[Dashboard] Primary endpoint failed: $e');
+      }
+
+      // 2) Fallback: stitch dashboard from individual working endpoints
+      debugPrint('[Dashboard] Falling back to individual endpoints...');
+      final results = await Future.wait([
+        api.getMarketOverview(market),
+        api.getMarketLiveData(market),
+      ]);
+
+      final overview = results[0] as MarketOverview;
+      final liveData = results[1] as Map<String, dynamic>;
+
+      final indices = (overview.indices ?? <MarketIndex>[])
+          .map((i) => <String, dynamic>{
+                'name': i.name ?? i.nameAr ?? i.symbol,
+                'value': i.value,
+                'change_percent': i.changePercent,
+              })
+          .toList();
+
+      final summary = overview.summary;
+      final marketSummary = summary != null
+          ? <String, dynamic>{
+              'advances': summary.gainers ?? 0,
+              'declines': summary.losers ?? 0,
+              'unchanged': summary.unchanged ?? 0,
+            }
+          : null;
+
+      final topMovers = <String, dynamic>{
+        'gainers': (overview.topGainers ?? <MarketStock>[])
+            .map((s) => <String, dynamic>{
+                  'ticker': s.ticker,
+                  'price': s.currentPrice,
+                  'change_percent': s.changePercent,
+                })
+            .toList(),
+        'losers': (overview.topLosers ?? <MarketStock>[])
+            .map((s) => <String, dynamic>{
+                  'ticker': s.ticker,
+                  'price': s.currentPrice,
+                  'change_percent': s.changePercent,
+                })
+            .toList(),
+        'most_active': (overview.mostActive ?? <MarketStock>[])
+            .map((s) => <String, dynamic>{
+                  'ticker': s.ticker,
+                  'price': s.currentPrice,
+                  'change_percent': s.changePercent,
+                })
+            .toList(),
+      };
+
+      final combined = <String, dynamic>{
+        if (indices.isNotEmpty) 'indices': indices,
+        if (marketSummary != null) 'market_summary': marketSummary,
+        if ((topMovers['gainers'] as List).isNotEmpty ||
+            (topMovers['losers'] as List).isNotEmpty) 'top_movers': topMovers,
+        if (liveData['gold_prices'] != null) 'gold_prices': liveData['gold_prices'],
+        if (liveData['currency_rates'] != null) 'currency_rates': liveData['currency_rates'],
+      };
+
+      _dashboardData = combined;
+      return combined;
     } catch (e) {
       debugPrint('[Dashboard] Fetch failed: $e');
       return {};
@@ -83,6 +162,7 @@ class _DashboardScreenState extends State<DashboardScreen>
   }
 
   Future<void> _refresh() async {
+    await mobileApi.clearDashboardCache();
     setState(() {
       _dashboardFuture = _fetchDashboard();
     });

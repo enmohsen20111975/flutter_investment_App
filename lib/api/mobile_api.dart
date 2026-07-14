@@ -135,6 +135,17 @@ class MobileApiService {
     }
   }
 
+  Future<void> clearDashboardCache({String? market}) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final cacheKey = 'cached_mobile_dashboard_${market ?? "EGX"}';
+      await prefs.remove(cacheKey);
+      debugPrint('[MobileApi] Dashboard cache cleared for $market');
+    } catch (e) {
+      debugPrint('[MobileApi] Failed to clear dashboard cache: $e');
+    }
+  }
+
   // ============================================================================
   // Mobile Portfolio
   // ============================================================================

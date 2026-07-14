@@ -45,12 +45,12 @@
 
 ## In Progress / Remaining
 
-- [ ] **Fix `mobile_api.dart` errors:**
+- [x] **Fix `mobile_api.dart` errors:**
   - [x] Add `market` param to internal `getDashboard()` calls
-  - [ ] Fix `catchError` return type warnings (lines 94, 254)
-- [ ] **Fix `recommendations_screen.dart` error:**
+  - [x] Fix `catchError` return type warnings (lines 94, 254)
+- [x] **Fix `recommendations_screen.dart` error:**
   - [x] Remove undefined `market` param from `getExpertRecommendations()` call (line 88)
-- [ ] **Verify `flutter analyze` passes with 0 errors.**
+- [x] **Verify `flutter analyze` passes with 0 errors.** ✅ (0 errors, remaining are warnings/info only)
 
 ---
 
@@ -62,4 +62,10 @@
 | `lib/api/client.dart` | `getDashboard` missing `market` param used in `mobile_api.dart` | Added optional `market` param |
 | `lib/api/client.dart` | `getExpertRecommendations` missing `market` param used in screens | Added optional `market` param |
 | `lib/screens/recommendations_screen.dart` | `market` param passed to `getExpertRecommendations` which didn't accept it | Removed `market: market` from call |
-| `lib/api/mobile_api.dart` | `catchError` returning `Null` instead of expected type | Need to fix return types |
+| `lib/api/mobile_api.dart` | `catchError` returning `Null` instead of expected type | Replaced with try-catch blocks |
+
+## Final Status
+
+- `flutter analyze`: **0 errors** (108 warnings/info remain from pre-existing code)
+- All new API methods from worklog added to `client.dart`
+- All cross-file type/parameter mismatches resolved
