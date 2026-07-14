@@ -974,10 +974,11 @@ class GLMApiClient {
   }
 
   Future<Map<String, dynamic>> getExpertRecommendations(
-      {String? status}) async {
+      {String? status, String? market}) async {
     try {
       final queryParams = <String, dynamic>{};
       if (status != null) queryParams['status'] = status;
+      if (market != null) queryParams['market'] = market;
       final response = await _dio.get('/api/recommendations/expert',
           queryParameters: queryParams);
       return response.data;
@@ -993,6 +994,16 @@ class GLMApiClient {
       return response.data;
     } catch (e) {
       debugPrint('[API] getMe failed: $e');
+      return {};
+    }
+  }
+
+  Future<Map<String, dynamic>> getMinAppVersion() async {
+    try {
+      final response = await _dio.get('/api/app/version');
+      return response.data;
+    } catch (e) {
+      debugPrint('[API] getMinAppVersion failed: $e');
       return {};
     }
   }
@@ -1334,10 +1345,12 @@ class GLMApiClient {
   // ============================================================================
   // MOBILE Dashboard API
   // ============================================================================
-  Future<Map<String, dynamic>> getDashboard() async {
+  Future<Map<String, dynamic>> getDashboard({String? market}) async {
     try {
       debugPrint('[API] Fetching mobile dashboard...');
-      final response = await _dio.get('/api/mobile/dashboard');
+      final response = await _dio.get('/api/mobile/dashboard', queryParameters: {
+        if (market != null) 'market': market,
+      });
       return response.data;
     } catch (e) {
       debugPrint('[API] getDashboard failed: $e');
@@ -1584,6 +1597,436 @@ class GLMApiClient {
       return response.data;
     } catch (e) {
       debugPrint('[API] deleteFinanceAsset failed: $e');
+      return {};
+    }
+  }
+
+  // ============================================================================
+  // Risk Management APIs
+  // ============================================================================
+  Future<Map<String, dynamic>> getRiskDecisionTable() async {
+    try {
+      final response = await _dio.get('/api/risk/decision-table');
+      return response.data;
+    } catch (e) {
+      debugPrint('[API] getRiskDecisionTable failed: $e');
+      return {};
+    }
+  }
+
+  Future<Map<String, dynamic>> getRiskStockTypes() async {
+    try {
+      final response = await _dio.get('/api/risk/stock-types');
+      return response.data;
+    } catch (e) {
+      debugPrint('[API] getRiskStockTypes failed: $e');
+      return {};
+    }
+  }
+
+  // ============================================================================
+  // Data Engine APIs
+  // ============================================================================
+  Future<Map<String, dynamic>> getDataEngineHealth() async {
+    try {
+      final response = await _dio.get('/api/data-engine/health');
+      return response.data;
+    } catch (e) {
+      debugPrint('[API] getDataEngineHealth failed: $e');
+      return {};
+    }
+  }
+
+  Future<List<dynamic>> getDataEngineStocks() async {
+    try {
+      final response = await _dio.get('/api/data-engine/stocks');
+      return response.data is List
+          ? response.data
+          : (response.data['stocks'] ?? []);
+    } catch (e) {
+      debugPrint('[API] getDataEngineStocks failed: $e');
+      return [];
+    }
+  }
+
+  Future<List<dynamic>> getDataEngineMetals() async {
+    try {
+      final response = await _dio.get('/api/data-engine/metals');
+      return response.data is List
+          ? response.data
+          : (response.data['metals'] ?? []);
+    } catch (e) {
+      debugPrint('[API] getDataEngineMetals failed: $e');
+      return [];
+    }
+  }
+
+  Future<List<dynamic>> getDataEngineCrypto() async {
+    try {
+      final response = await _dio.get('/api/data-engine/crypto');
+      return response.data is List
+          ? response.data
+          : (response.data['crypto'] ?? []);
+    } catch (e) {
+      debugPrint('[API] getDataEngineCrypto failed: $e');
+      return [];
+    }
+  }
+
+  Future<List<dynamic>> getDataEngineForex() async {
+    try {
+      final response = await _dio.get('/api/data-engine/forex');
+      return response.data is List
+          ? response.data
+          : (response.data['forex'] ?? []);
+    } catch (e) {
+      debugPrint('[API] getDataEngineForex failed: $e');
+      return [];
+    }
+  }
+
+  Future<Map<String, dynamic>> getDataEngineStatus() async {
+    try {
+      final response = await _dio.get('/api/data-engine/status');
+      return response.data;
+    } catch (e) {
+      debugPrint('[API] getDataEngineStatus failed: $e');
+      return {};
+    }
+  }
+
+  // ============================================================================
+  // Multi-Market Sync APIs
+  // ============================================================================
+  Future<Map<String, dynamic>> syncMultiMarkets() async {
+    try {
+      final response = await _dio.get('/api/multi-market/sync');
+      return response.data;
+    } catch (e) {
+      debugPrint('[API] syncMultiMarkets failed: $e');
+      return {};
+    }
+  }
+
+  Future<Map<String, dynamic>> getMarketConnections() async {
+    try {
+      final response = await _dio.get('/api/market/connections');
+      return response.data;
+    } catch (e) {
+      debugPrint('[API] getMarketConnections failed: $e');
+      return {};
+    }
+  }
+
+  Future<Map<String, dynamic>> getMarketIncrementalSync() async {
+    try {
+      final response = await _dio.get('/api/market/incremental-sync');
+      return response.data;
+    } catch (e) {
+      debugPrint('[API] getMarketIncrementalSync failed: $e');
+      return {};
+    }
+  }
+
+  Future<Map<String, dynamic>> syncMarketLive() async {
+    try {
+      final response = await _dio.post('/api/market/sync-live');
+      return response.data;
+    } catch (e) {
+      debugPrint('[API] syncMarketLive failed: $e');
+      return {};
+    }
+  }
+
+  Future<Map<String, dynamic>> syncMarket() async {
+    try {
+      final response = await _dio.post('/api/market/sync');
+      return response.data;
+    } catch (e) {
+      debugPrint('[API] syncMarket failed: $e');
+      return {};
+    }
+  }
+
+  // ============================================================================
+  // Unified Stocks API
+  // ============================================================================
+  Future<List<dynamic>> getUnifiedStocks() async {
+    try {
+      final response = await _dio.get('/api/unified-stocks');
+      return response.data is List
+          ? response.data
+          : (response.data['stocks'] ?? []);
+    } catch (e) {
+      debugPrint('[API] getUnifiedStocks failed: $e');
+      return [];
+    }
+  }
+
+  // ============================================================================
+  // Confluence / Persona APIs
+  // ============================================================================
+  Future<Map<String, dynamic>> getConfluenceAnalyze(String ticker) async {
+    try {
+      final response =
+          await _dio.get('/api/confluence/analyze/$ticker');
+      return response.data;
+    } catch (e) {
+      debugPrint('[API] getConfluenceAnalyze failed: $e');
+      return {};
+    }
+  }
+
+  Future<Map<String, dynamic>> getConfluenceMarketScan(
+      {String? market, String? persona}) async {
+    try {
+      final queryParams = <String, dynamic>{};
+      if (market != null) queryParams['market'] = market;
+      if (persona != null) queryParams['persona'] = persona;
+      final response = await _dio.get('/api/confluence/market-scan',
+          queryParameters: queryParams);
+      return response.data;
+    } catch (e) {
+      debugPrint('[API] getConfluenceMarketScan failed: $e');
+      return {};
+    }
+  }
+
+  Future<Map<String, dynamic>> getPersonaAnalyze(String ticker) async {
+    try {
+      final response =
+          await _dio.get('/api/persona/analyze/$ticker');
+      return response.data;
+    } catch (e) {
+      debugPrint('[API] getPersonaAnalyze failed: $e');
+      return {};
+    }
+  }
+
+  Future<List<dynamic>> getPersonaRecommendations(
+      {String? persona, String? market}) async {
+    try {
+      final queryParams = <String, dynamic>{};
+      if (persona != null) queryParams['persona'] = persona;
+      if (market != null) queryParams['market'] = market;
+      final response = await _dio.get('/api/persona/recommendations',
+          queryParameters: queryParams);
+      if (response.data is List) return response.data;
+      return response.data['recommendations'] ?? response.data['data'] ?? [];
+    } catch (e) {
+      debugPrint('[API] getPersonaRecommendations failed: $e');
+      return [];
+    }
+  }
+
+  Future<List<dynamic>> getScannerQuick(
+      {String? market, int limit = 20}) async {
+    try {
+      final response = await _dio.get('/api/scanner/quick', queryParameters: {
+        if (market != null) 'market': market,
+        'limit': limit,
+      });
+      if (response.data is List) return response.data;
+      final data = response.data is Map<String, dynamic>
+          ? response.data
+          : Map<String, dynamic>.from(response.data as Map);
+      return data['results'] ?? data['scanner'] ?? data['data'] ?? [];
+    } catch (e) {
+      debugPrint('[API] getScannerQuick failed: $e');
+      return [];
+    }
+  }
+
+  // ============================================================================
+  // Payment APIs
+  // ============================================================================
+  Future<Map<String, dynamic>> createSubscriptionCheckout(
+      Map<String, dynamic> data) async {
+    try {
+      final response = await _dio.post('/api/subscription/checkout', data: data);
+      return response.data;
+    } catch (e) {
+      debugPrint('[API] createSubscriptionCheckout failed: $e');
+      return {};
+    }
+  }
+
+  Future<Map<String, dynamic>> verifyPayment(Map<String, dynamic> data) async {
+    try {
+      final response = await _dio.post('/api/subscription/verify', data: data);
+      return response.data;
+    } catch (e) {
+      debugPrint('[API] verifyPayment failed: $e');
+      return {};
+    }
+  }
+
+  Future<Map<String, dynamic>> getSubscriptionStatus() async {
+    try {
+      final response = await _dio.get('/api/subscription/status');
+      return response.data;
+    } catch (e) {
+      debugPrint('[API] getSubscriptionStatus failed: $e');
+      return {};
+    }
+  }
+
+  // ============================================================================
+  // Crypto Backtesting & Simulation APIs
+  // ============================================================================
+  Future<Map<String, dynamic>> getCryptoBacktesting(
+      {String? coinId, int? days}) async {
+    try {
+      final queryParams = <String, dynamic>{};
+      if (coinId != null) queryParams['coin_id'] = coinId;
+      if (days != null) queryParams['days'] = days;
+      final response = await _dio.get('/api/crypto/backtesting',
+          queryParameters: queryParams);
+      return response.data;
+    } catch (e) {
+      debugPrint('[API] getCryptoBacktesting failed: $e');
+      return {};
+    }
+  }
+
+  Future<Map<String, dynamic>> simulateCryptoTrade(
+      Map<String, dynamic> data) async {
+    try {
+      final response =
+          await _dio.post('/api/crypto/simulation', data: data);
+      return response.data;
+    } catch (e) {
+      debugPrint('[API] simulateCryptoTrade failed: $e');
+      return {};
+    }
+  }
+
+  Future<Map<String, dynamic>> getCryptoPortfolio() async {
+    try {
+      final response = await _dio.get('/api/crypto/portfolio');
+      return response.data;
+    } catch (e) {
+      debugPrint('[API] getCryptoPortfolio failed: $e');
+      return {};
+    }
+  }
+
+  Future<Map<String, dynamic>> getCryptoStats() async {
+    try {
+      final response = await _dio.get('/api/crypto/stats');
+      return response.data;
+    } catch (e) {
+      debugPrint('[API] getCryptoStats failed: $e');
+      return {};
+    }
+  }
+
+  Future<Map<String, dynamic>> getCryptoStatus() async {
+    try {
+      final response = await _dio.get('/api/crypto/status');
+      return response.data;
+    } catch (e) {
+      debugPrint('[API] getCryptoStatus failed: $e');
+      return {};
+    }
+  }
+
+  // ============================================================================
+  // Mobile Crypto APIs
+  // ============================================================================
+  Future<List<dynamic>> getMobileCrypto() async {
+    try {
+      final response = await _dio.get('/api/mobile/crypto');
+      if (response.data is List) return response.data;
+      return response.data['crypto'] ?? response.data['data'] ?? [];
+    } catch (e) {
+      debugPrint('[API] getMobileCrypto failed: $e');
+      return [];
+    }
+  }
+
+  Future<Map<String, dynamic>> getMobileCryptoDetail(String coinId) async {
+    try {
+      final response = await _dio.get('/api/mobile/crypto/$coinId');
+      return response.data;
+    } catch (e) {
+      debugPrint('[API] getMobileCryptoDetail failed: $e');
+      return {};
+    }
+  }
+
+  Future<List<dynamic>> getMobileCryptoRecommendations(
+      {int limit = 10, String? risk}) async {
+    try {
+      final response =
+          await _dio.get('/api/mobile/crypto/recommendations', queryParameters: {
+        'limit': limit,
+        if (risk != null) 'risk': risk,
+      });
+      if (response.data is List) return response.data;
+      return response.data['recommendations'] ?? response.data['data'] ?? [];
+    } catch (e) {
+      debugPrint('[API] getMobileCryptoRecommendations failed: $e');
+      return [];
+    }
+  }
+
+  Future<Map<String, dynamic>> getMobileCryptoAnalysis(String coinId) async {
+    try {
+      final response =
+          await _dio.get('/api/mobile/crypto/analysis', queryParameters: {
+        'coin_id': coinId,
+      });
+      return response.data;
+    } catch (e) {
+      debugPrint('[API] getMobileCryptoAnalysis failed: $e');
+      return {};
+    }
+  }
+
+  Future<List<dynamic>> getMobileCryptoLearning() async {
+    try {
+      final response = await _dio.get('/api/mobile/crypto/learning');
+      if (response.data is List) return response.data;
+      return response.data['lessons'] ?? response.data['data'] ?? [];
+    } catch (e) {
+      debugPrint('[API] getMobileCryptoLearning failed: $e');
+      return [];
+    }
+  }
+
+  Future<Map<String, dynamic>> getMobileCryptoPortfolio() async {
+    try {
+      final response = await _dio.get('/api/mobile/crypto/portfolio');
+      return response.data;
+    } catch (e) {
+      debugPrint('[API] getMobileCryptoPortfolio failed: $e');
+      return {};
+    }
+  }
+
+  Future<List<dynamic>> getMobileCryptoWatchlist() async {
+    try {
+      final response = await _dio.get('/api/mobile/crypto/watchlist');
+      if (response.data is List) return response.data;
+      return response.data['watchlist'] ?? response.data['data'] ?? [];
+    } catch (e) {
+      debugPrint('[API] getMobileCryptoWatchlist failed: $e');
+      return [];
+    }
+  }
+
+  // ============================================================================
+  // Push Token Registration
+  // ============================================================================
+  Future<Map<String, dynamic>> registerPushToken(String token) async {
+    try {
+      final response = await _dio.post('/api/push/register', data: {
+        'push_token': token,
+      });
+      return response.data;
+    } catch (e) {
+      debugPrint('[API] registerPushToken failed: $e');
       return {};
     }
   }

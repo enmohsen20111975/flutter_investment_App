@@ -8,9 +8,12 @@ import '../theme/colors.dart';
 import '../api/client.dart';
 import '../widgets/skeleton_loader.dart';
 import '../widgets/state_view.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class HunterScreen extends StatefulWidget {
-  const HunterScreen({super.key});
+  final int marketVersion;
+  
+  const HunterScreen({super.key, this.marketVersion = 0});
 
   @override
   State<HunterScreen> createState() => _HunterScreenState();
@@ -24,7 +27,31 @@ class _HunterScreenState extends State<HunterScreen> {
   @override
   void initState() {
     super.initState();
-    _opportunitiesFuture = _fetchOpportunities();
+    _loadActiveMarket().then((_) {
+      _opportunitiesFuture = _fetchOpportunities();
+    });
+  }
+
+  @override
+  void didUpdateWidget(covariant HunterScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.marketVersion != widget.marketVersion) {
+      _loadActiveMarket().then((_) {
+        _refresh();
+      });
+    }
+  }
+
+  Future<void> _loadActiveMarket() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final market = prefs.getString('active_market') ?? 'EGX';
+      if (mounted) {
+        setState(() {
+          _selectedMarket = market;
+        });
+      }
+    } catch (_) {}
   }
 
   Future<List<dynamic>> _fetchOpportunities() async {
@@ -126,9 +153,13 @@ class _HunterScreenState extends State<HunterScreen> {
                                     fontSize: 12, color: AppColors.text)),
                           ))
                       .toList(),
-                  onChanged: (val) {
+                  onChanged: (val) async {
                     if (val != null) {
                       setState(() => _selectedMarket = val);
+                      try {
+                        final prefs = await SharedPreferences.getInstance();
+                        await prefs.setString('active_market', val);
+                      } catch (_) {}
                       _refresh();
                     }
                   },

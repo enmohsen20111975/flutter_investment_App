@@ -29,6 +29,7 @@ import 'screens/alerts_screen.dart';
 import 'screens/news_screen.dart';
 import 'api/client.dart';
 import 'models/types.dart';
+import 'services/notification_service.dart';
 
 class MainNavigator extends StatefulWidget {
   const MainNavigator({super.key});
@@ -68,7 +69,9 @@ class _MainNavigatorState extends State<MainNavigator> {
           key: _stocksKey,
           marketVersion: _marketVersion,
         ),
-        const HunterScreen(),
+        HunterScreen(
+          marketVersion: _marketVersion,
+        ),
         const CryptoScreen(),
         const PortfolioScreen(),
       ];
@@ -124,13 +127,44 @@ class _MainNavigatorState extends State<MainNavigator> {
       final dynamic rawNotifications = data['notifications'] ?? data['data'];
       final List<dynamic> list =
           rawNotifications is List ? rawNotifications : <dynamic>[];
+      
+      final prefs = await SharedPreferences.getInstance();
+      final List<String> notifiedIds = prefs.getStringList('notified_notification_ids') ?? <String>[];
+      final List<String> newNotifiedIds = List<String>.from(notifiedIds);
+
       int unread = 0;
       for (final item in list) {
         final Map<dynamic, dynamic> map =
             item is Map ? item as Map<dynamic, dynamic> : <dynamic, dynamic>{};
+        final String id = map['id']?.toString() ?? '';
         final isRead = map['is_read'] == true || map['read'] == true;
-        if (!isRead) unread++;
+        
+        if (!isRead) {
+          unread++;
+          if (id.isNotEmpty && !notifiedIds.contains(id)) {
+            final String title = map['title']?.toString() ?? 'تنبيه جديد ✨';
+            final String message = map['message']?.toString() ?? '';
+            final String type = map['type']?.toString() ?? 'price_alert';
+            final int notificationId = int.tryParse(id) ?? id.hashCode;
+            
+            unawaited(NotificationService().showLocalNotification(
+              id: notificationId,
+              title: title,
+              body: message,
+              payload: 'notification_$id',
+              channelId: type == 'system' ? 'daily_analysis' : 'recommendations',
+            ));
+            
+            newNotifiedIds.add(id);
+          }
+        }
       }
+
+      if (newNotifiedIds.length > 100) {
+        newNotifiedIds.removeRange(0, newNotifiedIds.length - 100);
+      }
+      await prefs.setStringList('notified_notification_ids', newNotifiedIds);
+
       if (mounted) {
         setState(() => _notificationCount = unread);
       }

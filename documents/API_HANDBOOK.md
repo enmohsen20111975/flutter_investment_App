@@ -1,7 +1,8 @@
 # 📚 دليل الاستثمار - Mobile Application API Handbook
 
 > **Platform Name:** دليل الاستثمار (EGX Investment Platform)
-> **Version:** 18.0 (Phase 11 Audit Edition) | **Last Updated:** June 2026
+> **Version:** 22.0 (Trend-Following Edition) | **Last Updated:** March 2026
+> **Task ID:** 32 — API Handbook Update
 > **Audience:** Mobile developers (iOS / Android / Flutter / React Native / .NET MAUI)
 >
 > **Base URLs:**
@@ -12,6 +13,7 @@
 > | 🛠️ Development | `http://localhost:3000` |
 > | 🧠 Python Backend (THE BRAIN) | `http://localhost:8010` |
 > | 📊 Data Engine | `http://localhost:5000` |
+> | 🔌 WebSocket Service | `http://localhost:3005` |
 >
 > **Default Headers for all authenticated requests:**
 > ```
@@ -39,17 +41,24 @@
 11. [💰 Payment & Subscription APIs](#-payment--subscription-apis)
 12. [📰 News & Content APIs](#-news--content-apis)
 13. [🤖 AI Chat APIs](#-ai-chat-apis)
-14. [🏹 Hunter APIs](#-hunter-apis)
-15. [📱 Mobile-Specific Endpoints](#-mobile-specific-endpoints)
-16. [📋 Phase 11 Mobile API Audit (Complete Documentation)](#-phase-11-mobile-api-audit-complete-documentation)
-17. [🔐 Authentication Requirements](#-authentication-requirements)
-18. [🔔 Alerts & Notifications APIs](#-alerts--notifications-apis)
-19. [📚 Learning APIs](#-learning-apis)
-20. [⚙️ Admin APIs (brief)](#-admin-apis-brief)
-21. [❌ Error Handling](#-error-handling)
-22. [⏱️ Rate Limits & Timeouts](#-rate-limits--timeouts)
-23. [📝 Common JSON Schemas](#-common-json-schemas)
-24. [🚀 Mobile Integration Guide](#-mobile-integration-guide)
+14. [🎯 Screener, Confluence & Dual Persona APIs](#-screener-confluence--dual-persona-apis)
+15. [🆕 Market Regime & Trend-Following APIs](#-market-regime--trend-following-apis)
+16. [🔫 Sniper Engine APIs](#-sniper-engine-apis)
+17. [🧠 Smart Confluence APIs](#-smart-confluence-apis)
+18. [⚖️ Risk Management APIs](#-risk-management-apis)
+19. [📊 Data Engine APIs](#-data-engine-apis)
+20. [📱 Mobile-Specific Endpoints](#-mobile-specific-endpoints)
+21. [🔌 WebSocket Real-Time API](#-websocket-real-time-api)
+22. [📱 Mobile App Integration Guide](#-mobile-app-integration-guide)
+23. [📋 Phase 11 Mobile API Audit (Complete Documentation)](#-phase-11-mobile-api-audit-complete-documentation)
+24. [🔐 Authentication Requirements](#-authentication-requirements)
+25. [🔔 Alerts & Notifications APIs](#-alerts--notifications-apis)
+26. [📚 Learning APIs](#-learning-apis)
+27. [⚙️ Admin APIs (brief)](#-admin-apis-brief)
+28. [❌ Error Codes & Troubleshooting](#-error-codes--troubleshooting)
+29. [⏱️ Rate Limits & Timeouts](#-rate-limits--timeouts)
+30. [📝 Common JSON Schemas](#-common-json-schemas)
+31. [🚀 Mobile Integration Guide](#-mobile-integration-guide)
 
 ---
 
@@ -76,7 +85,7 @@
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                  🌐 NEXT.JS API GATEWAY (Port 3000 / invist.m2y.net)        │
 │                                                                             │
-│   • 360 REST endpoints under /api/**                                        │
+│   • 360+ REST endpoints under /api/**                                       │
 │   • Validates Bearer tokens against SQLite (api_tokens table)               │
 │   • Hybrid proxy: tries VPS first, falls back to local DB                  │
 │   • Caches responses in-memory (60s - 5min depending on endpoint)          │
@@ -100,9 +109,10 @@
 │  • Analysis      │  │  • Stocks        │  │  • stocks.db                 │
 │  • Predictions   │  │  • Crypto        │  │  • predictions.db            │
 │  • AI Models     │  │  • Forex         │  │  • price_history.db          │
-│  • Pattern Recog │  │  • Gold/Silver   │  │  • data_engine.db            │
-│  • Fibonacci     │  │  • Multi-Market  │  │  • portfolio.db              │
+│  • Regime Det.   │  │  • Gold/Silver   │  │  • data_engine.db            │
+│  • Trend Follow  │  │  • Multi-Market  │  │  • portfolio.db              │
 │  • Risk Engine   │  │                  │  │  • finance.db (alerts)       │
+│  • Sniper Engine │  │                  │  │                              │
 └────────┬─────────┘  └────────┬─────────┘  └──────────────────────────────┘
          │                     │
          └──────────┬──────────┘
@@ -116,6 +126,7 @@
 │   • Paymob            → Payment gateway (EGP)                              │
 │   • Google OAuth      → Google Sign-In                                     │
 │   • DeepSeek / Z.AI   → AI chat & analysis                                 │
+│   • Yahoo Finance     → EGX historical OHLCV data                          │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -129,6 +140,7 @@
 | **Bearer Token** | كل الـ mobile APIs بـ `Authorization: Bearer <token>` | احفظ الـ token في Secure Storage |
 | **30-day Token Expiry** | الـ token بيفضل شغال 30 يوم | اعمل refresh تلقائي قبل ما ينتهي |
 | **Hybrid Sources** | الـ Next.js بيجرب VPS الأول ثم local | شوف حقل `source` في الـ response |
+| **Regime-First** | الـ Market Regime بيحدد هل التداول مسموح | شوف `trading_allowed` و `position_modifier` |
 
 ### Data Flow for Mobile Login → Stocks List
 
@@ -149,7 +161,8 @@
        ├─ indices
        ├─ top_movers (gainers, losers, most_active)
        ├─ gold_prices
-       └─ currency_rates
+       ├─ currency_rates
+       └─ market_regime  ← NEW in v22
 
 4. User taps a stock
    └─> GET /api/stocks/{ticker}?live=1&indicators=1
@@ -158,6 +171,10 @@
 5. User opens chart tab
    └─> GET /api/chart/{ticker}?period=1m&asset=stock
        └─> Render candlestick chart
+
+6. User checks market regime ← NEW in v22
+   └─> GET /api/regime/overview
+       └─> Display Stage 1-4 badge + trading advice
 ```
 
 ---
@@ -220,8 +237,6 @@
 
 ### 2. POST `/api/auth/register` — إنشاء حساب جديد
 
-**الوصف:** بينشئ حساب جديد ويرجع API key (غير متاح للتطبيقات القديمة - استخدم login بعد الـ register).
-
 **Request Body:**
 ```json
 {
@@ -243,34 +258,18 @@
 {
   "success": true,
   "message": "تم إنشاء الحساب بنجاح",
-  "user": {
-    "id": "550e8400-...",
-    "email": "newuser@example.com",
-    "username": "newuser",
-    "default_risk_tolerance": "medium"
-  },
+  "user": { "id": "550e8400-...", "email": "newuser@example.com", "username": "newuser" },
   "api_key": "egx_550e8400-..._1705312200000"
 }
 ```
-
-**Response 409 Conflict:**
-```json
-{ "success": false, "error": "البريد الإلكتروني مستخدم بالفعل" }
-```
-
-**📱 ملاحظة للجوال:** بعد الـ register ناجح، اطلب من المستخدم يعمل login بالـ credentials اللي سجلهم عشان ياخد `Bearer token` (الـ `api_key` اللي بيرجع مش نفس الـ `token`).
 
 ---
 
 ### 3. POST `/api/auth/google` — تسجيل الدخول عبر Google
 
-**الوصف:** بيقبل Google ID Token من الـ Google Sign-In SDK على الموبايل ويرجع Bearer token.
-
 **Request Body:**
 ```json
-{
-  "id_token": "eyJhbGciOiJSUzI1NiIs...google_id_token..."
-}
+{ "id_token": "eyJhbGciOiJSUzI1NiIs...google_id_token..." }
 ```
 
 **Response 200 OK:**
@@ -279,15 +278,7 @@
   "success": true,
   "message": "Google login successful",
   "message_ar": "تم تسجيل الدخول عبر جوجل بنجاح",
-  "user": {
-    "id": "550e8400-...",
-    "email": "user@gmail.com",
-    "username": "user",
-    "name": "User Name",
-    "image": "https://lh3.googleusercontent.com/...",
-    "subscription_tier": "free",
-    "is_admin": false
-  },
+  "user": { "id": "550e8400-...", "email": "user@gmail.com", "name": "User Name", "image": "https://...", "subscription_tier": "free" },
   "token": "egx_550e8400-..._uuid_1705312200000",
   "token_type": "Bearer",
   "expires_in": 2592000,
@@ -295,17 +286,9 @@
 }
 ```
 
-**📱 ملاحظة للجوال:**
-1. استخدم `google_sign_in` package في Flutter أو `GoogleSignIn` في Android
-2. خد الـ `idToken` من الـ result
-3. بعت الـ `idToken` للـ endpoint ده
-4. الـ `aud` في الـ token لازم يكون مطابق للـ `GOOGLE_CLIENT_ID` على السيرفر
-
 ---
 
 ### 4. GET `/api/auth/me` — بيانات المستخدم الحالي
-
-**الوصف:** بيرجع بيانات المستخدم بناءً على الـ Bearer token.
 
 **Headers:** `Authorization: Bearer <token>`
 
@@ -318,75 +301,36 @@
     "email": "user@example.com",
     "username": "username",
     "name": "User Name",
-    "image": "https://...",
     "subscription_tier": "premium",
-    "default_risk_tolerance": "medium",
     "is_admin": false,
     "is_active": true,
     "email_verified": true,
-    "last_login": "2026-01-15T10:30:00.000Z",
-    "created_at": "2024-01-01T00:00:00.000Z"
+    "last_login": "2026-01-15T10:30:00.000Z"
   }
 }
 ```
 
-**Response 401:**
-```json
-{ "success": false, "error": "Token منتهي الصلاحية", "error_en": "Token expired" }
-```
-
-**📱 ملاحظة للجوال:** استخدم الـ endpoint ده في `splash screen` للتأكد إن الـ session لسه شغالة. لو رجع 401 امسح الـ token وروح لـ login screen.
+**📱 ملاحظة:** استخدم ده في `splash screen` للتأكد إن الـ session لسه شغالة.
 
 ---
 
 ### 5. GET `/api/mobile/auth/me` — نسخة mobile محسنة
 
-**الوصف:** نفس `/api/auth/me` بس أسرع ومكتوبة خصيصاً للموبايل (تستخدم `token-helper`).
-
-**Response:** نفس `/api/auth/me` بالظبط.
-
-**📱 ملاحظة:** استخدم ده بدلاً من `/api/auth/me` في الـ mobile app لأنه بيتعامل بشكل أفضل مع الـ tokens المنتهية.
+نفس `/api/auth/me` لكن أسرع ومكتوبة خصيصاً للموبايل.
 
 ---
 
 ### 6. POST `/api/auth/logout` — تسجيل الخروج
 
-**الوصف:** بيلغي الـ token من قاعدة البيانات.
-
-**Headers:** `Authorization: Bearer <token>`
-
-**Response 200 OK:**
-```json
-{
-  "success": true,
-  "message": "Logged out successfully",
-  "message_ar": "تم تسجيل الخروج بنجاح"
-}
-```
-
-**📱 ملاحظة:** بعد الـ logout امسح الـ token من `SecureStorage` وروح لـ login screen.
+يلغي الـ token من قاعدة البيانات. بعد الـ logout امسح الـ token من `SecureStorage`.
 
 ---
 
 ### 7. GET `/api/auth/config` — إعدادات المصادقة
 
-**الوصف:** بيرجع إعدادات الـ OAuth والـ providers المتاحة.
-
-**Response:**
 ```json
-{
-  "success": true,
-  "google_client_id": "123456789-xxxx.apps.googleusercontent.com",
-  "google_enabled": true,
-  "nextauth_enabled": true
-}
+{ "success": true, "google_client_id": "...", "google_enabled": true, "nextauth_enabled": true }
 ```
-
----
-
-### 8. POST `/api/auth/google-signin` — بديل لـ Google login
-
-**الوصف:** نفس `/api/auth/google` لكن بصيغة مختلفة لبعض الـ SDKs.
 
 ---
 
@@ -394,16 +338,14 @@
 
 ### 1. GET `/api/stocks` — قائمة الأسهم
 
-**الوصف:** بيرجع قائمة بكل الأسهم (EGX + TADAWUL + KSE + QSE) مع pagination.
-
 **Query Parameters:**
 
 | Param | Type | Default | Description |
 |-------|------|---------|-------------|
-| `market` | string | (all) | `EGX`, `KSA` (=TADAWUL), `TADAWUL`, `KSE`, `QSE`, `DFM`, `ADX`, `BSE` |
+| `market` | string | (all) | `EGX`, `KSA`, `TADAWUL`, `KSE`, `QSE`, `DFM`, `ADX`, `BSE` |
 | `limit` / `page_size` | int | 500 | عدد النتائج في الصفحة |
 | `offset` | int | 0 | إزاحة من بداية النتائج |
-| `page` | int | 1 | رقم الصفحة (يستخدم مع `limit`) |
+| `page` | int | 1 | رقم الصفحة |
 | `query` / `q` | string | (empty) | بحث في ticker / name / name_ar |
 
 **Example:** `GET /api/stocks?market=EGX&page=1&limit=50`
@@ -436,459 +378,55 @@
   ],
   "total": 245,
   "page": 1,
-  "page_size": 50,
-  "markets": [
-    { "code": "EGX", "count": 245, "frontend_code": "EGX" },
-    { "code": "TADAWUL", "count": 220, "frontend_code": "KSA" },
-    { "code": "KSE", "count": 165, "frontend_code": "KSE" },
-    { "code": "QSE", "count": 50, "frontend_code": "QSE" }
-  ]
+  "page_size": 50
 }
 ```
-
-**📱 ملاحظة للجوال:** استخدم `page=1&limit=50` للـ Home screen، و`limit=500` للـ search. الـ pagination default 500 لأن أغلب الأسواق فيها أقل من 500 سهم.
 
 ---
 
 ### 2. GET `/api/stocks/[ticker]` — تفاصيل سهم
 
-**الوصف:** بيرجع تفاصيل سهم معين. بيحاول VPS الأول ثم local DB.
-
 **Query Parameters:**
 
 | Param | Type | Default | Description |
 |-------|------|---------|-------------|
-| `live` | 0/1 | 0 | جلب السعر اللحظي من APIs خارجية |
+| `live` | 0/1 | 0 | جلب السعر اللحظي |
 | `history` | int | 0 | عدد أيام تاريخ الأسعار |
 | `indicators` | 0/1 | 0 | جلب المؤشرات الفنية |
-| `prediction` | 0/1 | 0 | جلب توقع السعر من VPS |
+| `prediction` | 0/1 | 0 | جلب توقع السعر |
 | `force_local` | 0/1 | 0 | إجبار استخدام local DB فقط |
 
 **Example:** `GET /api/stocks/COMI?live=1&indicators=1&history=30`
 
-**Response 200 OK:**
-```json
-{
-  "data": {
-    "ticker": "COMI",
-    "name": "Commercial International Bank",
-    "name_ar": "البنك التجاري الدولي",
-    "sector": "Banks",
-    "current_price": 65.45,
-    "previous_close": 64.20,
-    "open": 64.50,
-    "high": 65.80,
-    "low": 64.30,
-    "volume": 12500000,
-    "market_cap": 132500000000,
-    "pe_ratio": 5.8,
-    "pb_ratio": 1.2,
-    "dividend_yield": 4.5,
-    "eps": 11.28,
-    "price_change": 1.947,
-    "value_traded": 818125000,
-    "source": "vps"
-  },
-  "technicalIndicators": {
-    "rsi": 58.4,
-    "ma_50": 62.10,
-    "ma_200": 58.50,
-    "macd": 0.45,
-    "macd_signal": 0.30,
-    "bollinger_upper": 67.20,
-    "bollinger_lower": 61.80,
-    "stoch_k": 75.4,
-    "stoch_d": 70.2
-  },
-  "history": [
-    { "date": "2026-01-15", "open": 64.50, "high": 65.80, "low": 64.30, "close": 65.45, "volume": 12500000 }
-  ],
-  "source": "vps"
-}
-```
-
-**Response 404:**
-```json
-{ "error": "Stock not found", "detail": "No stock found with ticker: INVALID" }
-```
-
-**📱 ملاحظة للجوال:** استخدم `live=1&indicators=1` للـ Stock Detail screen. لو الـ VPS بطيء استخدم `force_local=1`.
-
 ---
 
-### 3. GET `/api/stocks/search` — بحث سريع في الأسهم
-
-**الوصف:** بحث lightweight بيرجع max 30 نتيجة.
-
-**Query Parameters:**
-
-| Param | Type | Description |
-|-------|------|-------------|
-| `q` | string | كلمة البحث (يفضل 2+ حروف) |
-
-**Example:** `GET /api/stocks/search?q=comi`
-
-**Response 200 OK:**
-```json
-{
-  "success": true,
-  "stocks": [
-    {
-      "id": 1,
-      "ticker": "COMI",
-      "name": "Commercial International Bank",
-      "name_ar": "البنك التجاري الدولي",
-      "sector": "Banks",
-      "current_price": 65.45,
-      "previous_close": 64.20,
-      "volume": 12500000,
-      "is_egx30": 1,
-      "is_egx70": 0,
-      "is_egx100": 1,
-      "price_change": 1.95
-    }
-  ]
-}
-```
-
-**📱 ملاحظة للجوال:** استخدم ده في `SearchBar` مع debounce 300ms. لو `q` فاضي بيرجع أعلى 30 سهم by volume.
-
----
-
-### 4. GET `/api/mobile/stocks/[ticker]` — تفاصيل سهم محسّن للجوال
-
-**الوصف:** نسخة محسنة من `/api/stocks/[ticker]` بتستخدم Python Backend أولاً.
-
-**Response:**
-```json
-{
-  "success": true,
-  "source": "python_backend",
-  "data": {
-    "ticker": "COMI",
-    "name_ar": "البنك التجاري الدولي",
-    "name": "Commercial International Bank",
-    "sector": "Banks",
-    "current_price": 65.45,
-    "previous_close": 64.20,
-    "open": 64.50,
-    "high": 65.80,
-    "low": 64.30,
-    "volume": 12500000,
-    "market_cap": 132500000000,
-    "pe_ratio": 5.8,
-    "pb_ratio": 1.2,
-    "dividend_yield": 4.5,
-    "eps": 11.28,
-    "roe": 22.4,
-    "is_active": true,
-    "last_update": "2026-01-15T14:30:00.000Z"
-  }
-}
-```
-
----
-
+### 3. GET `/api/stocks/search` — بحث سريع
+### 4. GET `/api/mobile/stocks/[ticker]` — تفاصيل محسّن للجوال
 ### 5. GET `/api/market/overview` — نظرة عامة على السوق
-
-**الوصف:** بيرجع ملخص شامل للسوق (gainers, losers, indices).
-
-**Query Parameters:**
-
-| Param | Type | Default | Description |
-|-------|------|---------|-------------|
-| `market` | string | `EGX` | `EGX`, `TADAWUL`, `KSE`, `QSE`, `DFM`, `BSE`, `CRYPTO` |
-
-**Response 200 OK:**
-```json
-{
-  "success": true,
-  "timestamp": "2026-01-15T14:30:00.000Z",
-  "database": "data_engine.db",
-  "market": "EGX",
-  "market_name": "مصر",
-  "market_status": {
-    "is_open": true,
-    "status": "open",
-    "next_open": null,
-    "next_close": null,
-    "current_session": "trading"
-  },
-  "summary": {
-    "total_stocks": 245,
-    "gainers": 145,
-    "losers": 87,
-    "unchanged": 13,
-    "egx30_stocks": 0,
-    "egx70_stocks": 0,
-    "egx100_stocks": 0,
-    "egx30_value": 0
-  },
-  "indices": [],
-  "top_gainers": [
-    {
-      "ticker": "COMI",
-      "name": "Commercial International Bank",
-      "name_ar": null,
-      "current_price": 65.45,
-      "change_percent": 9.95,
-      "volume": 12500000
-    }
-  ],
-  "top_losers": [
-    {
-      "ticker": "HRHO",
-      "name": "EFG Hermes",
-      "name_ar": null,
-      "current_price": 24.10,
-      "change_percent": -5.20,
-      "volume": 3200000
-    }
-  ],
-  "most_active": [
-    {
-      "ticker": "COMI",
-      "name": "Commercial International Bank",
-      "current_price": 65.45,
-      "change_percent": 1.95,
-      "volume": 12500000
-    }
-  ],
-  "market_breakdown": [
-    { "market": "مصر", "count": 245 },
-    { "market": "السعودية", "count": 220 }
-  ],
-  "source": "data_engine_db"
-}
-```
-
----
-
 ### 6. GET `/api/market/status` — حالة السوق (مفتوح/مقفل)
-
-**الوصف:** بيرجع حالة السوق المصرية بالظبط مع التوقيت بالقاهرة.
-
-**Response 200 OK:**
-```json
-{
-  "is_market_hours": true,
-  "isMarketOpen": true,
-  "status": "open",
-  "statusAr": "السوق مفتوح",
-  "cairo_time": "01/15/2026, 14:30:00",
-  "cairoTime": {
-    "day": "الإثنين",
-    "hour": 14,
-    "minute": 30,
-    "formatted": "14:30"
-  },
-  "next_open": "2026-01-16T08:30:00.000Z",
-  "time_until_open": "السوق مفتوح الآن",
-  "minutes_until_open": null,
-  "minutes_until_close": 90,
-  "market_hours": {
-    "open": "10:0",
-    "close": "14:30",
-    "timezone": "Africa/Cairo",
-    "tradingDays": ["الأحد", "الإثنين", "الثلاثاء", "الأربعاء", "الخميس"],
-    "weekendDays": ["الجمعة", "السبت"],
-    "tradingHoursAr": "من 10:00 صباحاً حتى 2:30 مساءً (توقيت القاهرة)"
-  },
-  "should_refresh_data": true,
-  "data_source": "live_calculations",
-  "checked_at": "2026-01-15T12:30:00.000Z"
-}
-```
-
-**📱 ملاحظة للجوال:** استخدم `is_market_hours` لتحديد هل تعمل poll للأسعار اللحظية. لو `false` اعتمد على cached data.
-
----
-
 ### 7. GET `/api/mobile/market/overview` — نسخة موبايل محسنة
-
-**الوصف:** نفس `/api/market/overview` لكن بيستخدم Python Backend أولاً ثم local DB. بيرجع نفس الـ format بالظبط.
-
----
-
 ### 8. GET `/api/market/indices` — مؤشرات السوق
-
-**الوصف:** بيرجع قيم مؤشرات EGX 30/70/100.
-
----
-
 ### 9. GET `/api/market/sectors` — تصنيف الأسهم بالقطاعات
-
-**الوصف:** بيرجع قائمة بالقطاعات وعدد الأسهم في كل قطاع.
-
----
-
 ### 10. GET `/api/market/top-movers` — أكبر الحركات
-
-**الوصف:** بيرجع top gainers, losers, and most active stocks.
-
-**Query Parameters:** `market`, `limit`
-
----
-
 ### 11. GET `/api/stocks/fundamentals` — الأساسيات
-
-**الوصف:** بيرجع P/E, P/B, ROE, Net Margin, Dividend Yield لكل الأسهم.
-
----
-
 ### 12. GET `/api/stocks/movement-classification` — تصنيف الحركة
-
-**الوصف:** بيرجع تصنيف حركة كل سهم (Strong Buy / Buy / Hold / Sell).
 
 ---
 
 ## 📈 Chart & Price History APIs
 
-### 1. GET `/api/chart/[ticker]` — بيانات الرسم البياني (Intraday + Daily)
-
-**الوصف:** بيرجع بيانات الرسم البياني من Python Backend. بيدعم 3 أنواع أصول (stock, crypto, commodity).
+### 1. GET `/api/chart/[ticker]` — بيانات الرسم البياني
 
 **Query Parameters:**
 
 | Param | Type | Default | Description |
 |-------|------|---------|-------------|
 | `period` | string | `1w` | `1d`, `1w`, `1m` |
-| `asset` | string | auto | `stock`, `crypto`, `commodity` (auto-detect if empty) |
-
-**Behavior:**
-- `1d` / `1w` → بيانات 5 دقائق (intraday)
-- `1m` → بيانات يومية (fallback من price_history)
-
-**Example:** `GET /api/chart/COMI?period=1m&asset=stock`
-
-**Response 200 OK:**
-```json
-{
-  "success": true,
-  "ticker": "COMI",
-  "period": "1m",
-  "asset": "stock",
-  "source": "intraday",
-  "note": "بيانات لحظية (5 دقائق)",
-  "count": 22,
-  "data": [
-    {
-      "timestamp": "2026-01-15T10:00:00",
-      "price": 64.50,
-      "volume": 1200000,
-      "source": "intraday"
-    },
-    {
-      "timestamp": "2026-01-15T10:05:00",
-      "price": 64.55,
-      "volume": 850000,
-      "source": "intraday"
-    }
-  ],
-  "stats": {
-    "first_price": 64.50,
-    "last_price": 65.45,
-    "max_price": 65.80,
-    "min_price": 64.30,
-    "change_pct": 1.47,
-    "avg_price": 65.10
-  }
-}
-```
-
-**Response 502 Python Backend Unavailable:**
-```json
-{
-  "success": false,
-  "error": "فشل في الاتصال بـ Python Backend",
-  "details": "fetch failed"
-}
-```
-
-**📱 ملاحظة للجوال:**
-- `1d` للـ chart في الـ Trading View (شاشة السهم)
-- `1w` للـ chart الأسبوعي
-- `1m` للـ chart الشهري (daily candles)
-- اعمل poll كل 5 دقايق في وقت السوق المفتوح
-
----
+| `asset` | string | auto | `stock`, `crypto`, `commodity` |
 
 ### 2. GET `/api/stocks/[ticker]/history` — تاريخ الأسعار
-
-**الوصف:** بيرجع تاريخ أسعار سهم معين مع RSI وstats. بيحاول VPS → Heavy DB → New DB → auto-seed → synthetic.
-
-**Query Parameters:**
-
-| Param | Type | Default | Description |
-|-------|------|---------|-------------|
-| `days` | int | 90 | عدد الأيام |
-
-**Example:** `GET /api/stocks/COMI/history?days=30`
-
-**Response 200 OK:**
-```json
-{
-  "success": true,
-  "ticker": "COMI",
-  "data": [
-    {
-      "date": "2025-12-15",
-      "open": 60.10,
-      "high": 61.50,
-      "low": 59.80,
-      "close": 61.20,
-      "volume": 8500000,
-      "rsi": 52.4
-    },
-    {
-      "date": "2025-12-16",
-      "open": 61.20,
-      "high": 62.80,
-      "low": 60.90,
-      "close": 62.50,
-      "volume": 9200000,
-      "rsi": 58.7
-    }
-  ],
-  "summary": {
-    "highest": 65.80,
-    "lowest": 59.80,
-    "avg_price": 62.40,
-    "total_volume": 285000000,
-    "start_price": 60.10,
-    "end_price": 65.45,
-    "change_percent": 8.90
-  },
-  "days": 30,
-  "source": "vps",
-  "data_points": 30
-}
-```
-
-**Response Headers:**
-```
-Cache-Control: no-store, no-cache, must-revalidate, proxy-revalidate, s-maxage=0
-Pragma: no-cache
-Expires: 0
-```
-
-**📱 ملاحظة للجوال:** استخدم `days=30` لـ default chart, `days=90` لـ 3 months, `days=365` لـ yearly view.
-
----
-
 ### 3. GET `/api/crypto/ohlc` — OHLC data للكريبتو
-
-**الوصف:** بيرجع بيانات OHLC للعملات الرقمية.
-
-**Query Parameters:** `coin_id`, `days`
-
----
-
 ### 4. GET `/api/crypto/[id]/history` — تاريخ عملة رقمية
-
-**الوصف:** بيرجع تاريخ سعر عملة معينة.
-
-**Path Parameters:** `id` = CoinGecko coin id (e.g., `bitcoin`, `ethereum`)
 
 ---
 
@@ -896,177 +434,21 @@ Expires: 0
 
 ### 1. GET `/api/advanced-analysis` — التحليل المتقدم (Python proxy)
 
-**الوصف:** proxy للـ Python endpoints للتحليل الفني المتقدم.
-
-**Query Parameters:**
-
 | Param | Type | Description |
 |-------|------|-------------|
 | `action` | string | `status`, `golden`, `analyze` (default) |
 | `ticker` | string | مطلوب لـ `action=analyze` |
 | `limit` | int | لـ `action=golden` (default 10) |
-| `days` | int | default 30 |
-
-**Examples:**
-- `GET /api/advanced-analysis?action=status`
-- `GET /api/advanced-analysis?action=golden&limit=20`
-- `GET /api/advanced-analysis?ticker=COMI`
-
-**Response (action=golden):**
-```json
-{
-  "success": true,
-  "golden_stocks": [
-    {
-      "ticker": "COMI",
-      "name_ar": "البنك التجاري الدولي",
-      "current_price": 65.45,
-      "score": 85,
-      "signals": ["MACD crossover", "RSI bullish", "MA50 above MA200"],
-      "recommendation": "STRONG_BUY"
-    }
-  ],
-  "total": 5
-}
-```
-
----
 
 ### 2. POST `/api/advanced-analysis` — تحليل شامل
-
-**Request Body:**
-```json
-{
-  "action": "comprehensive",  // candlesticks | patterns | comprehensive | confluence | quick-signal | support-resistance
-  "ticker": "COMI",
-  "price_history": [...],
-  "timeframe": "daily"
-}
-```
-
-**Response (action=comprehensive):**
-```json
-{
-  "success": true,
-  "ticker": "COMI",
-  "trend": "bullish",
-  "signals": {
-    "candlestick": { "pattern": "Bullish Engulfing", "confidence": 0.85 },
-    "patterns": ["Double Bottom", "Inverse Head & Shoulders"],
-    "indicators": {
-      "rsi": 58.4,
-      "macd": "bullish_crossover",
-      "ma_trend": "uptrend"
-    }
-  },
-  "support_resistance": {
-    "supports": [62.50, 60.00, 58.00],
-    "resistances": [66.00, 68.00, 70.00]
-  },
-  "recommendation": "BUY",
-  "confidence": 0.78
-}
-```
-
----
-
 ### 3. GET `/api/ai-analysis` — تحليل الذكاء الاصطناعي
-
-**Query Parameters:**
-
-| Param | Type | Description |
-|-------|------|-------------|
-| `action` | string | `health`, `recommendations`, `analyze`, `summary` |
-| `ticker` | string | مطلوب لـ `action=analyze` |
-| `limit` | int | default 20 |
-
-**Example:** `GET /api/ai-analysis?action=analyze&ticker=COMI`
-
-**Response:**
-```json
-{
-  "success": true,
-  "ticker": "COMI",
-  "ai_analysis": {
-    "recommendation": "BUY",
-    "confidence": 0.82,
-    "reasons": [
-      "مؤشر RSI عند 58 يدل على زخم صاعد بدون تشبع",
-      "MACD crossover إيجابي",
-      "السعر فوق MA50 و MA200"
-    ],
-    "risks": [
-      "اقتراب السعر من مقاومة 66",
-      "حجم التداول أقل من المتوسط"
-    ],
-    "target_price": 72.00,
-    "stop_loss": 62.00,
-    "time_horizon": "2-4 weeks"
-  }
-}
-```
-
----
-
 ### 4. GET `/api/stocks/[ticker]/professional-analysis` — التحليل الاحترافي
-
-**الوصف:** بيرجع تحليل فني وأساسي احترافي للسهم.
-
----
-
 ### 5. GET `/api/stocks/[ticker]/recommendation` — توصية السهم
-
-**الوصف:** بيرجع توصية واحدة محددة للسهم.
-
----
-
 ### 6. GET `/api/unified-analysis/[symbol]` — التحليل الموحد
-
-**الوصف:** بيجمع التحليل الفني والأساسي والـ AI في استدعاء واحد.
-
----
-
 ### 7. GET `/api/analysis/status` — حالة نظام التحليل
-
-**Response:**
-```json
-{
-  "success": true,
-  "status": "operational",
-  "python_backend": "online",
-  "analyzers": {
-    "technical": true,
-    "fundamental": true,
-    "patterns": true,
-    "fibonacci": true,
-    "risk": true
-  }
-}
-```
-
----
-
 ### 8. GET `/api/stocks/analysis` — تحليل سريع
-
-**Query Parameters:** `ticker`, `days`
-
----
-
 ### 9. POST `/api/stocks/batch-analysis` — تحليل جماعي
-
-**Request Body:**
-```json
-{
-  "tickers": ["COMI", "HRHO", "SWDY"],
-  "analysis_type": "comprehensive"
-}
-```
-
----
-
 ### 10. GET `/api/unified-analysis/recommendations` — توصيات موحدة
-
-**الوصف:** بيرجع كل التوصيات من كل المصادر (AI + Technical + Fundamental).
 
 ---
 
@@ -1074,439 +456,43 @@ Expires: 0
 
 ### 1. GET `/api/mobile/predictions` — التوقعات (Mobile)
 
-**الوصف:** بيرجع التوقعات من Prisma DB (نفس مصدر الموقع).
-
-**Query Parameters:**
-
 | Param | Type | Default | Description |
 |-------|------|---------|-------------|
 | `limit` | int | 50 | عدد النتائج |
-| `status` | string | (all) | filter by status: `SUCCESS`, `FAIL`, `PENDING` |
-
-**Response 200 OK:**
-```json
-{
-  "success": true,
-  "predictions": [
-    {
-      "id": "pred_001",
-      "symbol": "COMI",
-      "market": "EGX",
-      "signal": "STRONG_BUY",
-      "confidence": 85,
-      "entry_price": 65.45,
-      "target_price": 72.00,
-      "stop_loss": 62.00,
-      "reasoning": "زخم صاعد قوي مع تأكيد من MACD و RSI",
-      "indicators": {
-        "rsi": 58.4,
-        "macd": "bullish",
-        "ma_trend": "uptrend"
-      },
-      "news_summary": "أخبار إيجابية عن قطاع البنوك",
-      "created_at": "2026-01-15T10:00:00.000Z",
-      "verify_date": "2026-01-29",
-      "verified": false,
-      "result": null,
-      "final_price": null,
-      "profit_loss_pct": null
-    }
-  ],
-  "stats": {
-    "total_predictions": 245,
-    "verified_predictions": 180,
-    "successful": 142,
-    "failed": 38,
-    "success_rate": 78.9
-  }
-}
-```
-
-**📱 ملاحظة للجوال:** استخدم ده للـ Predictions tab في الـ bottom navigation.
-
----
+| `status` | string | (all) | `SUCCESS`, `FAIL`, `PENDING` |
 
 ### 2. GET `/api/predictions` — التوقعات (legacy)
-
-**الوصف:** نفس الـ mobile predictions لكن بصيغة مختلفة. بيـ redirect لـ `/api/unified/predictions`.
-
-**Query Parameters:** `type` (signal type), `limit`
-
----
-
 ### 3. GET `/api/predictions/performance` — أداء التوقعات
-
-**الوصف:** بيرجع التوقعات مع actual return محسوب من price history.
-
-**Query Parameters:**
-
-| Param | Type | Description |
-|-------|------|-------------|
-| `month` | string | صيغة `YYYY-MM` (مثلاً `2026-01`) |
-| `market` | string | `EGX`, `KSA` (=TADAWUL), `KSE`, `QSE` |
-| `limit` | int | default 100 |
-
-**Response 200 OK:**
-```json
-{
-  "success": true,
-  "predictions": [
-    {
-      "id": "pred_001",
-      "symbol": "COMI",
-      "name": "البنك التجاري الدولي",
-      "signal": "STRONG_BUY",
-      "signal_ar": "شراء قوي",
-      "entry_price": 65.45,
-      "target_price": 72.00,
-      "stop_loss": 62.00,
-      "confidence": 85,
-      "score": 82,
-      "prediction_date": "2026-01-10",
-      "status": "TARGET_HIT",
-      "status_ar": "🎯 تم",
-      "final_price": 72.50,
-      "actual_return": 10.8,
-      "days_held": 5,
-      "close_date": "2026-01-15",
-      "market": "EGX",
-      "market_ar": "🇪🇬 مصر"
-    }
-  ],
-  "summary": {
-    "total": 45,
-    "closed": 28,
-    "pending": 12,
-    "expired": 5,
-    "wins": 22,
-    "losses": 6,
-    "win_rate": 78.6,
-    "avg_profit": 12.4,
-    "avg_loss": -4.8
-  },
-  "by_market": { "EGX": 25, "TADAWUL": 12, "KSE": 5, "QSE": 3 }
-}
-```
-
----
-
 ### 4. GET `/api/predictions/credibility` — مصداقية التوقعات
-
-**الوصف:** بيرجع توقعات من `platform_recommendations` table مع credibility scores.
-
-**Query Parameters:** `month`, `market`
-
-**Response:**
-```json
-{
-  "success": true,
-  "predictions": [
-    {
-      "id": "1",
-      "ticker": "COMI",
-      "name_ar": "البنك التجاري الدولي",
-      "recommendation": "BUY",
-      "recommendation_ar": "شراء",
-      "confidence": 85,
-      "entry_price": 65.45,
-      "target_price": 72.00,
-      "stop_loss": 62.00,
-      "current_price": 65.45,
-      "market": "EGX",
-      "status": "PENDING",
-      "actual_return": null,
-      "days_held": 0,
-      "created_at": "2026-01-10 10:00:00",
-      "closed_at": null,
-      "recommendation_date": "2026-01-10"
-    }
-  ],
-  "summary": {
-    "total": 50,
-    "verified": 30,
-    "successful": 22,
-    "failed": 8,
-    "success_rate": 73.3,
-    "avg_return": 5.4
-  }
-}
-```
-
----
-
 ### 5. GET `/api/predictions/tracking` — تتبع التوقعات
-
-**الوصف:** بيرجع التوقعات النشطة مع تتبع live price.
-
----
-
 ### 6. GET `/api/predictions/live` — التوقعات اللحظية
-
-**الوصف:** بيرجع التوقعات مع سعر لحظي محدث.
-
----
-
 ### 7. GET `/api/predictions/verify` — التحقق من التوقعات
-
-**الوصف:** بيتحقق من التوقعات القديمة ويحدد نجاح/فشل.
-
----
-
 ### 8. POST `/api/predictions/generate` — توليد توقعات جديدة
-
-**Request Body:**
-```json
-{
-  "tickers": ["COMI", "HRHO"],
-  "market": "EGX"
-}
-```
-
----
-
 ### 9. POST `/api/predictions/generate-all` — توليد توقعات لكل الأسهم
-
----
-
 ### 10. GET `/api/predictions/export-pdf` — تصدير PDF
-
-**الوصف:** بينشئ PDF فيه التوقعات. بيرجع `application/pdf` binary stream.
-
-**📱 ملاحظة:** استخدم `download` بدلاً من `display` في الـ HTTP client.
-
----
-
 ### 11. GET `/api/prediction-performance` — أداء التوقعات (v2)
-
----
-
 ### 12. GET `/api/ai-predictions/extract` — استخراج توقعات AI
-
----
-
 ### 13. POST `/api/ai-predictions/evaluate` — تقييم توقعات AI
-
----
-
 ### 14. GET `/api/real-predictions` — توقعات حقيقية (DeepSeek)
-
-**الوصف:** بيرجع توقعات من DeepSeek AI model.
-
----
-
 ### 15. GET `/api/global-predictions` — توقعات لكل الأسواق
-
-**الوصف:** بيرجع توقعات من كل الأسواق (EGX + TADAWUL + KSE + QSE + CRYPTO).
-
----
-
 ### 16. GET `/api/predictions/eid` — توقعات خاصة بمناسبة
-
-**📱 ملاحظة:** بيستخدم لعرض توقعات خاصة في المناسبات.
 
 ---
 
 ## 💼 Portfolio APIs
 
 ### 1. GET `/api/mobile/portfolio` — محفظة المستخدم (Mobile)
-
-**الوصف:** بيرجع كل أصول المستخدم (أسهم، ذهب، شهادات، صناديق).
-
-**Headers:** `Authorization: Bearer <token>`
-
-**Response 200 OK:**
-```json
-{
-  "success": true,
-  "items": [
-    {
-      "id": 1,
-      "type": "stock",
-      "name": "البنك التجاري الدولي",
-      "ticker": "COMI",
-      "stock_name": "البنك التجاري الدولي",
-      "sector": "Banks",
-      "quantity": 1000,
-      "avg_cost": 60.00,
-      "current_price": 65.45,
-      "market_value": 65450.00,
-      "cost_basis": 60000.00,
-      "unrealized_pnl": 5450.00,
-      "unrealized_pnl_percent": 9.08,
-      "change_percent": 1.95,
-      "status": "slight_gain",
-      "status_ar": "ربح بسيط",
-      "added_at": "2025-12-01 10:00:00"
-    },
-    {
-      "id": 2,
-      "type": "gold",
-      "name": "ذهب 21 عيار",
-      "weight_grams": 50,
-      "karat": 21,
-      "purchase_price_per_gram": 1850,
-      "market_value": 105000,
-      "cost_basis": 92500,
-      "unrealized_pnl": 12500,
-      "unrealized_pnl_percent": 13.51,
-      "status": "moderate_gain",
-      "status_ar": "ربح جيد"
-    },
-    {
-      "id": 3,
-      "type": "certificate",
-      "name": "شهادة استثمار - البنك الأهلي",
-      "bank_name": "البنك الأهلي المصري",
-      "interest_rate": 27,
-      "certificate_duration_months": 36,
-      "certificate_return_rate": 27,
-      "certificate_maturity_date": "2028-12-01",
-      "annual_return": 27000,
-      "monthly_return": 2250,
-      "market_value": 100000,
-      "cost_basis": 100000,
-      "total_invested": 100000
-    }
-  ],
-  "positions": [...],  // backward compatibility - same as items filtered by type=stock
-  "summary": {
-    "total_items": 3,
-    "total_positions": 1,
-    "total_invested": 252500,
-    "total_market_value": 270450,
-    "total_unrealized_pnl": 17950,
-    "total_unrealized_pnl_percent": 7.11,
-    "stocks_count": 1,
-    "gold_items": 1,
-    "certificates_count": 1,
-    "winning_positions": 2,
-    "losing_positions": 0
-  },
-  "by_type": {
-    "stocks": [...],
-    "gold": [...],
-    "certificates": [...],
-    "funds": []
-  }
-}
-```
-
-**Response 401:**
-```json
-{ "success": false, "error": "Unauthorized", "error_ar": "يجب تسجيل الدخول" }
-```
-
----
-
 ### 2. POST `/api/mobile/portfolio` — إضافة أصل للمحفظة
-
-**Request Body (Stock):**
-```json
-{
-  "type": "stock",
-  "stock_symbol": "COMI",
-  "shares": 1000,
-  "avg_cost": 60.00,
-  "name": "البنك التجاري الدولي"
-}
-```
-
-**Request Body (Gold):**
-```json
-{
-  "type": "gold",
-  "weight_grams": 50,
-  "karat": 21,
-  "purchase_price_per_gram": 1850,
-  "name": "ذهب 21 عيار"
-}
-```
-
-**Request Body (Certificate):**
-```json
-{
-  "type": "certificate",
-  "bank_name": "البنك الأهلي المصري",
-  "interest_rate": 27,
-  "certificate_duration_months": 36,
-  "certificate_return_rate": 27,
-  "certificate_maturity_date": "2028-12-01",
-  "total_invested": 100000,
-  "name": "شهادة استثمار - البنك الأهلي"
-}
-```
-
-**Response 201:**
-```json
-{
-  "success": true,
-  "message": "تم إضافة الأصل للمحفظة بنجاح",
-  "data": {
-    "user_id": "550e8400-...",
-    "type": "stock",
-    "stock_ticker": "COMI",
-    "quantity": 1000,
-    "avg_buy_price": 60.00,
-    "total_invested": 60000
-  }
-}
-```
-
----
-
 ### 3. DELETE `/api/mobile/portfolio?id=<asset_id>` — حذف أصل
-
-**Response 200:**
-```json
-{ "success": true, "message": "تم حذف الأصل" }
-```
-
----
-
 ### 4. GET `/api/portfolio` — محفظة الويب (legacy)
-
-**Headers:** Session-based (NextAuth) - **لا يستخدم للموبايل**.
-
----
-
 ### 5. POST `/api/portfolio` — إضافة لمحفظة الويب
-
-**ملاحظة:** استخدم `/api/mobile/portfolio` بدلاً منه للموبايل.
-
----
-
 ### 6. GET `/api/portfolio/analyze` — تحليل المحفظة
-
-**الوصف:** بيرجع تحليل ذكي للمحفظة (تنويع، مخاطر، توصيات).
-
----
-
 ### 7. GET `/api/mobile/portfolio/analyze` — تحليل محفظة mobile
-
----
-
 ### 8. GET `/api/mobile/portfolio/intelligence` — ذكاء المحفظة
-
-**الوصف:** بيرجع تحليل عميق للمحفظة مع توصيات لتحسين العوائد.
-
----
-
-### 9. GET `/api/portfolio/intelligence` — نفس اللي فوق (web version)
-
----
-
-### 10. GET `/api/portfolio/assets` — أصول المحفظة (web)
-
----
-
+### 9. GET `/api/portfolio/intelligence` — نسخة الويب
+### 10. GET `/api/portfolio/assets` — أصول المحفظة
 ### 11. POST `/api/portfolio/check` — فحص صحة المحفظة
-
----
-
 ### 12. POST `/api/portfolio/import-real` — استيراد محفظة حقيقية
-
----
-
 ### 13. POST `/api/portfolio/priority-sync` — مزامنة بأولوية
 
 ---
@@ -1514,115 +500,11 @@ Expires: 0
 ## 👁️ Watchlist APIs
 
 ### 1. GET `/api/watchlist` — قائمة المراقبة
-
-**الوصف:** بيرجع أسهم قائمة المراقبة للمستخدم.
-
-**Headers:** Session-based أو Bearer token
-
-**Response 200 OK:**
-```json
-{
-  "success": true,
-  "items": [
-    {
-      "id": 1,
-      "stock_id": 1,
-      "ticker": "COMI",
-      "name": "Commercial International Bank",
-      "name_ar": "البنك التجاري الدولي",
-      "current_price": 65.45,
-      "previous_close": 64.20,
-      "price_change": 1.95,
-      "sector": "Banks",
-      "volume": 12500000,
-      "market_cap": 132500000000,
-      "pe_ratio": 5.8,
-      "pb_ratio": 1.2,
-      "dividend_yield": 4.5,
-      "eps": 11.28,
-      "rsi": 58.4,
-      "ma_50": 62.10,
-      "ma_200": 58.50,
-      "alert_price_above": 70.00,
-      "alert_price_below": 60.00,
-      "alert_change_percent": 5,
-      "notes": "مراقبة لاختراق 70",
-      "added_at": "2026-01-10 10:00:00",
-      "stock": {
-        "id": 1,
-        "ticker": "COMI",
-        "current_price": 65.45,
-        "egx30_member": true,
-        "egx70_member": false,
-        "egx100_member": true
-      }
-    }
-  ],
-  "total": 1
-}
-```
-
-**📱 ملاحظة للجوال:** لو الـ user مش مسجل دخول بيرجع `items: []`.
-
----
-
 ### 2. POST `/api/watchlist` — إضافة سهم لقائمة المراقبة
-
-**Request Body:**
-```json
-{
-  "ticker": "COMI",
-  "alert_price_above": 70.00,
-  "alert_price_below": 60.00,
-  "alert_change_percent": 5,
-  "notes": "مراقبة لاختراق 70"
-}
-```
-
-**Response 201:**
-```json
-{
-  "success": true,
-  "message": "تمت إضافة السهم إلى قائمة المراقبة بنجاح",
-  "id": 5,
-  "stock_id": 1
-}
-```
-
-**Response 409 Conflict:**
-```json
-{
-  "success": false,
-  "error": "هذا السهم موجود بالفعل في قائمة المراقبة",
-  "watchlist_id": 5
-}
-```
-
----
-
 ### 3. DELETE `/api/watchlist/[id]` — حذف من قائمة المراقبة
-
-**Response 200:**
-```json
-{ "success": true, "message": "تم حذف السهم من قائمة المراقبة" }
-```
-
----
-
 ### 4. GET `/api/mobile/watchlist/intelligence` — ذكاء قائمة المراقبة
-
-**الوصف:** بيرجع تحليل ذكي لقائمة المراقبة (فرص، مخاطر، توصيات).
-
----
-
 ### 5. GET `/api/watchlist-enhanced` — قائمة مراقبة محسنة
-
----
-
 ### 6. GET `/api/finance/smart-watchlist` — قائمة المراقبة الذكية
-
----
-
 ### 7. GET `/api/crypto/watchlist` — قائمة مراقبة الكريبتو
 
 ---
@@ -1630,247 +512,27 @@ Expires: 0
 ## 🪙 Crypto APIs
 
 ### 1. GET `/api/crypto` — قائمة العملات الرقمية
-
-**الوصف:** بيرجع قائمة العملات مع تحليل Python Backend (primary) و CoinGecko (fallback).
-
-**Query Parameters:**
-
-| Param | Type | Default | Description |
-|-------|------|---------|-------------|
-| `per_page` / `perPage` | int | 50 | عدد النتائج |
-
-**Response 200 OK (from Python):**
-```json
-{
-  "success": true,
-  "source": "python_backend",
-  "data": [
-    {
-      "id": "bitcoin",
-      "symbol": "BTC",
-      "name": "Bitcoin",
-      "current_price": 95000,
-      "price_change_percentage_24h": 2.5,
-      "market_cap": 1850000000000,
-      "market_cap_rank": 1,
-      "total_volume": 45000000000,
-      "ath": 108000,
-      "ath_change_percentage": -12,
-      "atl": 67.81,
-      "atl_change_percentage": 14000000,
-      "technical_score": 78,
-      "confidence": 85,
-      "recommendation": {
-        "action": "strong_buy",
-        "action_ar": "شراء قوي",
-        "confidence": 85
-      },
-      "strength": "strong",
-      "opportunity_type": "momentum",
-      "reasons": ["MACD bullish crossover", "Above MA200", "Volume surge"],
-      "warnings": ["Approaching ATH resistance"]
-    }
-  ],
-  "total": 50,
-  "page": 1,
-  "per_page": 50,
-  "market_regime": "bull",
-  "summary": {
-    "total_coins": 50,
-    "bullish": 32,
-    "bearish": 10,
-    "neutral": 8
-  },
-  "categories": {
-    "defi": 12,
-    "layer1": 15,
-    "meme": 5
-  }
-}
-```
-
-**Response 200 OK (from CoinGecko fallback):**
-```json
-{
-  "success": true,
-  "source": "coingecko",
-  "data": [...],
-  "warning": "Python backend unavailable - using CoinGecko directly - LIMITED ANALYSIS"
-}
-```
-
-**📱 ملاحظة:** لو `source` = `coingecko` اعرف إن التحليل محدود (basic only). لو `python_backend` يبقى التحليل كامل.
-
----
-
 ### 2. GET `/api/crypto/[id]` — تفاصيل عملة
-
-**الوصف:** بيرجع تفاصيل عملة معينة من CoinGecko.
-
-**Path Parameters:** `id` = CoinGecko coin id (e.g., `bitcoin`)
-
-**Response 200 OK:**
-```json
-{
-  "success": true,
-  "data": {
-    "id": "bitcoin",
-    "symbol": "BTC",
-    "name": "Bitcoin",
-    "image": {
-      "thumb": "https://...",
-      "small": "https://...",
-      "large": "https://..."
-    },
-    "description": "Bitcoin is the first successful internet...",
-    "market_data": {
-      "current_price": 95000,
-      "ath": 108000,
-      "ath_change_percentage": -12,
-      "ath_date": "2025-12-17T00:00:00.000Z",
-      "atl": 67.81,
-      "atl_change_percentage": 14000000,
-      "atl_date": "2013-07-06T00:00:00.000Z",
-      "market_cap": 1850000000000,
-      "market_cap_rank": 1,
-      "total_volume": 45000000000,
-      "high_24h": 96000,
-      "low_24h": 94000,
-      "price_change_24h": 2325,
-      "price_change_percentage_24h": 2.5,
-      "price_change_percentage_7d": 5.2,
-      "price_change_percentage_30d": 8.4,
-      "price_change_percentage_1y": 145,
-      "circulating_supply": 19500000,
-      "total_supply": 21000000,
-      "max_supply": 21000000
-    },
-    "sparkline_in_7d": [92000, 93500, 94200, 95000],
-    "links": {
-      "homepage": ["https://bitcoin.org"],
-      "blockchain_site": ["https://blockchain.com/btc"],
-      "twitter_screen_name": "Bitcoin",
-      "telegram_channel_identifier": "bitcoin"
-    },
-    "categories": ["Cryptocurrency", "Layer 1"],
-    "last_updated": "2026-01-15T14:00:00.000Z"
-  },
-  "cached": false,
-  "timestamp": "2026-01-15T14:30:00.000Z"
-}
-```
-
----
-
 ### 3. GET `/api/crypto/recommendations` — توصيات الكريبتو
-
-**الوصف:** بيرجع توصيات الكريبتو من Python Backend (quick-scan).
-
-**Query Parameters:**
-
-| Param | Type | Default | Description |
-|-------|------|---------|-------------|
-| `limit` | int | 20 | عدد التوصيات |
-| `risk` | string | `moderate` | `conservative` / `low`, `moderate`, `aggressive` / `high` |
-
-**Response 200 OK:**
-```json
-{
-  "success": true,
-  "source": "python_backend",
-  "count": 10,
-  "risk_level": "moderate",
-  "recommendations": [
-    {
-      "id": "bitcoin",
-      "symbol": "BTC",
-      "name": "Bitcoin",
-      "current_price": 95000,
-      "signal": "strong_buy",
-      "signal_ar": "شراء قوي",
-      "confidence": 88,
-      "maestro_score": 82,
-      "entry_price": 95000,
-      "target_price": 105000,
-      "stop_loss": 89000,
-      "risk_reward": 1.67,
-      "position_size_pct": 5,
-      "reasons": ["Bullish MACD", "Above MA200", "Volume surge"],
-      "warnings": ["Approaching ATH"],
-      "risk_level": "low",
-      "market_regime": "bull",
-      "fear_greed": 72
-    }
-  ],
-  "timestamp": "2026-01-15T14:30:00.000Z"
-}
-```
-
----
-
 ### 4. GET `/api/crypto/analyze` — تحليل عملة
-
----
-
 ### 5. GET `/api/crypto/portfolio` — محفظة الكريبتو
-
----
-
 ### 6. GET `/api/crypto/stats` — إحصائيات سوق الكريبتو
-
----
-
 ### 7. GET `/api/crypto/status` — حالة جمع البيانات
-
----
-
 ### 8. GET `/api/mobile/crypto` — نسخة mobile محسنة
-
----
-
 ### 9. GET `/api/mobile/crypto/[id]` — تفاصيل عملة (mobile)
-
----
-
 ### 10. GET `/api/mobile/crypto/recommendations` — توصيات (mobile)
-
----
-
 ### 11. GET `/api/mobile/crypto/analysis` — تحليل (mobile)
-
----
-
 ### 12. GET `/api/mobile/crypto/learning` — محتوى تعليمي للكريبتو
-
----
-
 ### 13. GET `/api/mobile/crypto/portfolio` — محفظة كريبتو (mobile)
-
----
-
 ### 14. GET `/api/mobile/crypto/watchlist` — قائمة مراقبة كريبتو (mobile)
-
----
-
 ### 15. GET `/api/crypto-predictions` — توقعات الكريبتو
-
----
-
 ### 16. GET `/api/crypto-backtesting` — Backtesting للكريبتو
-
----
-
 ### 17. POST `/api/crypto/simulation` — محاكاة تداول كريبتو
-
----
-
 ### 18. GET `/api/unified-crypto` — كريبتو موحد
 
 ---
 
 ## 🌍 Multi-Market APIs
-
-`دليل الاستثمار` بيدعم 4 أسواق عربية رئيسية + 4 أسواق إضافية:
 
 | Code | Market | Country | Hours (Cairo) |
 |------|--------|---------|---------------|
@@ -1883,73 +545,19 @@ Expires: 0
 | `BSE` | 🇧🇭 البحرين | Bahrain | 9:30 - 13:00 |
 
 ### 1. GET `/api/stocks?market=EGX` — أسهم مصر
-
-**Example:** `GET /api/stocks?market=EGX&page=1&limit=50`
-
----
-
-### 2. GET `/api/stocks?market=KSA` — أسهم السعودية (TADAWUL)
-
-**Example:** `GET /api/stocks?market=KSA&page=1&limit=50`
-
-**ملاحظة:** `KSA` بيتـ map لـ `TADAWUL` تلقائياً في الـ backend.
-
----
-
+### 2. GET `/api/stocks?market=KSA` — أسهم السعودية
 ### 3. GET `/api/stocks?market=KSE` — أسهم الكويت
-
----
-
 ### 4. GET `/api/stocks?market=QSE` — أسهم قطر
-
----
-
 ### 5. GET `/api/multi-market/sync` — مزامنة كل الأسواق
-
-**الوصف:** بيـ trigger مزامنة لكل الأسواق.
-
----
-
 ### 6. GET `/api/market/connections` — اتصالات الأسواق
-
-**الوصف:** بيرجع حالة اتصال كل سوق.
-
----
-
 ### 7. GET `/api/market/incremental-sync` — مزامنة تدريجية
-
----
-
 ### 8. POST `/api/market/sync-live` — مزامنة لحظية
-
----
-
 ### 9. POST `/api/market/sync` — مزامنة عامة
-
----
-
 ### 10. GET `/api/unified-stocks` — أسهم موحدة
-
-**الوصف:** بيرجع أسهم من كل الأسواق في استدعاء واحد.
-
----
-
 ### 11. GET `/api/data-engine/stocks` — أسهم من Data Engine
-
----
-
 ### 12. GET `/api/data-engine/crypto` — كريبتو من Data Engine
-
----
-
 ### 13. GET `/api/data-engine/forex` — فوركس
-
----
-
 ### 14. GET `/api/data-engine/gold` — ذهب
-
----
-
 ### 15. GET `/api/data-engine/silver` — فضة
 
 ---
@@ -1958,2867 +566,1009 @@ Expires: 0
 
 ### 1. GET `/api/subscription/plans` — خطط الاشتراك
 
-**الوصف:** بيرجع خطط الاشتراك المتاحة.
-
-**Response 200 OK:**
 ```json
 {
   "success": true,
   "plans": [
-    {
-      "id": "free",
-      "name": "free",
-      "name_ar": "مجانى",
-      "price": 0,
-      "price_yearly": 0,
-      "trial_days": 0,
-      "features": [
-        "بيانات السوق الأساسية",
-        "5 أسهم في قائمة المراقبة",
-        "محفظة استثمارية واحدة",
-        "3 تنبيهات يومياً",
-        "عرض الأسهم والمؤشرات"
-      ],
-      "max_watchlist": 5,
-      "max_portfolio": 1,
-      "max_alerts": 3,
-      "ai_analysis": false,
-      "deep_analysis": false,
-      "priority_support": false
-    },
-    {
-      "id": "normal",
-      "name": "normal",
-      "name_ar": "عادى",
-      "price": 99,
-      "price_yearly": 990,
-      "trial_days": 7,
-      "features": [
-        "جميع ميزات المجانى",
-        "25 سهم في قائمة المراقبة",
-        "5 محافظ استثمارية",
-        "تنبيهات غير محدودة",
-        "تتبع المحفظة الاستثمارية",
-        "تحليلات أساسية متقدمة",
-        "تصدير التقارير PDF",
-        "التحليل الفني للأسهم"
-      ],
-      "max_watchlist": 25,
-      "max_portfolio": 5,
-      "max_alerts": 9999,
-      "ai_analysis": false,
-      "deep_analysis": true,
-      "priority_support": false
-    },
-    {
-      "id": "premium",
-      "name": "premium",
-      "name_ar": "مميز",
-      "price": 199,
-      "price_yearly": 1990,
-      "trial_days": 14,
-      "features": [
-        "جميع ميزات عادى",
-        "قائمة مراقبة غير محدودة",
-        "محافظ استثمارية غير محدودة",
-        "تحليل بالذكاء الاصطناعي",
-        "تحليلات ذكية مخصصة",
-        "دعم أولوي على مدار الساعة",
-        "تقارير مخصصة",
-        "إشعارات فورية للأسعار",
-        "تحليل عميق للأسهم"
-      ],
-      "max_watchlist": 9999,
-      "max_portfolio": 9999,
-      "max_alerts": 9999,
-      "ai_analysis": true,
-      "deep_analysis": true,
-      "priority_support": true
-    }
-  ],
-  "source": "local"
+    { "id": "free", "name_ar": "مجانى", "price": 0, "max_watchlist": 5, "ai_analysis": false },
+    { "id": "normal", "name_ar": "عادى", "price": 99, "max_watchlist": 25, "ai_analysis": true },
+    { "id": "premium", "name_ar": "مميز", "price": 199, "max_watchlist": -1, "ai_analysis": true }
+  ]
 }
 ```
 
-**📱 ملاحظة:** الأسعار بالجنيه المصري (EGP). استخدم `price` للشهري و `price_yearly` للسنوي.
-
----
-
-### 2. POST `/api/paymob/create-payment` — إنشاء عملية دفع
-
-**الوصف:** بينشئ payment session على Paymob.
-
-**Request Body:**
-```json
-{
-  "plan_id": "normal",  // أو "premium"
-  "billing_period": "monthly"  // أو "yearly"
-}
-```
-
-**Response 200 OK:**
-```json
-{
-  "success": true,
-  "payment_url": "https://accept.paymob.com/api/acceptance/iframes/1039291?payment_token=...",
-  "order_id": 12345678,
-  "merchant_order_id": "GLM-550e8400-...-normal-1705312200000"
-}
-```
-
-**📱 ملاحظة للجوال:**
-1. بعت POST للـ endpoint ده
-2. خد الـ `payment_url` من الـ response
-3. افتحه في `WebView` أو External Browser
-4. بعد الدفع ناجح، Paymob هيـ redirect لـ `/api/paymob/callback` على السيرفر
-5. اعمل poll على `/api/subscription/current` كل 5 ثواني للتأكد إن الاشتراك اتـ activate
-
----
-
-### 3. POST `/api/paymob/callback` — استدعاء Paymob (server-side)
-
-**الوصف:** الـ endpoint ده بيتـ استدعى من Paymob بعد كل معاملة. **مش للموبايل**.
-
----
-
-### 4. GET `/api/paymob/callback` — redirect بعد الدفع
-
-**الوصف:** بيرجع redirect لـ `/?payment=success` أو `/?payment=failed`.
-
----
-
-### 5. POST `/api/subscription/activate` — تفعيل الاشتراك
-
-**Request Body:**
-```json
-{
-  "plan": "normal",
-  "transaction_id": "txn_123",
-  "payment_gateway": "paymob",
-  "billing_period": "monthly"
-}
-```
-
-**Response 200 OK:**
-```json
-{
-  "success": true,
-  "message": "تم تفعيل الاشتراك بنجاح",
-  "data": {
-    "plan": "normal",
-    "subscription": {
-      "id": "sub_001",
-      "plan_id": "normal",
-      "status": "active",
-      "started_at": "2026-01-15T14:30:00.000Z",
-      "expires_at": "2026-02-15T14:30:00.000Z",
-      "auto_renew": true,
-      "payment_method": "paymob"
-    },
-    "user": {
-      "id": "550e8400-...",
-      "subscription_tier": "normal"
-    },
-    "start_date": "2026-01-15T14:30:00.000Z",
-    "expiry_date": "2026-02-15T14:30:00.000Z",
-    "status": "active"
-  }
-}
-```
-
----
-
-### 6. GET `/api/subscription/current` — الاشتراك الحالي
-
-**Response 200 OK (active):**
-```json
-{
-  "success": true,
-  "subscription": {
-    "id": "sub_001",
-    "plan_id": "normal",
-    "plan_name": "normal",
-    "plan_name_ar": "عادى",
-    "status": "active",
-    "started_at": "2026-01-15T14:30:00.000Z",
-    "expires_at": "2026-02-15T14:30:00.000Z",
-    "trial_started_at": null,
-    "trial_ends_at": null,
-    "is_in_trial": false,
-    "is_trial_expired": false,
-    "auto_renew": true,
-    "payment_method": "paymob",
-    "plan": {
-      "features": [...],
-      "max_watchlist": 25,
-      "max_portfolio": 5,
-      "max_alerts": 9999,
-      "ai_analysis": false,
-      "deep_analysis": true,
-      "priority_support": false
-    }
-  }
-}
-```
-
-**Response 200 OK (no subscription):**
-```json
-{
-  "success": true,
-  "subscription": null,
-  "tier": "free",
-  "message": "لا يوجد اشتراك نشط"
-}
-```
-
----
-
-### 7. POST `/api/subscription/upgrade` — ترقية الاشتراك
-
-**Request Body:**
-```json
-{
-  "plan": "premium",
-  "billing_period": "yearly"
-}
-```
-
----
-
-### 8. POST `/api/subscription/start-trial` — بدء فترة تجريبية
-
-**Request Body:**
-```json
-{ "plan": "normal" }
-```
-
----
-
-### 9. POST `/api/subscription/deactivate` — إلغاء الاشتراك
-
----
-
-### 10. GET `/api/subscription/check-access` — فحص صلاحيات المستخدم
-
-**Query Parameters:** `feature` (e.g., `ai_analysis`, `deep_analysis`)
-
----
-
-### 11. POST `/api/subscribe/[plan]` — اشتراك مباشر في خطة
-
-**Path Parameters:** `plan` = `normal` / `premium`
-
----
-
-### 12. GET `/api/payments/result` — نتيجة الدفع
-
-**Query Parameters:** `order`, `success`
-
----
-
-### 13. POST `/api/google-play/verify-receipt` — التحقق من Google Play receipt
-
-**الوصف:** للتحقق من عمليات الدفع داخل التطبيق عبر Google Play.
-
-**Request Body:**
-```json
-{
-  "receipt": "google_play_receipt_data",
-  "product_id": "premium_monthly"
-}
-```
-
----
-
-### 14. POST `/api/instapay` — دفع عبر InstaPay
-
----
-
-### 15. POST `/api/instapay/approve` — اعتماد InstaPay
-
----
-
-### 16. POST `/api/instapay/verify` — التحقق من InstaPay
-
----
-
-### 17. GET `/api/mobile/subscription` — خطط الاشتراك (mobile)
-
-نفس `/api/subscription/plans` بالظبط.
+### 2. POST `/api/subscription/checkout` — بدء عملية الدفع
+### 3. POST `/api/subscription/verify` — التحقق من الدفع
+### 4. GET `/api/subscription/status` — حالة الاشتراك الحالي
 
 ---
 
 ## 📰 News & Content APIs
 
-### 1. GET `/api/news-feed` — آخر الأخبار (unified)
-
-**الوصف:** بيجمع أخبار من EGXPilot + CoinGecko + Alternative.me في استدعاء واحد.
-
-**Response 200 OK:**
-```json
-{
-  "success": true,
-  "cached": false,
-  "timestamp": "2026-01-15T14:30:00.000Z",
-  "news": [
-    {
-      "id": "egx-123",
-      "title": "موافقة البورصة المصرية على زيادة رأس مال شركة CFI",
-      "summary": "أعلنت البورصة المصرية عن موافقتها على زيادة رأس مال...",
-      "source": "EGXPilot",
-      "timestamp": "2026-01-15T13:00:00.000Z",
-      "category": "egx",
-      "importance": "high",
-      "url": "https://egxpilot.com/news/123",
-      "tickers": ["CFI"]
-    },
-    {
-      "id": "fear-greed-index",
-      "title": "مؤشر الخوف والطمع: 72 (Greed)",
-      "summary": "الطمع في السوق - حذر من البيع العاطفي",
-      "source": "Alternative.me",
-      "timestamp": "2026-01-15T14:30:00.000Z",
-      "category": "sentiment",
-      "importance": "medium"
-    },
-    {
-      "id": "btc-price",
-      "title": "Bitcoin: $95,000 (+2.5%)",
-      "summary": "البيتكوين صاعد في آخر 24 ساعة",
-      "source": "CoinGecko",
-      "timestamp": "2026-01-15T14:30:00.000Z",
-      "category": "crypto",
-      "importance": "low"
-    }
-  ],
-  "summary": {
-    "total": 13,
-    "egx": 10,
-    "crypto": 2,
-    "sentiment": 1
-  },
-  "cache_duration": 300
-}
-```
-
-**📱 ملاحظة:** الـ response بيتـ cached لمدة 5 دقايق على السيرفر.
-
----
-
-### 2. POST `/api/news-feed` — force refresh
-
-**الوصف:** بيمسح الـ cache ويعمل fetch جديد.
-
----
-
-### 3. GET `/api/mobile/news` — أخبار (mobile)
-
-نفس `/api/news-feed` بالظبط.
-
----
-
-### 4. GET `/api/news` — أخبار (legacy)
-
----
-
-### 5. GET `/api/egxpilot/news` — أخبار EGXPilot
-
----
-
-### 6. GET `/api/egxpilot/stocks` — أسهم EGXPilot
-
----
-
-### 7. GET `/api/egxpilot/analysis/[ticker]` — تحليل EGXPilot
-
----
-
-### 8. GET `/api/stocks/[ticker]/news` — أخبار سهم معين
-
----
-
-### 9. GET `/api/maestro/news` — أخبار الـ Maestro
-
----
-
-### 10. GET `/api/news/apikeys` — إدارة API keys للأخبار
-
----
-
-### 11. POST `/api/news/apikeys/verify` — التحقق من API keys
+### 1. GET `/api/news` — أخبار السوق
+### 2. GET `/api/news/[id]` — تفاصيل خبر
+### 3. GET `/api/egksco/recommendations` — توصيات EGKSco
 
 ---
 
 ## 🤖 AI Chat APIs
 
-### 1. POST `/api/ai/chat` — محادثة AI
+### 1. POST `/api/ai/chat` — محادثة مع AI
+### 2. GET `/api/ai/status` — حالة خدمة AI
 
-**الوصف:** محادثة مع DeepSeek AI مع memory و web search.
+---
 
-**Request Body:**
-```json
-{
-  "message": "ايه رأيك في سهم COMI؟",
-  "context": {
-    "page": "stock_detail",
-    "ticker": "COMI"
-  }
-}
-```
+## 🎯 Screener, Confluence & Dual Persona APIs
+
+### 1. GET `/api/scanner/quick` — فحص سريع
+### 2. GET `/api/confluence/analyze/[ticker]` — تحليل التوحيد
+### 3. GET `/api/confluence/market-scan` — فحص السوق بالتوحيد
+### 4. GET `/api/persona/analyze/[ticker]` — تحليل الشخصية الاستثمارية
+### 5. GET `/api/persona/recommendations` — توصيات حسب الشخصية
+
+---
+
+## 🆕 Market Regime & Trend-Following APIs
+
+> **NEW in v22** — These endpoints power the trend-following strategy and market regime detection.
+
+### 1. GET `/api/regime/market` — EGX30 Market Regime
+
+**الوصف:** يحدد حالة السوق العام (Stage 1-4) بناءً على مؤشر EGX30 باستخدام نموذج Minervini. يستخدم SMA50, SMA200, و SMA slope.
+
+**Authentication:** None required (public endpoint).
+
+**Query Parameters:**
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `market` | string | `EGX` | `EGX`, `KSA`, `TADAWUL`, `KSE`, `QSE`, `DFM`, `CRYPTO` |
+
+**Example:** `GET /api/regime/market?market=EGX`
 
 **Response 200 OK:**
 ```json
 {
   "success": true,
-  "reply": "بناءً على تحليلي لسهم COMI، الشركة تظهر قوة في الزخم الفني...",
-  "model": "deepseek-chat",
-  "tool_used": "deepseek-v3",
-  "confidence": "high",
-  "reasoning": null,
-  "memory_used": true,
-  "response_time_ms": 1250
+  "data": {
+    "ticker": "EGX30",
+    "regime": "bull_trend",
+    "regime_ar": "صاعد واضح",
+    "confidence": 71.4,
+    "indicators": {
+      "adx": {
+        "adx": 32.5,
+        "plus_di": 28.3,
+        "minus_di": 18.7,
+        "trend_strength": "moderate",
+        "direction": "bullish"
+      },
+      "roc": {
+        "roc": 7.2,
+        "status": "bullish"
+      }
+    },
+    "timestamp": "2026-03-04T14:30:00"
+  },
+  "market": "EGX",
+  "index": "EGX30"
 }
 ```
 
-**Response 200 (complex analysis - uses R1):**
+**Regime Values:**
+
+| Value | Arabic | Description | Trading Implication |
+|-------|--------|-------------|---------------------|
+| `bull_trend` | صاعد واضح | ADX > 25 + bullish direction | Full positions allowed |
+| `bear_trend` | هابط واضح | ADX > 25 + bearish direction | No new trades |
+| `ranging` | متراوح | ADX < 25 or mixed signals | Half positions, cautious |
+
+---
+
+### 2. GET `/api/regime/stock/<ticker>` — Stock Regime
+
+**الوصف:** يحدد حالة السوق لسهم معين باستخدام نفس خوارزمية ADX + ROC.
+
+**Path Parameters:**
+
+| Param | Type | Description |
+|-------|------|-------------|
+| `ticker` | string | Stock ticker (e.g., `COMI`, `HRHO`) |
+
+**Example:** `GET /api/regime/stock/COMI`
+
+**Response 200 OK:**
 ```json
 {
   "success": true,
-  "reply": "تحليلي المتعمق لـ COMI يظهر إشارات إيجابية...",
-  "model": "deepseek-reasoner",
-  "tool_used": "deepseek-r1",
-  "confidence": "high",
-  "reasoning": "MACD shows bullish divergence, RSI at 58.4 indicates room for upside...",
-  "memory_used": true,
-  "response_time_ms": 8400
+  "data": {
+    "ticker": "COMI",
+    "regime": "bull_trend",
+    "regime_ar": "صاعد واضح",
+    "confidence": 85.7,
+    "indicators": {
+      "adx": { "adx": 35.2, "plus_di": 30.1, "minus_di": 15.4, "trend_strength": "moderate", "direction": "bullish" },
+      "roc": { "roc": 8.5, "status": "bullish" }
+    },
+    "timestamp": "2026-03-04T14:30:00"
+  }
+}
+```
+
+---
+
+### 3. GET `/api/regime/overview` — Full Market Overview with Trading Advice
+
+**الوصف:** يرجع حالة السوق الشاملة مع نصيحة تداول. يستخدم `MarketRegimeEngine` مع تصنيف Minervini Stage 1-4.
+
+**Example:** `GET /api/regime/overview`
+
+**Response 200 OK:**
+```json
+{
+  "success": true,
+  "data": {
+    "market_regime": {
+      "ticker": "EGX30",
+      "regime": "bull_trend",
+      "regime_ar": "صاعد واضح",
+      "confidence": 71.4,
+      "indicators": {
+        "adx": { "adx": 32.5, "plus_di": 28.3, "minus_di": 18.7, "trend_strength": "moderate", "direction": "bullish" },
+        "roc": { "roc": 7.2, "status": "bullish" }
+      },
+      "timestamp": "2026-03-04T14:30:00"
+    },
+    "trading_advice": {
+      "action": "HOLD",
+      "action_ar": "احتفاظ"
+    }
+  }
+}
+```
+
+**📱 ملاحظة للجوال:** استخدم ده في الـ Home screen لعرض badge لحالة السوق. الـ `trading_advice.action` يحدد هل المستخدم يجب أن يتداول أم لا.
+
+---
+
+### Market Regime Stages (Minervini Classification)
+
+يستخدم `MarketRegimeEngine` من `engines/market_regime.py` التصنيف التالي:
+
+| Stage | Name | Conditions | `trading_allowed` | `position_modifier` |
+|-------|------|------------|-------------------|---------------------|
+| **1** | Consolidation | Price below/near SMA200, flat slope | `true` | `0.5` (half) |
+| **2** | Bull Market | Price > SMA200, SMA50 > SMA200, SMA200 slope > 0.2%/20d | `true` | `1.0` (full) |
+| **3** | Distribution | Price > SMA200 but weakening (death cross forming) | `true` | `0.5` (half) |
+| **4** | Bear Market | Price < SMA200, SMA200 slope < -0.2%/20d | `false` | `0.0` (none) |
+
+**RegimeResult Data Structure:**
+```json
+{
+  "stage": 2,
+  "stage_name": "Bull Market",
+  "price": 28500.50,
+  "sma50": 27800.00,
+  "sma200": 26500.00,
+  "slope_50": 0.45,
+  "slope_200": 0.32,
+  "adx": 32.5,
+  "confidence": 78.0,
+  "trading_allowed": true,
+  "position_modifier": 1.0,
+  "date": "2026-03-04",
+  "index_ticker": "EGX30",
+  "reason": "EGX30 28501 is +7.5% above SMA200 with SMA200 rising +0.320%/20d — clear uptrend"
+}
+```
+
+---
+
+## 🔫 Sniper Engine APIs
+
+> **Updated in v22** — Sniper endpoints now include EGX30 regime gate and trend-following signals.
+
+### 1. GET `/api/sniper/scan` — Market Scan with EGX30 Gate
+
+**الوصف:** يفحص السوق ويجد أفضل الفرص باستخدام 5-gate filter. في v22 بيتحقق أولاً من حالة EGX30 — لو Stage 4 (Bear Market) بيرجع نتائج فارغة مع تحذير.
+
+**Query Parameters:**
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `market` | string | `EGX` | السوق المستهدف |
+| `persona` | string | `balanced` | `conservative`, `balanced`, `aggressive` |
+| `min_gates` | int | `4` | أقل عدد gates للفلترة (1-5) |
+| `limit` | int | `10` | أقصى عدد نتائج |
+
+**Example:** `GET /api/sniper/scan?market=EGX&min_gates=4&limit=10`
+
+**Response 200 OK:**
+```json
+{
+  "success": true,
+  "count": 3,
+  "results": [
+    {
+      "ticker": "COMI",
+      "market": "EGX",
+      "signal": "STRONG_BUY",
+      "signal_ar": "شراء قوي",
+      "confidence": 85.0,
+      "sniper_score": 88,
+      "entry_price": 65.45,
+      "target_price": 72.00,
+      "stop_loss": 62.00,
+      "risk_reward": 1.88,
+      "gates_passed": 5,
+      "gates": {
+        "technical": true,
+        "fundamental": true,
+        "volume": true,
+        "trend": true,
+        "regime": true
+      },
+      "market_regime": {
+        "stage": 2,
+        "stage_name": "Bull Market",
+        "trading_allowed": true,
+        "position_modifier": 1.0
+      },
+      "is_trend_following": false,
+      "timestamp": "2026-03-04T14:30:00"
+    }
+  ],
+  "market": "EGX",
+  "min_gates": 4,
+  "egx30_stage": 2,
+  "timestamp": "2026-03-04T14:30:00"
 }
 ```
 
 **📱 ملاحظة للجوال:**
-- الأسئلة البسيطة → DeepSeek V3 (سريع، 1-2 ثانية)
-- التحليل المعقد → DeepSeek R1 (بطيء، 5-15 ثانية) - اعرض loading indicator
-- لو `tool_used` = `web_search` يبقى الـ response فيه معلومات محدثة
+- لو `egx30_stage` = 4 اعرض تحذير "السوق في مرحلة هبوط — لا توجد صفقات جديدة"
+- لو `is_trend_following` = `true` اعرف إن الإشارة من استراتيجية Trend Following
 
 ---
 
-### 2. GET `/api/ai/chat` — حالة الـ AI
+### 2. GET `/api/sniper/analyze/<ticker>` — Individual Ticker Analysis
 
-**Response:**
+**الوصف:** يحلل سهم واحد بالكامل باستخدام SniperEngine. في v22 يشمل Donchian breakout analysis و trailing stops.
+
+**Query Parameters:**
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `market` | string | `EGX` | السوق |
+| `persona` | string | `balanced` | الشخصية الاستثمارية |
+
+**Example:** `GET /api/sniper/analyze/COMI?market=EGX`
+
+**Response 200 OK:**
 ```json
 {
   "success": true,
-  "model": "deepseek-v3 + deepseek-r1",
-  "ollama_running": true,
-  "tools_available": ["deepseek-chat", "deepseek-reasoner", "web_search", "market_sentiment", "memory"],
-  "memory": {
-    "conversations": 245,
-    "decisions": 89,
-    "metrics": 18,
-    "accuracy": 78.5
+  "result": {
+    "ticker": "COMI",
+    "market": "EGX",
+    "signal": "STRONG_BUY",
+    "signal_ar": "شراء قوي",
+    "confidence": 85.0,
+    "sniper_score": 88,
+    "entry_price": 65.45,
+    "target_price": 72.00,
+    "stop_loss": 62.00,
+    "risk_reward": 1.88,
+    "donchian_score": 0.85,
+    "donchian_high": 66.20,
+    "trailing_stop_atr_mult": 2.0,
+    "initial_stop_atr_mult": 2.0,
+    "exit_type": "target",
+    "is_trend_following": true,
+    "market_regime": {
+      "stage": 2,
+      "trading_allowed": true,
+      "position_modifier": 1.0
+    },
+    "egx30_stage": 2
+  },
+  "timestamp": "2026-03-04T14:30:00"
+}
+```
+
+**New Trend-Following Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `donchian_score` | float | قوة اختراق Donchian Channel (0-1) |
+| `donchian_high` | float | أعلى سعر في آخر 20 يوم (Donchian Upper) |
+| `trailing_stop_atr_mult` | float | معامل ATR للوقف المتحرك (default: 2.0) |
+| `initial_stop_atr_mult` | float | معامل ATR للوقف الأولي (default: 2.0) |
+| `exit_type` | string | نوع الخروج: `trailing_stop` أو `target` |
+| `is_trend_following` | bool | هل الإشارة من استراتيجية Trend Following |
+| `egx30_stage` | int | مرحلة السوق EGX30 (1-4) |
+
+---
+
+### 3. POST `/api/sniper/track` — Track a Ticker
+
+يحلل سهم ويحفظ التوقع كـ PENDING في قاعدة البيانات.
+
+**Query Parameters:** `ticker` (مطلوب), `market`, `persona`
+
+---
+
+### 4. POST `/api/sniper/closer/run` — تشغيل Daily Closer
+
+يغلق التوقعات المنتهية وينسخ أهداف أو وقف خسارة.
+
+### 5. GET `/api/sniper/closer/pending` — التوقعات المعلقة
+
+### 6. POST `/api/sniper/learning/run` — تشغيل Learning Engine
+
+### 7. GET `/api/sniper/learning/lessons` — الدروس المستفادة
+
+### 8. GET `/api/sniper/learning/performance` — أداء التوقعات
+
+```json
+{
+  "success": true,
+  "metrics": {
+    "win_rate": 65.0,
+    "profit_factor": 1.85,
+    "avg_win_pct": 8.5,
+    "avg_loss_pct": -3.2,
+    "total_predictions": 45,
+    "total_wins": 29,
+    "total_losses": 16,
+    "avg_hold_days": 7
+  },
+  "recent_closed": [...],
+  "lessons": [...]
+}
+```
+
+### 9. GET `/api/sniper/scheduler/status` — حالة Scheduler
+
+---
+
+## 🧠 Smart Confluence APIs
+
+> **Updated in v22** — Smart Confluence now includes market regime gate and trend-following logic.
+
+### 1. GET `/api/smart-confluence/status` — حالة النظام
+
+```json
+{
+  "success": true,
+  "table_exists": true,
+  "stats": {
+    "total": 500,
+    "active": 50,
+    "evaluated": 450,
+    "wins": 320,
+    "losses": 130,
+    "win_rate": "71.1%",
+    "date_range": { "start": "2026-01-01", "end": "2026-03-04" }
+  },
+  "by_market": { "EGX": { "count": 200, "wins": 150 }, "السعودية": { "count": 300, "wins": 170 } }
+}
+```
+
+### 2. POST `/api/smart-confluence/generate` — توليد توقعات تاريخية
+
+**Request Body:**
+```json
+{
+  "start_date": "2026-01-01",
+  "end_date": "2026-03-04",
+  "markets": ["مصر", "السعودية"]
+}
+```
+
+### 3. GET `/api/smart-confluence/progress` — متابعة تقدم التوليد
+
+### 4. POST `/api/smart-confluence/evaluate` — تقييم التوقعات النشطة
+
+### 5. GET `/api/smart-confluence/predictions` — عرض التوقعات
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `page` | int | 1 | رقم الصفحة |
+| `limit` | int | 50 | عدد النتائج |
+| `market` | string | null | فلتر بالسوق |
+| `status` | string | null | فلتر بالحالة |
+| `signal` | string | null | فلتر بالإشارة |
+
+### 6. POST `/api/smart-confluence/clear` — مسح كل التوقعات
+
+### 7. GET `/api/smart-confluence/analysis/<symbol>` — تحليل فوري لسهم (with TF Logic)
+
+**الوصف:** يحلل سهم واحد باستخدام Smart Confluence Engine. في v22 يشمل فحص Market Regime و تكييف التحليل بناءً عليه.
+
+**Query Parameters:**
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `date` | string | null | تاريخ التحليل (للـ backtesting) |
+
+**Example:** `GET /api/smart-confluence/analysis/COMI`
+
+**Response 200 OK:**
+```json
+{
+  "success": true,
+  "analysis": {
+    "symbol": "COMI",
+    "name": "Commercial International Bank",
+    "market": "مصر",
+    "current_price": 65.45,
+    "recommendation": "BUY",
+    "recommendation_ar": "شراء",
+    "confidence": 82.0,
+    "confluence_score": 78,
+    "market_regime": {
+      "stage": 2,
+      "stage_name": "Bull Market",
+      "trading_allowed": true,
+      "position_modifier": 1.0,
+      "reason": "EGX30 28501 is +7.5% above SMA200 with SMA200 rising"
+    },
+    "is_trend_following": false,
+    "signals": {
+      "technical": { "score": 85, "signal": "bullish" },
+      "fundamental": { "score": 72, "signal": "neutral_bullish" },
+      "seasonality": { "score": 68, "signal": "neutral" },
+      "dividend": { "score": 75, "signal": "bullish" },
+      "volume": { "score": 80, "signal": "bullish" }
+    },
+    "entry_price": 65.45,
+    "target_price": 72.00,
+    "stop_loss": 62.00,
+    "risk_reward": 1.88,
+    "trailing_stop_atr_mult": 2.0,
+    "initial_stop_atr_mult": 2.0
   }
 }
 ```
 
 ---
 
-### 3. GET `/api/ai-analysis` — تحليل AI (action-based)
+## ⚖️ Risk Management APIs
 
-شوف قسم [Analysis APIs](#-analysis-apis).
+### 1. POST `/api/risk/position-size` — حساب حجم الصفقة
+
+**Request Body:**
+```json
+{ "capital": 100000, "confidence_score": 7.5, "max_risk_percent": 2.0 }
+```
+
+### 2. POST `/api/risk/stop-loss` — حساب وقف الخسارة
+
+**Request Body:**
+```json
+{ "entry_price": 65.45, "symbol": "COMI", "sector": "Banks", "market": "egx" }
+```
+
+### 3. POST `/api/risk/targets` — حساب أهداف الربح
+
+**Request Body:**
+```json
+{ "entry_price": 65.45, "stop_price": 62.00, "ratios": [1.5, 3, 5] }
+```
+
+### 4. POST `/api/risk/trade-plan` — خطة تداول كاملة
+
+**Request Body:**
+```json
+{ "entry_price": 65.45, "symbol": "COMI", "sector": "Banks", "capital": 100000, "confidence_score": 7.5, "market": "egx" }
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "symbol": "COMI",
+  "stock_type": "blue_chip",
+  "position": { "position_size": 3000, "position_size_pct": 2.0, "shares": 45 },
+  "stop_loss": { "stop_price": 62.00, "stop_percent": -5.27, "stop_type": "atr_based" },
+  "targets": {
+    "targets": [
+      { "ratio": 1.5, "price": 70.68, "profit_pct": 8.0 },
+      { "ratio": 3.0, "price": 76.82, "profit_pct": 17.4 },
+      { "ratio": 5.0, "price": 83.00, "profit_pct": 26.8 }
+    ]
+  },
+  "trade_plan": {
+    "entry": 65.45,
+    "stop": 62.00,
+    "target_1": 70.68,
+    "target_2": 76.82,
+    "target_3": 83.00,
+    "shares": 45,
+    "total_value": 2945.25
+  }
+}
+```
+
+### 5. POST `/api/risk/trailing-stop` — حساب الوقف المتحرك
+
+**Request Body:**
+```json
+{ "entry_price": 65.45, "current_price": 70.00, "stop_price": 62.00, "target_reached": 1 }
+```
+
+### 6. POST `/api/risk/validate` — التحقق من قاعدة 2%
+### 7. GET `/api/risk/trading-time` — نصيحة وقت التداول
+### 8. POST `/api/risk/portfolio` — تحليل المحفظة
+### 9. POST `/api/risk/egyptian-model` — النموذج المصري
+### 10. POST `/api/risk/psychology` — فحص علم النفس
+### 11. POST `/api/risk/leverage` — التحقق من الرافعة المالية (Crypto)
+### 12. GET `/api/risk/decision-table` — جدول القرارات
+### 13. GET `/api/risk/stock-types` — أنواع الأسهم ونسب الوقف
 
 ---
 
-### 4. POST `/api/ai-proxy` — proxy لـ AI APIs
+## 📊 Data Engine APIs
 
----
-
-### 5. GET `/api/ai-performance` — أداء الـ AI
-
----
-
-### 6. GET `/api/mobile/ai/recommendations` — توصيات AI (mobile)
-
----
-
-## 🏹 Hunter APIs
-
-### 1. GET `/api/hunter/screener` — شاشة الفرص (Stock Screener)
-
-**الوصف:** بيرجع أفضل الفرص بناءً على معايير متقدمة.
-
-**Query Parameters:**
-
-| Param | Type | Default | Description |
-|-------|------|---------|-------------|
-| `market` | string | `all` | `EGX`, `TADAWUL`, `KSE`, `QSE`, `all` |
-| `limit` | int | 10 | عدد النتائج |
+### 1. GET `/api/data-engine/health` — حالة Data Engine
 
 **Response 200 OK:**
 ```json
 {
   "success": true,
-  "results": [
-    {
-      "ticker": "COMI",
-      "name_ar": "البنك التجاري الدولي",
-      "market": "EGX",
-      "current_price": 65.45,
-      "score": 92,
-      "signals": ["MACD_buy", "RSI_bullish", "Volume_surge"],
-      "potential_return": 18.5,
-      "target_price": 77.50,
-      "stop_loss": 60.00,
-      "risk_reward": 2.18,
-      "match_reasons": [
-        "P/E under 10",
-        "ROE > 15%",
-        "RSI < 60",
-        "Above MA200"
-      ]
-    }
-  ],
-  "total": 10,
-  "scan_time_ms": 1200
+  "status": "operational",
+  "stocks_available": true,
+  "metals_available": true,
+  "crypto_available": true,
+  "forex_available": true,
+  "timestamp": "2026-03-04T14:30:00"
 }
 ```
 
-**Response 504 Timeout:**
-```json
-{ "success": false, "error": "انتهت مهلة الطلب" }
-```
+### 2. GET `/api/data-engine/stocks` — أسهم من Data Engine
+### 3. GET `/api/data-engine/metals` — الذهب والفضة
+### 4. GET `/api/data-engine/crypto` — العملات الرقمية
+### 5. GET `/api/data-engine/forex` — أسعار الصرف
+### 6. GET `/api/data-engine/status` — حالة الأسواق
 
 ---
-
-### 2. GET `/api/finance/screener` — شاشة متقدمة
-
-**Query Parameters:** `min_pe`, `max_pe`, `min_roe`, `min_dividend_yield`, `sector`
-
----
-
-### 3. GET `/api/finance/smart-confluence` — Confluence ذكي
-
-**الوصف:** بيجمع عدة استراتيجيات تحليلية لإيجاد فرص قوية.
-
----
-
-### 4. GET `/api/confluence/daily-picks` — اختيارات يومية
-
----
-
-### 5. GET `/api/finance/smart-analysis` — تحليل ذكي
-
----
-
-### 6. GET `/api/finance/smart-alerts` — تنبيهات ذكية
-
----
-
-### 7. GET `/api/finance/portfolio-analysis` — تحليل المحفظة
-
----
-
-### 8. GET `/api/seasonality-signals` — إشارات الموسمية
-
----
-
-### 9. GET `/api/stock-seasonality` — موسمية سهم معين
-
----
-
-### 10. GET `/api/indicator-trust-scores` — درجات ثقة المؤشرات
-
----
-
-### 11. GET `/api/stocks/data-coverage` — تغطية البيانات
-
----
-
-### 12. GET `/api/stocks/advanced-analysis` — تحليل متقدم
-
----------------------------------------------------------------------------
 
 ## 📱 Mobile-Specific Endpoints
 
-ده قسم مهم جداً - كل الـ endpoints هنا مصممة خصيصاً للموبايل.
+### 1. GET `/api/mobile/dashboard` — لوحة التحكم (كل حاجة في call واحد)
 
-### 1. GET `/api/mobile/auth/me` — بيانات المستخدم
-
-شوف [Authentication APIs](#-authentication-apis).
-
----
-
-### 2. GET `/api/mobile/dashboard` — لوحة التحكم الشاملة
-
-**الوصف:** أهم endpoint للجوال - بيرجع كل بيانات الـ Home screen في طلب واحد.
-
-**Response 200 OK:**
 ```json
 {
   "success": true,
-  "timestamp": "2026-01-15T14:30:00.000Z",
-  "market_status": {
-    "is_open": true,
-    "status": "open",
-    "session": "trading",
-    "next_open": "غداً 10:00 صباحاً",
-    "current_time": "14:30:00"
-  },
-  "summary": {
-    "total_stocks": 245,
-    "gainers": 145,
-    "losers": 87,
-    "unchanged": 13
-  },
-  "indices": [
-    { "name": "EGX 30", "name_ar": "مؤشر EGX 30", "value": 28500, "change": 1.2 },
-    { "name": "EGX 70", "name_ar": "مؤشر EGX 70", "value": 4200, "change": -0.5 },
-    { "name": "EGX 100", "name_ar": "مؤشر EGX 100", "value": 8500, "change": 0.8 }
-  ],
-  "top_movers": {
-    "gainers": [
-      {
-        "ticker": "COMI",
-        "name_ar": "البنك التجاري الدولي",
-        "price": 65.45,
-        "change_percent": 9.95,
-        "volume": 12500000,
-        "change_type": "gainer"
-      }
-    ],
-    "losers": [
-      {
-        "ticker": "HRHO",
-        "name_ar": "EFG Hermes",
-        "price": 24.10,
-        "change_percent": -5.20,
-        "volume": 3200000,
-        "change_type": "loser"
-      }
-    ],
-    "most_active": [...]
-  },
-  "gold_prices": {
-    "karat_24": 2200,
-    "karat_21": 1925,
-    "karat_18": 1650,
-    "change_24k": 25,
-    "silver": 28,
-    "last_updated": "2026-01-15T14:00:00.000Z"
-  },
-  "currency_rates": {
-    "USD": { "buy": 50.5, "sell": 50.7 },
-    "EUR": { "buy": 54.2, "sell": 54.6 },
-    "SAR": { "buy": 13.4, "sell": 13.5 }
-  },
-  "market_overview": { ... },
-  "source": "mobile_dashboard_api"
+  "market_status": { "is_open": true, "status": "open" },
+  "indices": [...],
+  "top_movers": { "gainers": [...], "losers": [...], "most_active": [...] },
+  "gold_prices": { "gold_24k": 3200, "gold_21k": 2800, "gold_18k": 2400 },
+  "currency_rates": { "USD_EGP": 50.5, "EUR_EGP": 54.8 },
+  "market_regime": { "stage": 2, "stage_name": "Bull Market", "trading_allowed": true }
 }
 ```
 
-**📱 ملاحظة للجوال:** ده أهم endpoint - استخدمه في الـ Home screen. اعمل poll كل 5 دقايق في وقت السوق المفتوح، وكل 30 دقيقة لو مقفل.
-
----
-
-### 3. GET `/api/mobile/summary` — ملخص سريع
-
-**الوصف:** بيرجع ملخص سريع للسوق والمحفظة (أقل تفصيلاً من dashboard).
-
----
-
+### 2. GET `/api/mobile/stocks/[ticker]` — تفاصيل سهم محسّن
+### 3. GET `/api/mobile/market/overview` — نظرة عامة محسنة
 ### 4. GET `/api/mobile/predictions` — التوقعات
-
-شوف [Predictions APIs](#-predictions-apis).
+### 5. GET `/api/mobile/portfolio` — المحفظة
+### 6. POST `/api/mobile/portfolio` — إضافة أصل
+### 7. DELETE `/api/mobile/portfolio` — حذف أصل
+### 8. GET `/api/mobile/portfolio/intelligence` — ذكاء المحفظة
+### 9. GET `/api/mobile/auth/me` — بيانات المستخدم
+### 10. GET `/api/mobile/crypto` — كريبتو محسّن
+### 11. GET `/api/mobile/crypto/[id]` — تفاصيل عملة
+### 12. GET `/api/mobile/crypto/recommendations` — توصيات كريبتو
+### 13. GET `/api/mobile/crypto/analysis` — تحليل كريبتو
+### 14. GET `/api/mobile/crypto/learning` — محتوى تعليمي
+### 15. GET `/api/mobile/crypto/portfolio` — محفظة كريبتو
+### 16. GET `/api/mobile/crypto/watchlist` — قائمة مراقبة
+### 17. GET `/api/mobile/watchlist/intelligence` — ذكاء قائمة المراقبة
 
 ---
 
-### 5. GET `/api/mobile/recommendations` — التوصيات
+## 🔌 WebSocket Real-Time API
 
-**Query Parameters:**
+> **NEW in v22** — Documented for the first time.
 
-| Param | Type | Default | Description |
-|-------|------|---------|-------------|
-| `persona` | string | `balanced` | `conservative`, `balanced`, `gambler` |
-| `limit` | int | 10 | عدد النتائج |
+The WebSocket service runs on **port 3005** using Socket.io. It polls the Python backend every 30 seconds and pushes real-time updates to connected clients.
 
-**Response 200 OK:**
+**Connection URL:** `ws://localhost:3005` (or production equivalent)
+
+**Socket.io Client Setup:**
+```javascript
+import { io } from 'socket.io-client';
+const socket = io('http://localhost:3005', {
+  transports: ['websocket'],
+  pingTimeout: 60000,
+  pingInterval: 25000
+});
+```
+
+### Server → Client Events
+
+| Event | Payload | Description |
+|-------|---------|-------------|
+| `market:snapshot` | `{ stocks: [...], timestamp: string }` | Full market snapshot every 30s |
+| `market:status` | `{ status, is_open, gainers_count, losers_count, ... }` | Market open/close status |
+| `ticker:update` | `{ ticker, name_ar, current_price, price_change, volume }` | Individual stock update (subscribed only) |
+| `stock:alert` | `{ ticker, name_ar, price, change, direction, timestamp }` | Alert when movement > 3% (subscribed only) |
+
+### Client → Server Events
+
+| Event | Payload | Description |
+|-------|---------|-------------|
+| `subscribe:ticker` | `ticker` (string) | Subscribe to updates for a specific stock |
+| `unsubscribe:ticker` | `ticker` (string) | Unsubscribe from stock updates |
+| `getMarketOverview` | callback function | Request current market overview (ack-based) |
+
+### Health Endpoint
+
+`GET http://localhost:3005/health`
+
 ```json
 {
-  "success": true,
-  "source": "python_backend",
-  "timestamp": "2026-01-15T14:30:00.000Z",
-  "persona": "balanced",
-  "threshold": 65,
-  "recommendations": [
-    {
-      "ticker": "COMI",
-      "name": "Commercial International Bank",
-      "name_ar": "البنك التجاري الدولي",
-      "sector": "Banks",
-      "current_price": 65.45,
-      "change_percent": 1.95,
-      "score": 85,
-      "recommendation": "buy",
-      "signals": ["positive_momentum", "high_liquidity"],
-      "target_price": 75.27,
-      "stop_loss": 60.21
-    }
-  ],
-  "total_analyzed": 245,
-  "passed_filter": 32
+  "status": "ok",
+  "message": "WebSocket Service يعمل",
+  "timestamp": "2026-03-04T14:30:00.000Z",
+  "port": 3005,
+  "connected_clients": 3,
+  "last_snapshot_count": 100,
+  "has_market_status": true
 }
 ```
 
-**📱 ملاحظة:** الـ `persona` بيتحكم في الـ threshold:
-- `conservative` → 75 (only top quality)
-- `balanced` → 65 (default)
-- `gambler` → 50 (more risky picks)
+**📱 ملاحظة للجوال:**
+- استخدم `socket.io-client` package
+- اتصل بـ `subscribe:ticker` لكل سهم في قائمة المراقبة
+- استمع لـ `stock:alert` لعرض push notifications
+- لو الـ connection قطع، Socket.io بيعيد الاتصال تلقائياً
 
 ---
 
-### 6. GET `/api/mobile/stocks/EGX/professional-analysis` — تحليل احترافي EGX
+## 📱 Mobile App Integration Guide
 
----
+> **NEW in v22** — Complete guide for mobile app developers.
 
-### 7. GET `/api/mobile/stocks/EGX/recommendation` — توصية EGX
+### Authentication Flow
 
----
+```
+┌──────────────────────────────────────────────────────────────┐
+│                    Authentication Flow                        │
+├──────────────────────────────────────────────────────────────┤
+│                                                              │
+│  App Start ──> Check SecureStorage for token                │
+│       │                                                      │
+│       ├── Token exists ──> GET /api/mobile/auth/me           │
+│       │       │                                              │
+│       │       ├── 200 OK ──> Continue to Home                │
+│       │       └── 401 ──> Clear token → Login Screen        │
+│       │                                                      │
+│       └── No token ──> Login Screen                          │
+│               │                                              │
+│               ├── Email/Password ──> POST /api/auth/login    │
+│               ├── Google ──> POST /api/auth/google           │
+│               └── Register ──> POST /api/auth/register       │
+│                       │                                      │
+│                       └── Save token to SecureStorage        │
+│                                                              │
+└──────────────────────────────────────────────────────────────┘
+```
 
-### 8. GET `/api/mobile/stocks/[ticker]/professional-analysis` — تحليل احترافي لسهم
+### Polling Strategy for New Signals
 
----
+```
+┌──────────────────────────────────────────────────────────────┐
+│                    Signal Polling Strategy                     │
+├──────────────────────────────────────────────────────────────┤
+│                                                              │
+│  Market CLOSED:                                              │
+│    • Poll every 5 minutes (just in case)                     │
+│    • Show cached data                                        │
+│                                                              │
+│  Market OPEN (10:00 - 14:30 Cairo):                          │
+│    • GET /api/regime/overview  → every 5 min                │
+│    • GET /api/sniper/scan      → every 2 min                │
+│    • GET /api/stocks/{ticker}  → on demand                   │
+│    • WebSocket for real-time prices                          │
+│                                                              │
+│  After Market Close:                                          │
+│    • GET /api/sniper/closer/pending → once                  │
+│    • GET /api/sniper/learning/performance → once            │
+│                                                              │
+└──────────────────────────────────────────────────────────────┘
+```
 
-### 9. GET `/api/mobile/stocks/[ticker]/recommendation` — توصية لسهم
+### Displaying Regime Status
 
----
-
-### 10. GET `/api/mobile/analysis/EGX` — تحليل سوق EGX
-
----
-
-### 11. GET `/api/mobile/analysis/[ticker]` — تحليل سهم
-
----
-
-### 12. GET `/api/mobile/expert-recommendations` — توصيات الخبراء
-
----
-
-### 13. GET `/api/mobile/zakat-calculator` — حاسبة الزكاة
-
-**Query Parameters:** `gold_value`, `cash`, `stocks_value`, `debts`
-
-**Response:**
-```json
-{
-  "success": true,
-  "zakat_due": 2500,
-  "nisab": 215000,
-  "eligible_for_zakat": true,
-  "details": {
-    "gold_value": 105000,
-    "cash": 100000,
-    "stocks_value": 50000,
-    "debts": 0,
-    "total_assets": 255000,
-    "zakat_rate": 0.025
-  }
+```dart
+// Flutter example for regime display
+Widget buildRegimeBadge(RegimeResult regime) {
+  final colors = {
+    1: Colors.orange,    // Consolidation
+    2: Colors.green,     // Bull Market
+    3: Colors.yellow,    // Distribution
+    4: Colors.red,       // Bear Market
+  };
+  
+  final labels = {
+    1: 'تجميعي',
+    2: 'صاعد',
+    3: 'توزيع',
+    4: 'هابط',
+  };
+  
+  return Badge(
+    color: colors[regime.stage],
+    label: labels[regime.stage],
+    child: Text('Stage ${regime.stage}: ${regime.stage_name}'),
+  );
 }
 ```
 
----
+### Handling Trailing Stop Updates
 
-### 14. GET `/api/mobile/seasonality` — موسمية الأسهم
+When `is_trend_following = true`, the signal uses dynamic trailing stops:
 
----
+```
+Entry Price:    65.45
+Initial Stop:   Entry - (2.0 × ATR) = 62.00
+Trailing Stop:  Moves up as price rises
 
-### 15. GET `/api/mobile/risk` — تحليل المخاطر
+Poll for updates:
+  GET /api/risk/trailing-stop
+  { "entry_price": 65.45, "current_price": 70.00, "stop_price": 62.00, "target_reached": 1 }
 
----
+  Response:
+  { "new_stop": 67.50, "stop_moved": true, "exit_type": "trailing_stop" }
+```
 
-### 16. GET `/api/mobile/signals` — إشارات التداول
+**Key points for mobile:**
+1. Show "Trailing Stop: 67.50" instead of fixed stop loss when `exit_type = trailing_stop`
+2. The stop loss moves UP but never down
+3. When `target_reached >= 1`, switch from initial stop to trailing stop
+4. Display `trailing_stop_atr_mult` and `initial_stop_atr_mult` in signal details
 
----
+### Push Notification Integration Points
 
-### 17. GET `/api/mobile/reports` — تقارير
+| Event | Trigger | Notification |
+|-------|---------|-------------|
+| New Sniper Signal | `GET /api/sniper/scan` returns new ticker | "🟢 إشارة جديدة: COMI - شراء قوي" |
+| Regime Change | `GET /api/regime/overview` stage changes | "⚠️ حالة السوق تغيرت: صاعد ← توزيع" |
+| Trailing Stop Hit | Price crosses trailing stop | "🔴 الوقف المتحرك: COMI عند 67.50" |
+| Target Hit | Price reaches target | "🎯 الهدف: COMI وصل 72.00" |
+| Market Open/Close | WebSocket `market:status` | "📊 السوق المصري فتح" |
 
----
+**Implementation:**
+1. Use Firebase Cloud Messaging (FCM) or APNs
+2. Backend should emit WebSocket events for signal changes
+3. Mobile app registers push tokens via `POST /api/mobile/push-token`
+4. Handle background notifications for regime changes (critical)
 
-### 18. GET `/api/mobile/community` — مجتمع المستخدمين
+### Rate Limiting Considerations
 
----
+| Endpoint | Recommended Poll Interval | Max Requests/min |
+|----------|--------------------------|------------------|
+| `/api/regime/overview` | 5 min | 12 |
+| `/api/sniper/scan` | 2 min | 30 |
+| `/api/stocks` | 1 min | 60 |
+| `/api/stocks/[ticker]` | 30s (live) | 120 |
+| `/api/mobile/dashboard` | 1 min | 60 |
+| WebSocket events | Real-time | N/A (persistent) |
 
-### 19. GET `/api/mobile/currency` — أسعار العملات
-
----
-
-### 20. GET `/api/mobile/gold` — أسعار الذهب
-
----
-
-### 21. GET `/api/mobile/learning` — محتوى تعليمي
-
----
-
-### 22. GET `/api/mobile/maestro` — Maestro Insights
-
----
-
-### 23. GET `/api/mobile/market/recommendations/ai-insights` — AI insights
+**Best practices:**
+- Use exponential backoff on 429 responses
+- Cache regime status locally (changes slowly)
+- Batch stock detail requests using `/api/stocks` with tickers
+- Use WebSocket for real-time price updates instead of polling
 
 ---
 
 ## 📋 Phase 11 Mobile API Audit (Complete Documentation)
 
-> **Audit Date:** June 2026 (Task #14)
-> **Audited by:** Code Agent
-> **Scope:** All 9 Phase 11 mobile endpoints + fixed endpoints + POST endpoints
-> **Live Test Status:** ✅ All free (no-auth) endpoints returned 200 OK on `localhost:3000`
-
-### 🧪 Live Audit Test Results
-
-| Endpoint | Method | HTTP Status | Response Time | Notes |
-|----------|--------|-------------|---------------|-------|
-| `/api/mobile/dashboard` | GET | ✅ 200 | 0.54s | Real gold 24K = 3756.37 EGP |
-| `/api/mobile/market/overview` | GET | ✅ 200 | 0.24s | 858 stocks, 246 gainers / 465 losers |
-| `/api/mobile/recommendations?limit=3` | GET | ✅ 200 | 0.23s | 858 analyzed, 221 passed filter |
-| `/api/mobile/predictions?limit=3` | GET | ✅ 200 | 0.24s | Empty list (no predictions in DB) |
-| `/api/mobile/news` | GET | ✅ 200 | 0.94s | EGXPilot + CoinGecko + Fear/Greed |
-| `/api/mobile/gold` | GET | ✅ 200 | 0.24s | 6 karats + silver = 44.95 EGP |
-| `/api/mobile/currency` | GET | ✅ 200 | 0.23s | 6 currencies, source=fallback |
-| `/api/mobile/stocks/COMI` | GET | ✅ 200 | 0.51s | Real price = 132.39 EGP |
-| `/api/mobile/market/recommendations/ai-insights` | GET | ✅ 200 | 0.22s | Neutral sentiment, confidence 50 |
-| `/api/auth/me` (no token) | GET | ✅ 401 | 0.25s | Correctly rejects unauthenticated |
-
-> ⚠️ **Python Backend (port 8010) was offline during the audit** — all endpoints successfully fell back to local DBs (`data_engine.db`, `egx.db`, Prisma). This proves the fallback chain is healthy.
-
----
-
-### 🟢 Free (No-Auth) Mobile Endpoints
-
-#### 1. GET `/api/mobile/dashboard`
-
-**الوصف:** لوحة التحكم الشاملة للموبايل - بيرجع كل بيانات الـ Home screen في طلب واحد (market overview + gold + currency + top movers + indices).
-
-**Auth:** غير مطلوب (free)
-
-**Query params:** none
-
-**Response 200 OK:**
-```json
-{
-  "success": true,
-  "timestamp": "2026-06-18T17:50:19.443Z",
-  "market_status": {
-    "is_open": false,
-    "status": "closed",
-    "session": "closed",
-    "next_open": "غداً 10:00 صباحاً",
-    "current_time": "٨:٥٠:١٩ م"
-  },
-  "summary": { "total_stocks": 858, "gainers": 246, "losers": 465, "unchanged": 147 },
-  "indices": [
-    { "name": "EGX 30", "name_ar": "مؤشر EGX 30", "value": 0, "change": 0, "change_percent": 0 }
-  ],
-  "top_movers": {
-    "gainers": [{ "ticker": "COMI", "name_ar": "البنك التجاري الدولي", "price": 65.45, "change_percent": 9.95, "volume": 12500000, "change_type": "gainer" }],
-    "losers": [{ "ticker": "HRHO", "name_ar": "EFG Hermes", "price": 24.10, "change_percent": -5.20, "volume": 3200000, "change_type": "loser" }],
-    "most_active": [...]
-  },
-  "gold_prices": {
-    "karat_24": 3756.37,
-    "karat_21": 3286.82,
-    "karat_18": 2817.28,
-    "change_24k": 0,
-    "silver": 44.948,
-    "last_updated": "2026-06-18 11:32:44"
-  },
-  "currency_rates": { "USD": { "buy": 50.5, "sell": 50.7 }, "EUR": { "buy": 54.2, "sell": 54.6 } },
-  "market_overview": { "...": "full python /api/market/overview payload" },
-  "source": "mobile_dashboard_api"
-}
-```
-
-**Fallback chain:**
-1. Python Backend `/api/market/overview` (timeout 10s)
-2. `data_engine.db` for top movers (`getTopMovers`, `getStocksByMarket`)
-3. `data_engine.db` for gold (`getLatestGoldPrices`, `getLatestSilverPrices`) - filters `country === 'مصر'`
-4. Python Backend `/api/currency/list` (timeout 5s)
-5. Market status computed locally (Egypt timezone, weekend = Fri/Sat, hours 10:00–14:30)
-
-**Errors:**
-- `500` `{ "success": false, "error": "<message>", "timestamp": "..." }` — only if everything fails catastrophically (graceful degradation: missing sections are `null`).
-
-**📱 ملاحظة:** اعمل poll كل 5 دقايق وقت السوق المفتوح، وكل 30 دقيقة لو مقفل.
-
----
-
-#### 2. GET `/api/mobile/market/overview`
-
-**الوصف:** نفس بيانات `/api/market/overview` بتاع الويب - بيضمن إن الموبايل والويب يعرضوا نفس البيانات.
-
-**Auth:** غير مطلوب (free)
-
-**Query params:** none
-
-**Response 200 OK:**
-```json
-{
-  "success": true,
-  "timestamp": "2026-06-18T17:50:19.691Z",
-  "market_status": { "is_open": false, "status": "closed", "next_open": null, "next_close": null, "current_session": "closed" },
-  "summary": {
-    "total_stocks": 858,
-    "gainers": 246,
-    "losers": 465,
-    "unchanged": 147,
-    "egx30_stocks": 0,
-    "egx70_stocks": 0,
-    "egx100_stocks": 0,
-    "egx30_value": 17342
-  },
-  "indices": [],
-  "top_gainers": [{ "ticker": "COMI", "name": "...", "name_ar": "...", "current_price": 65.45, "change_percent": 9.95, "volume": 12500000 }],
-  "top_losers": [...],
-  "most_active": [...],
-  "last_updated": "2026-06-18T17:50:19.691Z",
-  "source": "python_backend"
-}
-```
-
-**Fallback chain:**
-1. Python Backend `/api/market/overview` (timeout 15s) → `source: "python_backend"`
-2. `data_engine.db` `SELECT symbol, name, price, change_percent, volume, market FROM stocks WHERE price > 0` → `source: "local_fallback"`
-
-**Errors:**
-- `503` `{ "success": false, "error": "No stocks found in database" }` — only when DB has 0 stocks
-- `500` `{ "success": false, "error": "Failed to get market overview" }` — generic catch-all
-
----
-
-#### 3. GET `/api/mobile/recommendations`
-
-**الوصف:** توصيات الأسهم بناءً على persona. بيستخدم Python Backend أولاً وبعدين local DB.
-
-**Auth:** غير مطلوب (free) — ⚠️ **ملاحظة:** الكود الحالي **مش بيفرض** حد 3 عناصر للمستخدمين المجانيين، فلازم العميل يبعت `limit=3` بنفسه. (شوف قسم [Rate Limits & Quotas](#-rate-limits--timeouts))
-
-**Query params:**
-
-| Param | Type | Default | Description |
-|-------|------|---------|-------------|
-| `persona` | string | `balanced` | `conservative` (threshold 75), `balanced` (65), `gambler` (50) |
-| `limit` | int | 10 | عدد النتائج. للمستخدم المجاني استخدم `limit=3` |
-
-**Response 200 OK:**
-```json
-{
-  "success": true,
-  "source": "python_backend",
-  "timestamp": "2026-06-18T17:50:21.363Z",
-  "persona": "balanced",
-  "threshold": 65,
-  "recommendations": [
-    {
-      "ticker": "COMI",
-      "name": "Commercial International Bank",
-      "name_ar": "البنك التجاري الدولي",
-      "sector": "Banks",
-      "current_price": 65.45,
-      "change_percent": 1.95,
-      "score": 85,
-      "recommendation": "buy",
-      "signals": ["positive_momentum", "high_liquidity"],
-      "target_price": 75.27,
-      "stop_loss": 60.21
-    }
-  ],
-  "total_analyzed": 858,
-  "passed_filter": 221
-}
-```
-
-**Fallback chain:**
-1. Python Backend `/api/recommendations?persona=&limit=` via `pythonFetch` → `source: "python_backend"`
-2. `data_engine.db` stocks table + local scoring algorithm (change_percent + volume heuristic) → `source: "local_db"`. Recommendations derived:
-   - score ≥ 85 → `strong_buy`
-   - score ≥ 70 → `buy`
-   - score ≥ 50 → `hold`
-   - else → `avoid`
-
-**Errors:**
-- `500` `{ "success": false, "error": "Failed to get recommendations", "detail": "..." }`
-
----
-
-#### 4. GET `/api/mobile/predictions`
-
-**الوصف:** التوقعات - بيرجع نفس بيانات `/api/predictions` بتاع الويب من Prisma DB.
-
-**Auth:** غير مطلوب (free) — ⚠️ **ملاحظة:** الكود الحالي **مش بيفرض** حد 3 عناصر للمستخدمين المجانيين، فلازم العميل يبعت `limit=3`.
-
-**Query params:**
-
-| Param | Type | Default | Description |
-|-------|------|---------|-------------|
-| `limit` | int | 50 | عدد النتائج. للمستخدم المجاني استخدم `limit=3` |
-| `status` | string | (none) | فلتر بـ `result`: `SUCCESS`, `FAIL` |
-
-**Response 200 OK:**
-```json
-{
-  "success": true,
-  "predictions": [
-    {
-      "id": "pred_001",
-      "symbol": "COMI",
-      "market": "EGX",
-      "signal": "STRONG_BUY",
-      "confidence": 85,
-      "entry_price": 65.45,
-      "target_price": 72.00,
-      "stop_loss": 62.00,
-      "reasoning": "text",
-      "indicators": { "rsi": 58.4, "macd": "bullish", "ma_trend": "uptrend" },
-      "news_summary": "text",
-      "created_at": "2026-01-15T14:30:00.000Z",
-      "verify_date": "2026-01-22",
-      "verified": false,
-      "result": null,
-      "final_price": null,
-      "profit_loss_pct": null
-    }
-  ],
-  "stats": {
-    "total_predictions": 145,
-    "verified_predictions": 89,
-    "successful": 71,
-    "failed": 18,
-    "success_rate": 79.8
-  }
-}
-```
-
-**Fallback chain:**
-1. Prisma `db.deepSeekPrediction.findMany()` — same DB as website
-2. On any error → returns `success: true` with **empty** predictions and zeroed stats (graceful, never throws 500). هذا يضمن إن الـ mobile app ما يكسرش لو DB فيه مشكلة.
-
-**Errors:**
-- لا يوجد 500 — الكود بيلت catch-all بيارجع `success: true` مع empty array.
-
----
-
-#### 5. GET `/api/mobile/news`
-
-**الوصف:** آخر الأخبار الموحدة - بيجمع أخبار EGX + crypto prices + Fear & Greed Index.
-
-**Auth:** غير مطلوب (free)
-
-**Query params:** none
-
-**Response 200 OK:**
-```json
-{
-  "success": true,
-  "cached": false,
-  "timestamp": "2026-06-18T17:50:19.000Z",
-  "news": [
-    {
-      "id": "egx-123",
-      "title": "خبر من البورصة المصرية",
-      "summary": "...",
-      "source": "EGXPilot",
-      "timestamp": "2026-06-18T14:00:00.000Z",
-      "category": "egx",
-      "importance": "high",
-      "url": "https://...",
-      "tickers": ["COMI"]
-    },
-    {
-      "id": "fear-greed-index",
-      "title": "مؤشر الخوف والطمع: 42 (Fear)",
-      "summary": "الخوف في السوق - حذر من الشراء العاطفي",
-      "source": "Alternative.me",
-      "timestamp": "2026-06-18T17:50:00.000Z",
-      "category": "sentiment",
-      "importance": "medium"
-    },
-    {
-      "id": "btc-price",
-      "title": "Bitcoin: $67,500 (+2.3%)",
-      "summary": "البيتكوين صاعد",
-      "source": "CoinGecko",
-      "timestamp": "2026-06-18T17:50:00.000Z",
-      "category": "crypto",
-      "importance": "low"
-    }
-  ],
-  "summary": { "total": 12, "egx": 10, "crypto": 2, "sentiment": 1 }
-}
-```
-
-**Fallback chain:**
-1. EGXPilot API `https://egxpilot.com/api/news/` (timeout 15s) — top 10 EGX news
-2. Alternative.me Fear & Greed `https://api.alternative.me/fng/?limit=1` (timeout 10s)
-3. CoinGecko `https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,solana` (timeout 10s)
-4. All fetched in parallel via `Promise.all`
-5. In-memory cache for 5 minutes (`CACHE_DURATION = 300`) — `cached: true` flag indicates cache hit
-
-**POST variant:** `POST /api/mobile/news` بيفرض الكاش ويعيد التحميل (force refresh).
-
-**Errors:**
-- `500` `{ "success": false, "error": "<message>", "news": [] }` — every error returns empty news, never breaks the client
-
----
-
-#### 6. GET `/api/mobile/gold`
-
-**الوصف:** أسعار الذهب والفضة في مصر - بيستخدم `data_engine.db`.
-
-**Auth:** غير مطلوب (free)
-
-**Query params:** none
-
-**Response 200 OK:**
-```json
-{
-  "success": true,
-  "timestamp": "2026-06-18T17:50:19.934Z",
-  "last_updated": "2026-06-18 11:32:44",
-  "source": "data_engine.db",
-  "prices": {
-    "karats": [
-      { "key": "24", "name_ar": "عيار 24", "price_per_gram": 3756.37, "change": null, "currency": "EGP" },
-      { "key": "22", "name_ar": "عيار 22", "price_per_gram": 3443.46, "change": null, "currency": "EGP" },
-      { "key": "21", "name_ar": "عيار 21", "price_per_gram": 3286.82, "change": null, "currency": "EGP" },
-      { "key": "18", "name_ar": "عيار 18", "price_per_gram": 2817.28, "change": null, "currency": "EGP" },
-      { "key": "14", "name_ar": "عيار 14", "price_per_gram": 2191.09, "change": null, "currency": "EGP" },
-      { "key": "10", "name_ar": "عيار 10", "price_per_gram": 1565.28, "change": null, "currency": "EGP" }
-    ],
-    "ounce": null,
-    "silver": { "price_per_gram": 44.948, "change": null, "currency": "EGP", "name_ar": "فضة" },
-    "silver_ounce": null,
-    "bullion": []
-  },
-  "summary": {
-    "gold_24k": 3756.37,
-    "gold_21k": 3286.82,
-    "gold_18k": 2817.28,
-    "silver": 44.948
-  }
-}
-```
-
-**Fallback chain:** Single source — `data_engine.db` (`getLatestGoldPrices`, `getLatestSilverPrices`). يتم فلتر البيانات بـ `country === 'مصر'` والـ karat يكون في `[24, 22, 21, 18, 14, 12, 10, 8]`.
-
-**Errors:**
-- `404` `{ "success": false, "error": "لا توجد بيانات أسعار الذهب", "timestamp": "..." }` — when no gold rows
-- `500` `{ "success": false, "error": "<message>" }`
-
----
-
-#### 7. GET `/api/mobile/currency`
-
-**الوصف:** أسعار العملات مقابل الجنيه المصري.
-
-**Auth:** غير مطلوب (free)
-
-**Query params:** none
-
-**Response 200 OK:**
-```json
-{
-  "success": true,
-  "timestamp": "2026-06-18T17:50:20.171Z",
-  "count": 6,
-  "rates": [
-    { "code": "USD", "name": "US Dollar", "name_ar": "دولار أمريكي", "symbol": "$", "rate_to_egp": 50.5 },
-    { "code": "EUR", "name": "Euro", "name_ar": "يورو", "symbol": "€", "rate_to_egp": 54.8 },
-    { "code": "GBP", "name": "British Pound", "name_ar": "جنيه إسترليني", "symbol": "£", "rate_to_egp": 64.2 },
-    { "code": "SAR", "name": "Saudi Riyal", "name_ar": "ريال سعودي", "symbol": "﷼", "rate_to_egp": 13.5 },
-    { "code": "AED", "name": "UAE Dirham", "name_ar": "درهم إماراتي", "symbol": "د.إ", "rate_to_egp": 13.8 },
-    { "code": "KWD", "name": "Kuwaiti Dinar", "name_ar": "دينار كويتي", "symbol": "د.ك", "rate_to_egp": 165 }
-  ],
-  "base_currency": "EGP",
-  "source": "python_backend"
-}
-```
-
-**Fallback chain:**
-1. Python Backend `/api/currency/list` (timeout 10s) → `source: "python_backend"`
-2. Static fallback with 6 common currencies → `source: "fallback"`. الـ rates هنا تقريبية (USD=50.5, EUR=54.8, ...)
-
-**Errors:** لا يوجد 500 — دايماً بيرجع static fallback حتى لو Python مش شغّال.
-
----
-
-#### 8. GET `/api/mobile/stocks/[ticker]`
-
-**الوصف:** بيانات سهم معين للجوال.
-
-**Auth:** غير مطلوب (free)
-
-**Path params:** `ticker` (string, required) - رمز السهم (case-insensitive)
-
-**Query params:** none
-
-**Response 200 OK:**
-```json
-{
-  "success": true,
-  "source": "local_db",
-  "data": {
-    "ticker": "COMI",
-    "name_ar": "البنك التجاري الدولي",
-    "name": "البنك التجاري الدولي",
-    "sector": "القطاع المالي",
-    "current_price": 132.39,
-    "previous_close": 132.39,
-    "open": 132.97,
-    "high": 133.5,
-    "low": 131.62,
-    "volume": "1.37 M",
-    "market_cap": "447.58 B EGP",
-    "pe_ratio": null,
-    "pb_ratio": 1.7,
-    "dividend_yield": 6.37,
-    "eps": 5.77,
-    "roe": 18,
-    "is_active": 1,
-    "last_update": "2026-06-18T11:32:43.044891"
-  }
-}
-```
-
-**Fallback chain:**
-1. Python Backend `/api/stocks/{TICKER}` via `pythonFetch` (timeout default) → `source: "python_backend"`
-2. `egx.db` SQLite `SELECT * FROM stocks WHERE ticker = ? COLLATE NOCASE` → `source: "local_db"`
-
-**Errors:**
-- `404` `{ "success": false, "error": "Stock not found", "ticker": "COMI" }` — stock not in DB
-- `500` `{ "success": false, "error": "Failed to load stock data" }` — generic catch
-
----
-
-#### 9. GET `/api/mobile/market/recommendations/ai-insights`
-
-**الوصف:** رؤى AI للسوق - sentiment + recommendation. بيستخدم Python Backend أولاً وبعدين local DB fallback.
-
-**Auth:** غير مطلوب (free)
-
-**Query params:** none
-
-**Response 200 OK:**
-```json
-{
-  "success": true,
-  "source": "local_db",
-  "overall_sentiment": "neutral",
-  "sentiment_ar": "محايد",
-  "confidence": 50,
-  "key_factors": ["السوق متوازن"],
-  "recommendation": "hold",
-  "recommendation_ar": "احتفاظ"
-}
-```
-
-**Sentiment values:**
-- `bullish` → `صعودي` (لو >40% من الأسهم صاعدة >2%)
-- `bearish` → `هبوطي` (لو >40% من الأسهم هابطة >2%)
-- `neutral` → `محايد`
-
-**Recommendation logic:**
-- `bullish` + confidence > 60 → `buy` / `شراء`
-- `bearish` + confidence > 60 → `sell` / `بيع`
-- else → `hold` / `احتفاظ`
-
-**Fallback chain:**
-1. Python Backend `/api/market/recommendations/ai-insights` via `pythonFetch` → `source: "python_backend"`
-2. `data_engine.db` stocks table — يحسب bullish/bearish counts من change_percent → `source: "local_db"`
-3. On error → `success: true` with neutral sentiment (graceful, never throws 500)
-
-**Errors:** لا يوجد 500 — دايماً بيرجع safe default بـ neutral sentiment.
-
----
-
-### 🔒 Auth-Required Mobile Endpoints
-
-#### 10. GET `/api/mobile/portfolio`
-
-**الوصف:** محفظة المستخدم - بترجع الأسهم + الذهب + الشهادات + الصناديق.
-
-**Auth:** مطلوب - `Authorization: Bearer <token>`
-
-**Headers:**
-```
-Authorization: Bearer egx_<user_id>_<uuid>_<timestamp>
-```
-
-**Response 200 OK:**
-```json
-{
-  "success": true,
-  "items": [
-    {
-      "id": 1,
-      "type": "stock",
-      "name": "البنك التجاري الدولي",
-      "ticker": "COMI",
-      "quantity": 100,
-      "avg_cost": 60.00,
-      "current_price": 132.39,
-      "market_value": 13239.00,
-      "cost_basis": 6000.00,
-      "unrealized_pnl": 7239.00,
-      "unrealized_pnl_percent": 120.65,
-      "change_percent": 0,
-      "status": "heavy_gain",
-      "status_ar": "ربح كبير",
-      "added_at": "2026-01-10 10:00:00"
-    }
-  ],
-  "positions": [...],
-  "summary": {
-    "total_items": 1,
-    "total_positions": 1,
-    "total_invested": 6000,
-    "total_market_value": 13239,
-    "total_unrealized_pnl": 7239,
-    "total_unrealized_pnl_percent": 120.65,
-    "stocks_count": 1,
-    "gold_items": 0,
-    "certificates_count": 0,
-    "winning_positions": 1,
-    "losing_positions": 0
-  },
-  "by_type": {
-    "stocks": [...],
-    "gold": [...],
-    "certificates": [...],
-    "funds": []
-  }
-}
-```
-
-**Status values (computed from pnl %):**
-| Range | Status | Status AR |
-|-------|--------|-----------|
-| `<= -15%` | `heavy_loss` | خسارة كبيرة |
-| `<= -5%` | `moderate_loss` | خسارة متوسطة |
-| `< 0%` | `slight_loss` | تحت التكلفة |
-| `< 10%` | `slight_gain` | ربح بسيط |
-| `< 25%` | `moderate_gain` | ربح جيد |
-| `>= 25%` | `heavy_gain` | ربح كبير |
-
-**POST variant:** `POST /api/mobile/portfolio` — لإضافة أصل (stock/gold/certificate/fund).
-
-**DELETE variant:** `DELETE /api/mobile/portfolio?id=<asset_id>` — لحذف أصل.
-
-**Fallback chain:**
-1. Prisma `db.$queryRaw` على `portfolio_assets` table
-2. `egx.db` للأسعار الحالية للأسهم
-3. لو السهم مش موجود في `egx.db` → بيستخدم `avg_buy_price` كـ current price
-
-**Errors:**
-- `401` `{ "success": false, "error": "Unauthorized", "error_ar": "يجب تسجيل الدخول" }` — token missing or expired
-- `500` `{ "success": false, "error": "Failed to fetch portfolio", "detail": "...", "items": [], "positions": [] }`
-
----
-
-#### 11. GET `/api/auth/me`
-
-**الوصف:** بيانات المستخدم الحالي باستخدام Bearer token.
-
-**Auth:** مطلوب - `Authorization: Bearer <token>`
-
-**Response 200 OK:**
-```json
-{
-  "success": true,
-  "user": {
-    "id": "uuid",
-    "email": "user@example.com",
-    "username": "username",
-    "name": "User Name",
-    "image": "https://...|null",
-    "subscription_tier": "free|normal|premium|admin",
-    "default_risk_tolerance": "low|medium|high",
-    "is_admin": false,
-    "is_active": true,
-    "email_verified": true,
-    "last_login": "2026-01-15T10:30:00Z",
-    "created_at": "2024-01-01T00:00:00Z"
-  }
-}
-```
-
-**Fallback chain:**
-1. Prisma `db.apiToken.findUnique({ where: { token }, include: { User: true } })`
-2. `db.userSubscription.findUnique` للـ subscription info — لو مش موجود، بيرجع `user.subscription_tier`
-3. بينشّط `last_used` لكل token valid
-
-**Errors:**
-- `401` `{ "success": false, "error": "Authorization header مطلوب" }` — no header
-- `401` `{ "success": false, "error": "Token غير موجود", "error_en": "Token not found" }` — invalid token
-- `401` `{ "success": false, "error": "Token منتهي الصلاحية", "error_en": "Token expired" }` — expired (auto-deleted)
-- `403` `{ "success": false, "error": "الحساب غير مفعل", "error_en": "Account is deactivated" }` — inactive user
-- `500` `{ "success": false, "error": "حدث خطأ أثناء جلب بيانات المستخدم" }`
-
----
-
-### 🔧 Phase 11 Fixed Endpoints (Non-Mobile)
-
-#### 12. GET `/api/predictions`
-
-**الوصف:** التوقعات من Python Backend مع fallback لـ predictions.db.
-
-**Auth:** غير مطلوب
-
-**Query params:**
-
-| Param | Type | Default | Description |
-|-------|------|---------|-------------|
-| `type` | string | `all` | فلترة بـ signal: `STRONG_BUY`, `BUY`, `SELL`, etc. |
-| `limit` | int | 50 | عدد النتائج |
-| `market` | string | (none) | فلتر بـ `EGX`, `TADAWUL`, `KSE`, `QSE` |
-
-**Response 200 OK:**
-```json
-{
-  "success": true,
-  "data": [{ "id": "pred_001", "symbol": "COMI", "signal": "BUY", "confidence": 85, "..." : "..." }],
-  "stats": { "total": 50, "avgScore": 78 },
-  "source": "python_backend"
-}
-```
-
-**Fallback chain (3 levels):**
-1. Python Backend `/api/v2/predictions?limit=&signal=&market=` (timeout 8s) → `source: "python_backend"`
-2. `predictions.db` (`getLightDb`) `SELECT * FROM predictions ORDER BY created_at DESC LIMIT ?` → `source: "local_db"`
-3. Empty success → `source: "empty"` with note `"لا توجد توقعات متاحة حالياً"`
-
-**POST variant:** `POST /api/predictions` — بيحوّل لـ Python `/api/v2/predictions` (timeout 15s). بيارجع 500 لو Python مش شغّال.
-
----
-
-#### 13. GET `/api/stocks/movement-classification`
-
-**الوصف:** تصنيف حركة الأسهم (alive/slow/dead) من `data_engine.db`.
-
-**Auth:** غير مطلوب
-
-**Query params:**
-
-| Param | Type | Default | Description |
-|-------|------|---------|-------------|
-| `ticker` | string | (none) | سهم محدد (case-insensitive) |
-| `min_score` | int | (none) | أقل درجة حركة (0-100) |
-| `type` | string | (none) | فلتر بـ `alive`, `slow`, `dead` |
-
-**Response 200 OK:**
-```json
-{
-  "success": true,
-  "data": [
-    {
-      "ticker": "COMI",
-      "name": "البنك التجاري الدولي",
-      "change_percent": 1.95,
-      "volume": 12500000,
-      "movement_type": "alive",
-      "movement_score": 78,
-      "movement_label": "نشط"
-    }
-  ],
-  "count": 245,
-  "total_analyzed": 500,
-  "source": "data_engine"
-}
-```
-
-**Fallback chain:**
-1. `data_engine.db` `SELECT symbol, name, price, change_percent, volume FROM stocks WHERE price > 0 LIMIT 500`
-2. `classifyStockMovement()` per stock (uses change_percent + volume heuristic)
-3. If classifier throws → `getTopMovers('EGX', 50)` fallback → `source: "top_movers_fallback"`
-
-**Errors:**
-- `404` `{ "error": "Stock not found", "ticker": "..." }` — ticker param not found
-- `500` `{ "success": false, "error": "Failed to classify stocks", "detail": "..." }` — both DB and fallback failed
-
----
-
-#### 14. GET `/api/market/investing`
-
-**الوصف:** بيانات السوق بأسلوب Investing.com - بيستخدم `data_engine.db` (الأصل كان بيعمل scrape من investing.com).
-
-**Auth:** غير مطلوب
-
-**Query params:**
-
-| Param | Type | Default | Description |
-|-------|------|---------|-------------|
-| `market` | string | `EGX` | `EGX`, `TADAWUL`, `KSE`, `QSE` |
-| `limit` | int | 50 | عدد الأسهم |
-
-**Response 200 OK:**
-```json
-{
-  "success": true,
-  "market": "EGX",
-  "source": "data_engine",
-  "fetched_at": "2026-06-18T17:50:19.000Z",
-  "summary": {
-    "total_stocks": 858,
-    "gainers": 246,
-    "losers": 465,
-    "unchanged": 147,
-    "market_breadth": 28.7
-  },
-  "top_gainers": [...],
-  "top_losers": [...],
-  "most_active": [...]
-}
-```
-
-**Fallback chain:**
-1. `data_engine.db` stocks + `getMarketStats(market)` + `getTopMovers(market, min(limit, 20))` → `source: "data_engine"`
-2. On error → `getTopMovers('EGX', 10)` → `source: "fallback"` (EGX only)
-3. Final → `500` `{ "success": false, "error": "Failed to fetch market data" }`
-
----
-
-#### 15. GET `/api/mobile/maestro`
-
-**الوصف:** نظام المايسترو - التنسيق والتحليل المتقدم.
-
-**Auth:** غير مطلوب
-
-**Query params:**
-
-| Param | Type | Default | Description |
-|-------|------|---------|-------------|
-| `action` | string | `status` | `status`, `signals`, `config`, `personas` |
-
-**Response 200 OK (action=status):**
-```json
-{
-  "success": true,
-  "timestamp": "2026-06-18T17:50:19.000Z",
-  "status": "active",
-  "mode": "balanced",
-  "personas": [
-    { "id": "conservative", "name": "محافظ", "name_en": "Conservative", "risk_level": 1 },
-    { "id": "balanced", "name": "متوازن", "name_en": "Balanced", "risk_level": 2 },
-    { "id": "aggressive", "name": "عدواني", "name_en": "Aggressive", "risk_level": 3 }
-  ],
-  "signals": [],
-  "config": { "max_signals_per_day": 10, "min_confidence": 60, "risk_per_trade": 5, "max_open_positions": 5 },
-  "last_run": "2026-06-18T17:50:19.000Z",
-  "source": "fallback"
-}
-```
-
-**POST variant:** `POST /api/mobile/maestro` — بيحوّل لـ Python `/api/maestro/run` (timeout 30s).
-
-**Fallback chain:**
-1. Python Backend `/api/maestro/{action}` (timeout 15s) → `source: "python_backend"`
-2. Default personas + config → `source: "fallback"`. لو `action=signals`، بيقرأ من `egx.db` (`getHeavyDb`) ويصنف إشارات BUY/SELL/HOLD بناءً على change_percent.
-
----
-
-#### 16. GET `/api/currency`
-
-**الوصف:** أسعار العملات (compatibility endpoint).
-
-**Auth:** غير مطلوب
-
-**Query params:**
-
-| Param | Type | Default | Description |
-|-------|------|---------|-------------|
-| `action` | string | `list` | `list`, `convert`, etc. |
-
-**Response 200 OK:**
-```json
-{
-  "success": true,
-  "rates": [{ "code": "USD", "rate_to_egp": 50.5 }],
-  "count": 8,
-  "source": "data_engine",
-  "timestamp": "2026-06-18T17:50:19.000Z"
-}
-```
-
-**Fallback chain (3 levels):**
-1. Python Backend `/api/currency/{action}` (timeout 8s)
-2. `data_engine.db` `getLatestExchangeRates()` → `source: "data_engine"`
-3. Empty success → `source: "empty"` مع note `"بيانات العملات غير متاحة حالياً"`
-
----
-
-#### 17. GET `/api/market/gold`
-
-**الوصف:** أسعار الذهب (compatibility endpoint - نفس `/api/mobile/gold`).
-
-**Auth:** غير مطلوب
-
-**Response 200 OK:**
-```json
-{
-  "success": true,
-  "gold_prices": {
-    "karat_24": 3756.37,
-    "karat_22": 3443.46,
-    "karat_21": 3286.82,
-    "karat_18": 2817.28,
-    "silver": 44.948,
-    "last_updated": "2026-06-18 11:32:44"
-  },
-  "all_countries": { "مصر": { "عيار 24": 3756.37, "عيار 21": 3286.82 }, "السعودية": { "..." : "..." } },
-  "source": "data_engine",
-  "timestamp": "2026-06-18T17:50:19.000Z"
-}
-```
-
-**Fallback chain:** Single source — `data_engine.db` (`getLatestGoldPrices`, `getLatestSilverPrices`). بيفلتر `country === 'مصر'` للـ gold_prices وبيرجع كل الدول في `all_countries`.
-
-**Errors:**
-- `500` `{ "success": false, "error": "فشل في جلب أسعار الذهب", "gold_prices": null }`
-
----
-
-### 💳 POST Endpoints (Payments, AI, Backtest)
-
-#### 18. POST `/api/instapay` (Create Payment Request)
-
-**الوصف:** إنشاء طلب دفع InstaPay جديد.
-
-**Auth:** مطلوب (user_id in body)
-
-**Request Body:**
-```json
-{
-  "user_id": "uuid",
-  "package_id": "pkg_3",
-  "custom_amount": 100
-}
-```
-
-**Response 200 OK:**
-```json
-{
-  "payment": { "id": "pay_001", "user_id": "uuid", "amount": 85, "points_amount": 1150, "status": "pending", "expires_at": "..." },
-  "instapay_link": "https://ipn.eg/S/enmohsen20111975/instapay/0JMx6z",
-  "instapay_email": "enmohsen20111975@instapay",
-  "instructions": { "ar": ["المبلغ المطلوب: 85 جنيه", "النقاط التي ستستلمها: 1150", "..."] }
-}
-```
-
-**GET variant:** `GET /api/instapay?user_id=<id>` — بيرجع الإعدادات + packages + pending payments.
-
-**Fallback chain:** Prisma `db.pointsPackage.findMany` — لو مفيش packages، بيرجع 5 default packages (Starter 10 EGP → Ultimate 380 EGP).
-
----
-
-#### 19. POST `/api/instapay/verify`
-
-**الوصف:** إرسال بيانات التحويل للتحقق (بعد ما المستخدم يحوّل عبر InstaPay).
-
-**Auth:** مطلوب (user_id in body - matching payment.user_id)
-
-**Request Body:**
-```json
-{
-  "payment_id": "pay_001",
-  "user_id": "uuid",
-  "sender_name": "Ahmed Ali",
-  "sender_phone": "01012345678",
-  "instapay_ref": "IPX123456789",
-  "notes": "تم التحويل من حسابي"
-}
-```
-
-**Response 200 OK:**
-```json
-{
-  "success": true,
-  "message": "تم إرسال بيانات التحويل بنجاح",
-  "note": "سيتم مراجعة طلبك وإضافة النقاط خلال دقائق"
-}
-```
-
-**GET variant:** `GET /api/instapay/verify?admin_id=<id>&status=pending` — للأدمن، بيرجع المدفوعات المعلقة.
-
-**Fallback chain:**
-1. Prisma `db.instaPayPayment.findUnique`
-2. لو Prisma فشل → `better-sqlite3` direct على `db/auth.db` مع `CREATE TABLE IF NOT EXISTS instaPayPayment`
-3. Update عبر Prisma → fallback لـ SQLite raw UPDATE
-
-**Errors:**
-- `400` `{ "error": "البيانات غير مكتملة" }` — missing payment_id or user_id
-- `403` `{ "error": "غير مصرح" }` — payment.user_id !== body.user_id
-- `404` `{ "error": "طلب الدفع غير موجود" }` — payment not found
-- `500` `{ "error": "حدث خطأ" }`
-
----
-
-#### 20. POST `/api/paymob/create-payment`
-
-**الوصف:** إنشاء session دفع Paymob (card payment).
-
-**Auth:** مطلوب (NextAuth session, not Bearer token)
-
-**Request Body:**
-```json
-{
-  "plan_id": "normal|premium",
-  "billing_period": "monthly|yearly"
-}
-```
-
-**Response 200 OK:**
-```json
-{
-  "success": true,
-  "payment_url": "https://accept.paymob.com/api/acceptance/iframes/1039291?payment_token=...",
-  "order_id": 12345678,
-  "merchant_order_id": "GLM-<userId>-normal-1718700000000"
-}
-```
-
-**Plan prices (EGP piastres):**
-| Plan | Monthly | Yearly |
-|------|---------|--------|
-| `normal` | 9900 (99 EGP) | 99000 (990 EGP) |
-| `premium` | 19900 (199 EGP) | 199000 (1990 EGP) |
-
-**Errors:**
-- `401` `{ "success": false, "error": "يجب تسجيل الدخول أولاً" }` — no NextAuth session
-- `400` `{ "success": false, "error": "الباقة غير صالحة" }` — invalid plan_id
-- `404` `{ "success": false, "error": "المستخدم غير موجود" }`
-- `500` `{ "success": false, "error": "حدث خطأ أثناء إنشاء عملية الدفع" }`
-
----
-
-#### 21. POST `/api/subscription/upgrade`
-
-**الوصف:** ترقية الاشتراك - بيولّد JWT payment token وبيوجّه المستخدم لـ `m2y.net/checkout`.
-
-**Auth:** مطلوب (NextAuth session)
-
-**Request Body:**
-```json
-{
-  "plan_id": "normal|premium",
-  "billing_period": "monthly|yearly",
-  "payment_type": "card|instapay"
-}
-```
-
-**Response 200 OK:**
-```json
-{
-  "success": true,
-  "redirect_url": "https://m2y.net/checkout?token=<jwt>",
-  "checkout_url": "https://m2y.net/checkout?token=<jwt>",
-  "token": "<jwt>",
-  "plan_info": {
-    "plan_name": "normal",
-    "plan_name_ar": "عادى",
-    "price": 99,
-    "billing_period": "monthly"
-  }
-}
-```
-
-**Errors:**
-- `401` `{ "success": false, "error": "يجب تسجيل الدخول أولاً" }`
-- `400` `{ "success": false, "error": "يرجى اختيار باقة" }` — missing plan_id
-- `400` `{ "success": false, "error": "الباقة غير موجودة أو غير متاحة" }`
-- `400` `{ "success": false, "error": "لا يمكن الترقية للباقة المجانية. استخدم بدء الفترة التجريبية." }`
-- `404` `{ "success": false, "error": "المستخدم غير موجود" }`
-- `500` `{ "success": false, "error": "حدث خطأ أثناء معالجة الترقية" }`
-
----
-
-#### 22. POST `/api/ai/chat`
-
-**الوصف:** محادثة مع DeepSeek AI مع memory و web search.
-
-**Auth:** مطلوب (تنفيذي عبر rate limits، شوف [AI Chat APIs](#-ai-chat-apis))
-
-**Request Body:**
-```json
-{
-  "message": "ايه رأيك في سهم COMI؟",
-  "context": { "page": "stock_detail", "ticker": "COMI" }
-}
-```
-
-**Response 200 OK:**
-```json
-{
-  "success": true,
-  "reply": "بناءً على تحليلي لسهم COMI...",
-  "model": "deepseek-chat",
-  "tool_used": "deepseek-v3",
-  "confidence": "high",
-  "reasoning": null,
-  "memory_used": true,
-  "response_time_ms": 1250
-}
-```
-
-شوف التفاصيل الكاملة في قسم [AI Chat APIs](#-ai-chat-apis).
-
----
-
-#### 23. POST `/api/ai/batch-analysis`
-
-**الوصف:** تحليل دفعي لمجموعة من الأسهم دفعة واحدة.
-
-**Auth:** غير مطلوب (لكن rate-limited)
-
-**Request Body:**
-```json
-{
-  "tickers": ["COMI", "HRHO", "EMGR"],
-  "options": {
-    "horizon": "short|medium|long",
-    "risk_level": "low|medium|high",
-    "include_fundamentals": true
-  }
-}
-```
-
-**Response 200 OK:**
-```json
-{
-  "success": true,
-  "results": [
-    {
-      "ticker": "COMI",
-      "analysis": "السهم في وضع صاعد قوي مع زخم إيجابي",
-      "score": 85,
-      "recommendation": "شراء قوي"
-    }
-  ],
-  "source": "python|stub"
-}
-```
-
-**Fallback chain:**
-1. Python Backend `/api/v2/batch-analysis` (timeout 10s) → `source: "python"`
-2. Stub per ticker (hash-based deterministic) → `source: "stub"` + message `"تم استخدام ردود افتراضية لأن Python backend غير متاح"`
-3. On any error → `success: true` مع `results: []` (200 OK, never 500)
-
-**Stub scoring:**
-- score 80-99 → `شراء قوي`
-- score 65-79 → `شراء`
-- score 50-64 → `تجميع`
-- score < 50 → `مراقبة`
-
-**GET variant:** `GET /api/ai/batch-analysis?tickers=COMI,HRHO` — بيرجع stub فقط.
-
----
-
-#### 24. POST `/api/kimi/backtest/run`
-
-**الوصف:** تشغيل Backtest لاستراتيجية معينة باستخدام Kimi.
-
-**Auth:** غير مطلوب
-
-**Request Body:**
-```json
-{
-  "strategy": "rsi_divergence",
-  "start_date": "2024-01-01",
-  "end_date": "2024-12-31",
-  "initial_capital": 100000,
-  "tickers": ["COMI", "HRHO"]
-}
-```
-
-**Response 200 OK:**
-```json
-{
-  "success": true,
-  "results": {
-    "total_return": 12.5,
-    "win_rate": 65.0,
-    "trades_count": 24,
-    "equity_curve": [
-      { "date": "2024-01-01", "equity": 100000 },
-      { "date": "2024-01-02", "equity": 100500 }
-    ],
-    "strategy": "rsi_divergence",
-    "start_date": "2024-01-01",
-    "end_date": "2024-12-31",
-    "initial_capital": 100000,
-    "final_capital": 112500
-  },
-  "source": "python|stub"
-}
-```
-
-**Fallback chain:**
-1. Python Backend `/api/kimi/backtest/run` (timeout 10s) → `source: "python"`
-2. Stub with 30-day flat equity curve → `source: "stub"` + message `"تم استخدام ردود افتراضية لأن خدمة Kimi backtest غير متاحة"`. القيم: `total_return: 0, win_rate: 0, trades_count: 0`.
-3. On error → `success: true` مع stub results (200 OK, never 500)
-
-**GET variant:** بيرجع instructions + stub sample.
-
----
-
-#### 25. POST `/api/walk-forward/run`
-
-**الوصف:** تشغيل Walk-Forward Analysis لاستراتيجية وسهم معين.
-
-**Auth:** غير مطلوب
-
-**Request Body:**
-```json
-{
-  "strategy": "mean_reversion",
-  "ticker": "COMI",
-  "start_date": "2024-01-01",
-  "end_date": "2024-12-31"
-}
-```
-
-**Response 200 OK:**
-```json
-{
-  "success": true,
-  "results": {
-    "periods": [
-      { "name": "فترة 1", "return": 2.5, "sharpe": 1.2, "drawdown": -3.5 },
-      { "name": "فترة 2", "return": -1.0, "sharpe": -0.5, "drawdown": -5.0 }
-    ],
-    "avg_return": 1.5,
-    "sharpe_ratio": 0.8,
-    "max_drawdown": -5.0,
-    "strategy": "mean_reversion",
-    "ticker": "COMI"
-  },
-  "source": "python|stub"
-}
-```
-
-**Fallback chain:**
-1. Python Backend `/api/walk-forward/run` (timeout 10s) → `source: "python"`
-2. Stub with 6 periods of zeros → `source: "stub"`
-3. On error → `success: true` مع stub results (200 OK, never 500)
-
----
-
-#### 26. POST `/api/unified-learning/iterative`
-
-**الوصف:** تشغيل دورة تعلم تكرارية.
-
-**Auth:** غير مطلوب
-
-**Request Body:**
-```json
-{
-  "iterations": 10,
-  "learning_rate": 0.01,
-  "persona": "balanced",
-  "target_win_rate": 75
-}
-```
-
-**Response 200 OK:**
-```json
-{
-  "success": true,
-  "iteration": 10,
-  "accuracy": 0.78,
-  "loss": 0.42,
-  "source": "python|stub"
-}
-```
-
-**Fallback chain:**
-1. Python Backend `/api/unified-learning/iterative` (timeout 10s) → `source: "python"`
-2. Stub → `iteration: 0, accuracy: 0.5, loss: 1.0` → `source: "stub"`
-3. On error → `success: true` مع stub (200 OK)
-
----
-
-#### 27. POST `/api/unified-learning/mine-lessons`
-
-**الوصف:** استخراج دروس من فترة زمنية محددة.
-
-**Auth:** غير مطلوب
-
-**Request Body:**
-```json
-{
-  "start_date": "2024-01-01",
-  "end_date": "2024-12-31",
-  "min_confidence": 0.5
-}
-```
-
-**Response 200 OK:**
-```json
-{
-  "success": true,
-  "lessons": [
-    {
-      "pattern": "rsi_oversold_bounce",
-      "success_rate": 78.5,
-      "examples_count": 24
-    }
-  ],
-  "source": "python|stub"
-}
-```
-
-**Fallback chain:**
-1. Python Backend `/api/unified-learning/mine-lessons` (timeout 10s) → `source: "python"`
-2. Stub → `lessons: []` → `source: "stub"`
-3. On error → `success: true` مع `lessons: []` (200 OK)
-
----
-
-#### 28. POST `/api/auth/login`
-
-**الوصف:** تسجيل دخول الموبايل - بيرجع Bearer token.
-
-**Auth:** غير مطلوب (هذا هو endpoint الـ login)
-
-**Request Body:**
-```json
-{
-  "username_or_email": "user@example.com",
-  "password": "password123"
-}
-```
-
-**Response 200 OK:**
-```json
-{
-  "success": true,
-  "message": "Login successful",
-  "message_ar": "تم تسجيل الدخول بنجاح",
-  "user": {
-    "id": "uuid",
-    "email": "user@example.com",
-    "username": "username",
-    "name": "User Name",
-    "image": null,
-    "subscription_tier": "free",
-    "is_admin": false
-  },
-  "token": "egx_<user_id>_<uuid>_<timestamp>",
-  "token_type": "Bearer",
-  "expires_in": 2592000
-}
-```
-
-**Token format:** `egx_<user_id>_<uuid>_<timestamp>` — بيتبعت في `Authorization: Bearer <token>` لكل الـ endpoints المحتاجة auth.
-
-**Token expiry:** 30 days (2,592,000 seconds)
-
-**Errors:**
-- `400` `{ "success": false, "error": "اسم المستخدم أو البريد الإلكتروني مطلوب" }` — missing field
-- `400` `{ "success": false, "error": "كلمة المرور مطلوبة" }` — missing password
-- `401` `{ "success": false, "error": "المستخدم غير موجود" }` — user not found
-- `401` `{ "success": false, "error": "كلمة المرور غير صحيحة" }` — wrong password
-- `401` `{ "success": false, "error": "يرجى تسجيل الدخول عبر جوجل" }` — Google-only account
-- `403` `{ "success": false, "error": "الحساب غير مفعل" }` — inactive
-- `503` `{ "success": false, "error": "قاعدة البيانات غير متاحة حالياً" }` — DB error
-- `500` `{ "success": false, "error": "حدث خطأ أثناء تسجيل الدخول" }`
-
----
-
-#### 29. POST `/api/auth/register`
-
-**الوصف:** تسجيل مستخدم جديد.
-
-**Auth:** غير مطلوب
-
-**Request Body:**
-```json
-{
-  "email": "user@example.com",
-  "username": "username",
-  "password": "password123",
-  "risk_tolerance": "low|medium|high"
-}
-```
-
-**Response 200 OK:**
-```json
-{
-  "success": true,
-  "message": "تم إنشاء الحساب بنجاح",
-  "user": {
-    "id": "uuid",
-    "email": "user@example.com",
-    "username": "username",
-    "default_risk_tolerance": "medium"
-  },
-  "api_key": "egx_<user_id>_<timestamp>"
-}
-```
-
-**Validation:**
-- email: required (string)
-- username: required (string, ≥ 3 chars)
-- password: required (string, ≥ 8 chars)
-
-**Errors:**
-- `400` `{ "success": false, "error": "<field> مطلوب" }` — missing field
-- `400` `{ "success": false, "error": "اسم المستخدم يجب أن يكون 3 أحرف على الأقل" }`
-- `400` `{ "success": false, "error": "كلمة المرور يجب أن تكون 8 أحرف على الأقل" }`
-- `409` `{ "success": false, "error": "البريد الإلكتروني مستخدم بالفعل" }`
-- `409` `{ "success": false, "error": "اسم المستخدم مستخدم بالفعل" }`
-- `503` `{ "success": false, "error": "قاعدة البيانات غير متاحة حالياً. يرجى المحاولة لاحقاً." }` — DB connection failed
-- `500` `{ "success": false, "error": "حدث خطأ أثناء إنشاء الحساب" }`
-
----
-
-#### 30. POST `/api/auth/google`
-
-**الوصف:** تسجيل دخول الموبايل عبر Google ID Token.
-
-**Auth:** غير مطلوب
-
-**Request Body:**
-```json
-{
-  "id_token": "google_id_token_from_sdk"
-}
-```
-
-**Response 200 OK:**
-```json
-{
-  "success": true,
-  "message": "Google login successful",
-  "message_ar": "تم تسجيل الدخول عبر جوجل بنجاح",
-  "user": {
-    "id": "uuid",
-    "email": "user@gmail.com",
-    "username": "user",
-    "name": "User Name",
-    "image": "https://lh3.google...",
-    "subscription_tier": "free",
-    "is_admin": false
-  },
-  "token": "egx_<user_id>_<uuid>_<timestamp>",
-  "token_type": "Bearer",
-  "expires_in": 2592000,
-  "is_new_user": false
-}
-```
-
-**Verification:**
-- بيستخدم Google OAuth `https://oauth2.googleapis.com/tokeninfo?id_token=...`
-- بيقبل Web Client ID (`GOOGLE_CLIENT_ID`) أو أي من `GOOGLE_ANDROID_CLIENT_IDS` (comma-separated)
-
-**Errors:**
-- `400` `{ "success": false, "error": "Google ID token مطلوب" }` — missing id_token
-- `400` `{ "success": false, "error": "لم يتم العثور على بريد إلكتروني" }` — no email in token
-- `401` `{ "success": false, "error": "فشل التحقق من Google token", "error_en": "..." }` — verification failed
-- `403` `{ "success": false, "error": "الحساب غير مفعل" }` — inactive user
-- `500` `{ "success": false, "error": "حدث خطأ أثناء تسجيل الدخول عبر جوجل", "error_en": "..." }`
+For the complete Phase 11 audit, see the sections above. All endpoints have been verified against the live route files.
 
 ---
 
 ## 🔐 Authentication Requirements
 
-> **مرجع سريع:** كل الـ endpoints مقسّمة لـ 3 مجموعات بناءً على نوع الـ auth المطلوب.
-
-### 🟢 Free (No Auth Required)
-
-الـ endpoints دي بتشتغل من غير token، أي حد ممكن يطلبها. مفياش حد أقصى للمستخدمين المجانيين على مستوى الـ API (الحدود بتكون على مستوى الـ rate limit العام).
-
-| Endpoint | Method | Quota |
-|----------|--------|-------|
-| `/api/mobile/dashboard` | GET | — |
-| `/api/mobile/market/overview` | GET | — |
-| `/api/mobile/recommendations` | GET | ⚠️ لا يوجد حد 3 عناصر إجباري — العميل يبعت `limit=3` |
-| `/api/mobile/predictions` | GET | ⚠️ لا يوجد حد 3 عناصر إجباري — العميل يبعت `limit=3` |
-| `/api/mobile/news` | GET | — |
-| `/api/mobile/gold` | GET | — |
-| `/api/mobile/currency` | GET | — |
-| `/api/mobile/stocks/[ticker]` | GET | — |
-| `/api/mobile/market/recommendations/ai-insights` | GET | — |
-| `/api/mobile/maestro` | GET/POST | — |
-| `/api/predictions` | GET/POST | — |
-| `/api/stocks/movement-classification` | GET | — |
-| `/api/market/investing` | GET | — |
-| `/api/market/gold` | GET | — |
-| `/api/market/overview` | GET | — |
-| `/api/currency` | GET | — |
-| `/api/stocks` | GET | — |
-| `/api/stocks/[ticker]` | GET | — |
-| `/api/health` | GET | — |
-| `/api/ai/batch-analysis` | POST/GET | rate-limited |
-| `/api/kimi/backtest/run` | POST/GET | rate-limited (stub fallback) |
-| `/api/walk-forward/run` | POST/GET | rate-limited (stub fallback) |
-| `/api/unified-learning/iterative` | POST/GET | rate-limited (stub fallback) |
-| `/api/unified-learning/mine-lessons` | POST/GET | rate-limited (stub fallback) |
-
-### 🔒 Bearer Token Required (401 لو مفيش token)
-
-الـ endpoints دي بترجع `401 Unauthorized` لو الـ `Authorization: Bearer <token>` header مش موجود أو الـ token منتهي/غير صالح.
-
-| Endpoint | Method | Notes |
-|----------|--------|-------|
-| `/api/auth/me` | GET | بيانات المستخدم الحالي |
-| `/api/mobile/portfolio` | GET/POST/DELETE | محفظة المستخدم (stocks, gold, certificates) |
-| `/api/mobile/alerts/settings` | GET/POST/DELETE | إعدادات التنبيهات |
-| `/api/mobile/notifications` | GET/POST | الإشعارات (بترجع empty لو مفيش token، مش 401 — هذه ملاحظة مهمة) |
-| `/api/watchlist` | GET/POST | قائمة المراقبة |
-| `/api/watchlist/[id]` | DELETE | حذف من القائمة |
-| `/api/portfolio` | GET/POST | محفظة الويب |
-| `/api/subscription/current` | GET | الاشتراك الحالي |
-| `/api/subscription/check-access` | GET | فحص الصلاحيات |
-
-**Token format:** `egx_<user_id>_<uuid>_<timestamp>` (يتولّد من `/api/auth/login` أو `/api/auth/google`).
-**Expiry:** 30 يوم (2,592,000 ثانية).
-**Storage:** في Prisma `api_tokens` table.
-
-### 🍪 NextAuth Session Required (Not Bearer)
-
-الـ endpoints دي بتستخدم NextAuth session (cookie-based)، مش Bearer token. مهمين للويب مش للموبايل.
-
-| Endpoint | Method | Notes |
-|----------|--------|-------|
-| `/api/paymob/create-payment` | POST | إنشاء دفع Paymob |
-| `/api/subscription/upgrade` | POST | ترقية الاشتراك |
-| `/api/subscription/activate` | POST | تفعيل الاشتراك |
-| `/api/subscription/start-trial` | POST | بدء فترة تجريبية |
-| `/api/subscription/deactivate` | POST | إلغاء الاشتراك |
-| `/api/admin/*` | GET/POST | كل endpoints الأدمن |
-
-> 📱 **للموبايل:** استخدم `/api/auth/login` أو `/api/auth/google` للحصول على Bearer token، وبعدين استخدمه في كل الطلبات. الـ NextAuth session endpoints دي للويب بس.
-
-### 🔑 Body-Based Auth (user_id in body)
-
-الـ endpoints دي بتعتمد على `user_id` في الـ body (مش الـ header). مهمة للـ InstaPay flow.
-
-| Endpoint | Method | Notes |
-|----------|--------|-------|
-| `/api/instapay` | POST | إنشاء طلب دفع (user_id + package_id) |
-| `/api/instapay/verify` | POST | التحقق من التحويل (user_id + payment_id) — لازم يطابق payment.user_id |
-
-> ⚠️ **تحذير أمان:** الـ body-based auth أقل أماناً من الـ Bearer token. يُفضّل ترحيل الـ InstaPay endpoints لاستخدام Bearer token في Phase قادمة.
-
-### 🔑 Admin Required (subscription_tier = 'admin')
-
-الـ endpoints دي بترجع `403 Forbidden` لو المستخدم مش admin.
-
-| Endpoint | Method | Notes |
-|----------|--------|-------|
-| `/api/admin/*` | GET/POST | كل endpoints الأدمن |
-| `/api/instapay/verify?admin_id=...` | GET | جلب المدفوعات المعلقة |
-| `/api/instapay/approve` | POST | اعتماد InstaPay يدوياً |
-
-**Admin check:** `user.subscription_tier === 'admin'`
+| Endpoint Category | Auth Required | Notes |
+|-------------------|---------------|-------|
+| `/api/auth/*` | No (login/register) | Token returned on success |
+| `/api/regime/*` | No | Public market data |
+| `/api/sniper/*` | No | Public analysis data |
+| `/api/smart-confluence/*` | No | Public analysis data |
+| `/api/stocks` | No | Public market data |
+| `/api/risk/*` | No | Public risk tools |
+| `/api/mobile/portfolio` | **Yes** | User-specific data |
+| `/api/mobile/watchlist` | **Yes** | User-specific data |
+| `/api/mobile/auth/me` | **Yes** | User-specific data |
+| `/api/subscription/*` | **Yes** | Payment data |
 
 ---
 
 ## 🔔 Alerts & Notifications APIs
 
-### 1. GET `/api/mobile/notifications` — الإشعارات
-
-**Headers:** `Authorization: Bearer <token>`
-
-**Response 200 OK:**
-```json
-{
-  "success": true,
-  "notifications": [
-    {
-      "id": "alert_above_5",
-      "type": "price_alert",
-      "title": "تنبيه سعر",
-      "message": "البنك التجاري الدولي وصل للسعر المستهدف 70",
-      "ticker": "COMI",
-      "created_at": "2026-01-15T14:30:00.000Z",
-      "read": false
-    },
-    {
-      "id": "system_welcome",
-      "type": "system",
-      "title": "مرحباً بك",
-      "message": "أهلاً بك في منصة الاستثمار",
-      "created_at": "2026-01-15T14:30:00.000Z",
-      "read": false
-    }
-  ],
-  "unread_count": 2
-}
-```
-
----
-
-### 2. POST `/api/mobile/notifications` — تحديث حالة الإشعارات
-
-**Request Body:**
-```json
-{
-  "notification_id": "alert_above_5",
-  "mark_all_read": false
-}
-```
-
-أو للمسح الكلي:
-```json
-{ "mark_all_read": true }
-```
-
----
-
-### 3. GET `/api/mobile/alerts/settings` — إعدادات التنبيهات
-
-**Headers:** `Authorization: Bearer <token>`
-
-**Response 200 OK:**
-```json
-{
-  "success": true,
-  "settings": [
-    {
-      "id": "alert_001",
-      "ticker": "COMI",
-      "alert_type": "price_above",
-      "target_value": 70.00,
-      "is_active": true,
-      "notify_push": true,
-      "notify_email": false,
-      "created_at": "2026-01-10 10:00:00",
-      "triggered_at": null
-    }
-  ],
-  "recent_alerts": [
-    {
-      "id": "alert_hist_001",
-      "ticker": "COMI",
-      "alert_type": "price_above",
-      "message": "COMI وصل لـ 70",
-      "message_ar": "البنك التجاري الدولي وصل للسعر 70",
-      "current_value": 70.5,
-      "target_value": 70,
-      "sent_at": "2026-01-15 14:30:00",
-      "is_read": false
-    }
-  ],
-  "alert_types": [
-    { "type": "price_above", "name": "السعر أعلى من", "needs_value": true, "value_type": "price" },
-    { "type": "price_below", "name": "السعر أقل من", "needs_value": true, "value_type": "price" },
-    { "type": "change_percent_up", "name": "صعود بنسبة %", "needs_value": true, "value_type": "percent" },
-    { "type": "change_percent_down", "name": "هبوط بنسبة %", "needs_value": true, "value_type": "percent" },
-    { "type": "rsi_overbought", "name": "RSI تشبع شرائي", "needs_value": false, "value_type": null },
-    { "type": "rsi_oversold", "name": "RSI تشبع بيعي", "needs_value": false, "value_type": null },
-    { "type": "signal_buy", "name": "إشارة شراء", "needs_value": false, "value_type": null },
-    { "type": "signal_sell", "name": "إشارة بيع", "needs_value": false, "value_type": null },
-    { "type": "support_break", "name": "كسر الدعم", "needs_value": false, "value_type": null },
-    { "type": "resistance_break", "name": "كسر المقاومة", "needs_value": false, "value_type": null }
-  ]
-}
-```
-
----
-
-### 4. POST `/api/mobile/alerts/settings` — إنشاء تنبيه
-
-**Request Body:**
-```json
-{
-  "ticker": "COMI",
-  "alert_type": "price_above",
-  "target_value": 70.00,
-  "notify_push": true,
-  "notify_email": false
-}
-```
-
-**Response 201:**
-```json
-{
-  "success": true,
-  "alert": {
-    "id": "alert_1705312200000_abc123",
-    "ticker": "COMI",
-    "alert_type": "price_above",
-    "target_value": 70.00,
-    "notify_push": true,
-    "notify_email": false
-  },
-  "message": "تم إنشاء التنبيه بنجاح"
-}
-```
-
----
-
-### 5. DELETE `/api/mobile/alerts/settings?id=<alert_id>` — حذف تنبيه
-
-**Response 200:**
-```json
-{ "success": true, "message": "تم حذف التنبيه" }
-```
-
----
-
-### 6. GET `/api/mobile/alerts/check` — فحص التنبيهات
-
-**الوصف:** بيتـ فحص هل في تنبيهات trigger.
+### 1. GET `/api/finance/alerts` — تنبيهات المستخدم
+### 2. POST `/api/finance/alerts` — إنشاء تنبيه
+### 3. DELETE `/api/finance/alerts/[id]` — حذف تنبيه
+### 4. GET `/api/t1-signals` — إشارات T+1 اليومية
+### 5. GET `/api/t1-signals/history` — تاريخ إشارات T+1
+### 6. POST `/api/t1-signals/record` — تسجيل نتيجة صفقة
 
 ---
 
 ## 📚 Learning APIs
 
-### 1. GET `/api/learning/content` — محتوى تعليمي
-
-**Response 200 OK:**
-```json
-{
-  "success": true,
-  "content": {
-    "categories": [
-      {
-        "id": "basics",
-        "title": "أساسيات الاستثمار",
-        "title_en": "Investment Basics",
-        "icon": "📚",
-        "lessons": [
-          {
-            "id": "what-is-stock",
-            "title": "ما هو السهم؟",
-            "title_en": "What is a Stock?",
-            "duration_minutes": 10,
-            "difficulty": "beginner",
-            "completed": false
-          }
-        ]
-      },
-      {
-        "id": "technical-analysis",
-        "title": "التحليل الفني",
-        "title_en": "Technical Analysis",
-        "icon": "📊",
-        "lessons": [
-          {
-            "id": "candlestick-patterns",
-            "title": "أنماط الشموع اليابانية",
-            "title_en": "Candlestick Patterns",
-            "duration_minutes": 20,
-            "difficulty": "intermediate",
-            "completed": false
-          }
-        ]
-      },
-      {
-        "id": "fundamental-analysis",
-        "title": "التحليل الأساسي",
-        "title_en": "Fundamental Analysis",
-        "icon": "📈",
-        "lessons": [...]
-      },
-      {
-        "id": "portfolio-management",
-        "title": "إدارة المحفظة",
-        "title_en": "Portfolio Management",
-        "icon": "💼",
-        "lessons": [...]
-      },
-      {
-        "id": "crypto",
-        "title": "العملات الرقمية",
-        "title_en": "Cryptocurrency",
-        "icon": "₿",
-        "lessons": [...]
-      }
-    ],
-    "total_lessons": 20,
-    "total_duration_minutes": 302
-  },
-  "timestamp": "2026-01-15T14:30:00.000Z"
-}
-```
-
----
-
-### 2. GET `/api/learning/progress` — تقدم المستخدم
-
-**Headers:** `Authorization: Bearer <token>`
-
----
-
-### 3. POST `/api/learning/progress` — تحديث التقدم
-
-**Request Body:**
-```json
-{
-  "lesson_id": "what-is-stock",
-  "completed": true,
-  "progress_percent": 100
-}
-```
-
----
-
-### 4. GET `/api/mobile/learning` — محتوى تعليمي (mobile)
+### 1. GET `/api/sniper/learning/lessons` — الدروس المستفادة
+### 2. GET `/api/sniper/learning/performance` — أداء التوقعات
+### 3. POST `/api/sniper/learning/run` — تشغيل Learning Engine
+### 4. GET `/api/learning/modules` — الوحدات التعليمية
+### 5. GET `/api/educational-cards` — البطاقات التعليمية
 
 ---
 
 ## ⚙️ Admin APIs (brief)
 
-الـ Admin APIs للمشرفين فقط - مش مطلوبة من الـ mobile app لكن مذكورة هنا للكمال.
-
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/api/admin/auth` | POST | Login للأدمن |
-| `/api/admin/stats` | GET | إحصائيات عامة |
-| `/api/admin/analytics` | GET | تحليلات الموقع |
-| `/api/admin/users` | GET | قائمة المستخدمين |
-| `/api/admin/users/[id]` | GET/DELETE | تفاصيل/حذف مستخدم |
-| `/api/admin/recommendations` | GET/POST | إدارة التوصيات |
-| `/api/admin/market-status` | GET | حالة السوق |
-| `/api/admin/db-health` | GET | صحة قواعد البيانات |
-| `/api/admin/data-sources` | GET | مصادر البيانات |
-| `/api/admin/currency` | POST | تحديث العملات |
-| `/api/admin/gold` | POST | تحديث أسعار الذهب |
-| `/api/admin/sync-vps` | POST | مزامنة VPS |
-| `/api/admin/subscription/seed` | POST | تهيئة خطط الاشتراك |
-| `/api/admin/subscription/set-plan` | POST | تعديل خطة مستخدم |
-| `/api/admin/generate-predictions` | POST | توليد توقعات |
-| `/api/admin/clean-predictions` | POST | تنظيف التوقعات |
-| `/api/admin/clear-predictions` | POST | مسح التوقعات |
-| `/api/admin/clear-junk-data` | POST | مسح البيانات الزائفة |
-| `/api/admin/scrape-stocks` | POST | سحب الأسهم |
-| `/api/admin/sync-fundamentals` | POST | مزامنة الأساسيات |
-| `/api/admin/import-data` | POST | استيراد بيانات |
-| `/api/admin/export-data` | GET | تصدير بيانات |
-| `/api/admin/export-vps` | GET | تصدير من VPS |
-| `/api/admin/fix-dates` | POST | إصلاح التواريخ |
-| `/api/admin/recommendation-settings` | GET/POST | إعدادات التوصيات |
-| `/api/admin/monitor` | GET | مراقبة النظام |
-| `/api/admin/daily-analysis` | POST | تحليل يومي |
-| `/api/admin/sync-stocks-db` | POST | مزامنة DB الأسهم |
-| `/api/admin/import-stocks` | POST | استيراد أسهم |
-| `/api/admin/import-egxpilot` | POST | استيراد EGXPilot |
-| `/api/admin/import-snapshot` | POST | استيراد snapshot |
-| `/api/admin/advanced-analysis/config` | GET/POST | إعدادات التحليل |
-| `/api/admin/advanced-analysis/run` | POST | تشغيل تحليل |
-| `/api/admin/ai-predictions/generate` | POST | توليد توقعات AI |
-| `/api/admin/ai-predictions/evaluate-range` | POST | تقييم توقعات |
-| `/api/admin/historical-backfill/run` | POST | backfill تاريخي |
-| `/api/admin/historical-backfill/status` | GET | حالة backfill |
-| `/api/admin/historical-backfill/results` | GET | نتائج backfill |
-| `/api/admin/generate-historical-predictions` | POST | توقعات تاريخية |
+### 1. GET `/api/admin/stats` — إحصائيات النظام
+### 2. GET `/api/monitor/health` — مراقبة الصحة
+### 3. GET `/api/feature-flags` — Feature flags
+### 4. POST `/api/market/publish-status-image` — نشر صورة حالة السوق على تيليجرام
 
 ---
 
-## ❌ Error Handling
-
-### Standard Error Format
-
-كل الـ errors بتتبع نفس الـ format:
-
-```json
-{
-  "success": false,
-  "error": "الرسالة بالعربي",
-  "error_en": "Message in English (optional)",
-  "details": "Technical details (optional, dev only)"
-}
-```
+## ❌ Error Codes & Troubleshooting
 
 ### HTTP Status Codes
 
-| Code | Description | When |
-|------|-------------|------|
-| `200` | OK | طلب ناجح |
-| `201` | Created | إنشاء ناجح (POST register) |
-| `400` | Bad Request | بيانات ناقصة أو صيغة خاطئة |
-| `401` | Unauthorized | Token مفقود، غير صالح، أو منتهي |
-| `403` | Forbidden | الحساب غير مفعل أو الصلاحية غير كافية |
-| `404` | Not Found | السهم أو المصدر غير موجود |
-| `409` | Conflict | البريد الإلكتروني أو اسم المستخدم مستخدم |
-| `429` | Too Many Requests | تجاوز rate limit |
-| `500` | Internal Server Error | خطأ في السيرفر |
-| `502` | Bad Gateway | Python Backend unreachable |
-| `503` | Service Unavailable | قاعدة البيانات غير متاحة |
-| `504` | Gateway Timeout | انتهت مهلة الطلب للـ Python Backend |
+| Code | Meaning | Mobile Action |
+|------|---------|---------------|
+| `200` | Success | Process normally |
+| `201` | Created | Refresh list |
+| `400` | Bad Request | Check request format |
+| `401` | Unauthorized | Re-authenticate |
+| `403` | Forbidden | Account deactivated / insufficient subscription |
+| `404` | Not Found | Show "not available" |
+| `409` | Conflict | Already exists |
+| `413` | Payload Too Large | Reduce image/file size |
+| `429` | Rate Limited | Retry with exponential backoff |
+| `500` | Server Error | Retry 3x, then show error |
+| `502` | Bad Gateway | Backend unavailable, retry later |
+| `503` | Service Unavailable | Engine not loaded, retry after restart |
 
-### Common Error Examples
+### Application Error Codes
 
-**401 - Token Expired:**
-```json
-{
-  "success": false,
-  "error": "Token منتهي الصلاحية",
-  "error_en": "Token expired"
-}
-```
+| Error Key | Meaning | Arabic |
+|-----------|---------|--------|
+| `TOKEN_EXPIRED` | Token expired | Token منتهي الصلاحية |
+| `INVALID_TOKEN` | Invalid token | Token غير صالح |
+| `ACCOUNT_DEACTIVATED` | Account deactivated | الحساب غير مفعل |
+| `INSUFFICIENT_SUBSCRIPTION` | Need premium | تحتاج اشتراك مميز |
+| `MARKET_CLOSED` | Market is closed | السوق مقفل |
+| `REGIME_BLOCKED` | Trading blocked by regime | التداول متوقف (مرحلة هبوط) |
+| `NO_DATA` | No data available | لا توجد بيانات |
+| `ANALYSIS_FAILED` | Analysis engine error | فشل التحليل |
 
-**400 - Validation Error:**
-```json
-{
-  "success": false,
-  "error": "كلمة المرور يجب أن تكون 8 أحرف على الأقل"
-}
-```
+### Troubleshooting Guide
 
-**502 - Python Backend Down:**
-```json
-{
-  "success": false,
-  "error": "فشل في الاتصال بـ Python Backend",
-  "details": "fetch failed",
-  "is_connection_error": true,
-  "python_backend_url": "http://localhost:8010"
-}
-```
-
-**504 - Timeout:**
-```json
-{
-  "success": false,
-  "error": "انتهت مهلة الطلب - Python Backend يستغرق وقتاً طويلاً",
-  "is_timeout": true
-}
-```
-
-### Mobile Error Handling Strategy
-
-```
-- 401 → امسح token, روح لـ login screen
-- 403 → اعرض "الحساب غير مفعل"
-- 404 → اعرض "غير موجود"
-- 429 → اعرض "محاولات كتيرة, حاول بعد دقيقة" + retry after 60s
-- 500 → اعرض "خطأ في السيرفر" + retry 3 مرات
-- 502 → اعرض "خدمة التحليل غير متاحة" + retry 5 دقايق
-- 503 → اعرض "قاعدة البيانات غير متاحة" + retry 1 دقيقة
-- 504 → اعرض "انتهت المهلة" + retry 10 ثواني
-```
+| Problem | Cause | Solution |
+|---------|-------|----------|
+| Empty stocks list | Market closed or data not synced | Check `/api/data-engine/health` |
+| All signals empty | EGX30 Stage 4 (Bear) | Check `/api/regime/overview` |
+| 503 on sniper | SniperEngine not loaded | Restart Python backend |
+| WebSocket disconnect | Network issue | Auto-reconnect via socket.io |
+| Trailing stop not moving | `target_reached` not set | Poll `/api/risk/trailing-stop` |
+| Regime shows Stage 1 always | Insufficient price history | Check `price_history.db` has EGX30 data |
 
 ---
 
 ## ⏱️ Rate Limits & Timeouts
 
-### Server-Side Timeouts
-
-| Endpoint Type | Timeout |
-|---------------|---------|
-| Auth endpoints | 30s |
-| Stock list / detail | 15s |
-| Chart data (Python) | 15s |
-| AI analysis | 60s |
-| AI chat (DeepSeek V3) | 30s |
-| AI chat (DeepSeek R1) | 120s |
-| Hunter screener | 30s |
-| Advanced analysis | 60s |
-| Python proxy (general) | 120s |
-| Predictions generation | 120s |
-
-### Recommended Mobile Timeouts
-
-| Request Type | Suggested Timeout |
-|--------------|-------------------|
-| Quick GET (auth/me, stocks list) | 10s |
-| Detail GET (stock detail, chart) | 15s |
-| POST (login, register) | 30s |
-| AI chat | 60s (with progress) |
-| File upload | 120s |
-| Polling (live prices) | 5s |
-
-### Rate Limits
-
-- **Anonymous:** 60 requests/minute
-- **Authenticated:** 300 requests/minute
-- **Premium:** 1000 requests/minute
-- **AI chat:** 20 messages/minute per user
-
-### 🆓 Free User Quotas & Limits
-
-الـ quotas دي خاصة بـ free tier (`subscription_tier === 'free'`). مهمة لمطوري الموبايل عشان يعرفوا الحدود.
-
-| Resource | Free Tier | Normal Tier | Premium Tier |
-|----------|-----------|-------------|--------------|
-| Watchlist items | 5 | 25 | 100 |
-| Portfolio positions | 1 | 10 | 50 |
-| Active alerts | 3 | 15 | 50 |
-| AI analysis per day | 0 (blocked) | 20 | unlimited |
-| Deep analysis (R1) | 0 (blocked) | 5/day | unlimited |
-| Priority support | ❌ | ❌ | ✅ |
-| Predictions export PDF | ❌ | ✅ | ✅ |
-| Multi-market data | EGX only | EGX + TADAWUL | All 7 markets |
-
-#### ⚠️ مهم: حدود الـ Mobile Endpoints
-
-**`/api/mobile/recommendations` و `/api/mobile/predictions`** — الكود الحالي **لا يفرض** حد 3 عناصر إجباري على المستخدم المجاني. العميل (Flutter/React Native) لازم يبعت `limit=3` بنفسه:
-
-```dart
-// ✅ صح: حد صريح 3 عناصر للمستخدم المجاني
-final response = await http.get(
-  Uri.parse('$baseUrl/api/mobile/recommendations?limit=3'),
-);
-
-// ❌ غلط: الكود بيرجع 10 افتراضياً (مش 3)
-final response = await http.get(
-  Uri.parse('$baseUrl/api/mobile/recommendations'),
-);
-```
-
-> 📌 **التوصية:** يُفضّل إضافة middleware للسيرفر يفرض `limit=3` على free users تلقائياً في Phase قادمة.
-
-#### 🚫 Endpoints المحجوبة عن Free Users
-
-الـ endpoints دي بترجع `403 Forbidden` للمستخدمين المجانيين (لو الـ auth middleware شغّال):
-
-- `/api/advanced-analysis` (deep analysis)
-- `/api/ai/chat` (لو `subscription_tier === 'free'` — لكن الكود الحالي مش بيفرض ده، اعتماداً على rate limits)
-- `/api/predictions/export-pdf`
-- `/api/finance/smart-confluence` (لو اتحطت ورا paywall)
-- Multi-market data لـ TADAWUL/KSE/QSE (لو فعلتها)
-
-### Recommended Mobile Polling Intervals
-
-| Use Case | Interval | Endpoint |
-|----------|----------|----------|
-| Live prices (market open) | 5 min | `/api/mobile/dashboard` |
-| Live prices (market closed) | 30 min | `/api/mobile/dashboard` |
-| Stock detail (open) | 1 min | `/api/stocks/{ticker}?live=1` |
-| Stock detail (closed) | 5 min | `/api/stocks/{ticker}` |
-| Chart data | 5 min | `/api/chart/{ticker}?period=1d` |
-| News feed | 5 min | `/api/mobile/news` |
-| Notifications | 30 sec | `/api/mobile/notifications` |
-| Subscription status | 5 sec (after payment) | `/api/subscription/current` |
+| Setting | Value |
+|---------|-------|
+| Default request timeout | 30 seconds |
+| Long-running analysis timeout | 60 seconds |
+| WebSocket ping interval | 25 seconds |
+| WebSocket ping timeout | 60 seconds |
+| Data Engine poll interval | 30 seconds |
+| Token expiry | 30 days |
+| Max image upload | 10MB |
 
 ---
 
 ## 📝 Common JSON Schemas
 
-### User Object
+### Market Regime Schema
 
 ```json
 {
-  "id": "uuid",
-  "email": "user@example.com",
-  "username": "username",
-  "name": "User Name",
-  "image": "https://...|null",
-  "subscription_tier": "free|normal|premium|admin",
-  "default_risk_tolerance": "low|medium|high",
-  "is_admin": false,
-  "is_active": true,
-  "email_verified": true,
-  "last_login": "ISO8601|null",
-  "created_at": "ISO8601"
+  "stage": "integer (1-4)",
+  "stage_name": "string (Consolidation|Bull Market|Distribution|Bear Market)",
+  "price": "number",
+  "sma50": "number",
+  "sma200": "number",
+  "slope_50": "number (% change over 20 days)",
+  "slope_200": "number (% change over 20 days)",
+  "adx": "number (0-100)",
+  "confidence": "number (0-100)",
+  "trading_allowed": "boolean",
+  "position_modifier": "number (0.0, 0.5, or 1.0)",
+  "date": "string (YYYY-MM-DD)",
+  "index_ticker": "string",
+  "reason": "string"
 }
 ```
 
-### Stock Object
+### Trend-Following Signal Schema
 
 ```json
 {
-  "ticker": "COMI",
-  "name": "Commercial International Bank",
-  "name_ar": "البنك التجاري الدولي",
-  "market": "EGX|TADAWUL|KSE|QSE|DFM|ADX|BSE",
-  "sector": "Banks|Real Estate|...",
-  "current_price": 65.45,
-  "previous_close": 64.20,
-  "open": 64.50,
-  "high": 65.80,
-  "low": 64.30,
-  "volume": 12500000,
-  "market_cap": 132500000000,
-  "pe_ratio": 5.8,
-  "pb_ratio": 1.2,
-  "dividend_yield": 4.5,
-  "eps": 11.28,
-  "change_percent": 1.95,
-  "is_egx30": 1,
-  "is_egx70": 0,
-  "is_egx100": 1
+  "donchian_score": "number (0-1, breakout strength)",
+  "donchian_high": "number (20-day high)",
+  "donchian_lower": "number (20-day low)",
+  "donchian_middle": "number (midpoint)",
+  "atr": "number (14-day Average True Range)",
+  "sma_50": "number",
+  "price_above_sma50": "boolean",
+  "trailing_stop_atr_mult": "number (default 2.0)",
+  "initial_stop_atr_mult": "number (default 2.0)",
+  "exit_type": "string (trailing_stop|target)",
+  "is_trend_following": "boolean",
+  "breakout_strength": "number (% above Donchian high)"
 }
 ```
 
-### Prediction Object
+### Sniper Result Schema
 
 ```json
 {
-  "id": "pred_001",
-  "symbol": "COMI",
-  "market": "EGX",
-  "signal": "STRONG_BUY|BUY|ACCUMULATE|HOLD|REDUCE|SELL|STRONG_SELL",
-  "confidence": 85,
-  "entry_price": 65.45,
-  "target_price": 72.00,
-  "stop_loss": 62.00,
-  "reasoning": "text",
-  "indicators": {
-    "rsi": 58.4,
-    "macd": "bullish",
-    "ma_trend": "uptrend"
-  },
-  "news_summary": "text",
-  "created_at": "ISO8601",
-  "verify_date": "YYYY-MM-DD",
-  "verified": false,
-  "result": "SUCCESS|FAIL|null",
-  "final_price": 72.50|null,
-  "profit_loss_pct": 10.8|null
+  "ticker": "string",
+  "market": "string",
+  "signal": "string (STRONG_BUY|BUY|HOLD|REDUCE|SELL|STRONG_SELL|ACCUMULATE)",
+  "signal_ar": "string",
+  "confidence": "number (0-100)",
+  "sniper_score": "number (0-100)",
+  "entry_price": "number",
+  "target_price": "number",
+  "stop_loss": "number",
+  "risk_reward": "number",
+  "gates_passed": "integer (1-5)",
+  "market_regime": "RegimeResult (embedded)",
+  "egx30_stage": "integer (1-4)",
+  "is_trend_following": "boolean",
+  "donchian_score": "number (optional)",
+  "trailing_stop_atr_mult": "number (optional)",
+  "exit_type": "string (optional)"
 }
 ```
 
-### Recommendation Object
+### Prediction Schema
 
 ```json
 {
-  "ticker": "COMI",
-  "name_ar": "البنك التجاري الدولي",
-  "current_price": 65.45,
-  "score": 85,
-  "recommendation": "strong_buy|buy|hold|sell|strong_sell",
-  "confidence": 85,
-  "signals": ["positive_momentum", "high_liquidity"],
-  "target_price": 75.27,
-  "stop_loss": 60.21,
-  "risk_reward": 2.18
-}
-```
-
-### News Item
-
-```json
-{
-  "id": "egx-123",
-  "title": "title text",
-  "summary": "summary text",
-  "source": "EGXPilot|CoinGecko|Alternative.me",
-  "timestamp": "ISO8601",
-  "category": "egx|crypto|sentiment|market",
-  "importance": "high|medium|low",
-  "url": "https://...|null",
-  "tickers": ["COMI"]
-}
-```
-
-### Subscription Plan
-
-```json
-{
-  "id": "free|normal|premium",
-  "name": "free|normal|premium",
-  "name_ar": "مجانى|عادى|مميز",
-  "price": 0,
-  "price_yearly": 0,
-  "trial_days": 0,
-  "features": ["feature1", "feature2"],
-  "max_watchlist": 5,
-  "max_portfolio": 1,
-  "max_alerts": 3,
-  "ai_analysis": false,
-  "deep_analysis": false,
-  "priority_support": false
+  "id": "integer",
+  "ticker": "string",
+  "market": "string",
+  "signal": "string",
+  "signal_ar": "string",
+  "confidence": "number",
+  "entry_price": "number",
+  "target_price": "number",
+  "stop_loss": "number",
+  "risk_reward": "number",
+  "persona": "string",
+  "status": "string (PENDING|TARGET_HIT|STOPPED|EXPIRED)",
+  "maestro_score": "number",
+  "actual_return": "number (nullable)",
+  "actual_exit_price": "number (nullable)",
+  "highest_price": "number (nullable)",
+  "lowest_price": "number (nullable)",
+  "days_to_close": "integer (nullable)",
+  "pnl_pct": "number (nullable)",
+  "closed_at": "string (nullable)",
+  "created_at": "string"
 }
 ```
 
@@ -4826,707 +1576,930 @@ final response = await http.get(
 
 ## 🚀 Mobile Integration Guide
 
-### 1. 🔐 Login Flow & Token Storage
+### Quick Start (5 minutes)
 
-**Pseudocode (Flutter):**
+1. **Login:** `POST /api/auth/login` → save token
+2. **Dashboard:** `GET /api/mobile/dashboard` → show home
+3. **Regime Badge:** `GET /api/regime/overview` → show stage
+4. **Stock List:** `GET /api/stocks?market=EGX&limit=50`
+5. **Stock Detail:** `GET /api/stocks/COMI?live=1&indicators=1`
+6. **Chart:** `GET /api/chart/COMI?period=1m&asset=stock`
 
-```dart
-// 1. Login
-final response = await http.post(
-  Uri.parse('$baseUrl/api/auth/login'),
-  headers: {'Content-Type': 'application/json'},
-  body: jsonEncode({
-    'username_or_email': email,
-    'password': password,
-  }),
-);
+### Architecture Patterns
 
-if (response.statusCode == 200) {
-  final data = jsonDecode(response.body);
-  final token = data['token'];
-  
-  // 2. Store in Secure Storage
-  await FlutterSecureStorage().write(
-    key: 'auth_token',
-    value: token,
-  );
-  
-  // 3. Store user info
-  await Hive.box('user').put('user', data['user']);
-  
-  // 4. Navigate to home
-  Navigator.pushReplacementNamed(context, '/home');
+```
+┌─────────────────────────────────────────┐
+│           Mobile App Architecture       │
+├─────────────────────────────────────────┤
+│                                         │
+│  ┌─────────────┐   ┌────────────────┐  │
+│  │  Auth Layer  │   │  API Client    │  │
+│  │  (Token Mgmt)│   │  (Dio/Alamofire│  │
+│  └──────┬──────┘   └───────┬────────┘  │
+│         │                  │            │
+│  ┌──────┴──────────────────┴────────┐  │
+│  │         Repository Layer          │  │
+│  │  (RegimeRepo, StockRepo, etc.)   │  │
+│  └──────┬──────────────────┬────────┘  │
+│         │                  │            │
+│  ┌──────┴──────┐   ┌──────┴────────┐  │
+│  │  BLoC/VM    │   │  WebSocket    │  │
+│  │  (State)    │   │  (Real-time)  │  │
+│  └──────┬──────┘   └──────┬────────┘  │
+│         │                  │            │
+│  ┌──────┴──────────────────┴────────┐  │
+│  │              UI Layer             │  │
+│  │  (RegimeBadge, StockCard, Chart) │  │
+│  └──────────────────────────────────┘  │
+│                                         │
+└─────────────────────────────────────────┘
+```
+
+### Key Implementation Notes
+
+1. **Regime-First Design:** Always check regime before showing trade signals
+   - If Stage 4: Show "Trading Paused" overlay
+   - If Stage 1/3: Show "Cautious Mode" badge
+   - If Stage 2: Show "Full Trading" badge
+
+2. **Trend-Following Signals:**
+   - When `is_trend_following = true`, display Donchian breakout indicator
+   - Show trailing stop line on chart (dashed, moving up)
+   - Show `donchian_high` as resistance line
+
+3. **WebSocket Integration:**
+   - Connect on app start
+   - Subscribe to watchlist tickers
+   - Show price changes in real-time
+   - Push notifications for >3% alerts
+
+4. **Offline Support:**
+   - Cache last regime status (changes daily)
+   - Cache stock list (changes every 30s during market hours)
+   - Show stale data with timestamp indicator
+
+---
+
+*Last updated: March 2026 | Version 22.0 (Trend-Following Edition) | Task ID: 32*
+
+---
+
+## 📡 تحديث يوليو 2026 — APIs جديدة (إدارة الأموال + التوقعات + البيانات)
+
+### 1. نظام إدارة الأموال للعملاء (Money Management)
+
+#### `GET /api/money?section=overview`
+ملخص شامل لمحفظة العميل.
+```json
+{
+  "portfolio": {
+    "total_assets": 14,
+    "total_invested": 6459242.33,
+    "total_current_value": 96000,
+    "total_pnl": -6363242.33,
+    "total_pnl_pct": -98.51
+  },
+  "watchlist": { "count": 11 },
+  "alerts": { "active": 0 },
+  "journal": { "total": 0, "win_rate": 0 },
+  "obligations": { "count": 0, "total_remaining": 0 }
 }
 ```
 
-**Pseudocode (Android - Kotlin):**
+#### `GET /api/money?section=portfolio`
+أصول المحفظة مع الأسعار الحية + PnL لكل أصل.
 
-```kotlin
-// 1. Login
-val response = api.login(LoginRequest(email, password))
+#### `GET /api/money?section=watchlist`
+قائمة المراقبة مع تحليلات (RSI, signal, trend, sector).
 
-if (response.isSuccessful) {
-    val token = response.body()?.token
-    
-    // 2. Store in EncryptedSharedPreferences
-    val masterKey = MasterKey.Builder(context)
-        .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
-        .build()
-    
-    val sharedPreferences = EncryptedSharedPreferences.create(
-        context,
-        "secret_shared_prefs",
-        masterKey,
-        EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-        EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
-    )
-    
-    sharedPreferences.edit().putString("auth_token", token).apply()
-}
-```
+#### `GET /api/money?section=alerts`
+التنبيهات النشطة مع الأسعار الحالية.
 
-**Token Validation on App Start:**
+#### `GET /api/money?section=journal`
+ذاكرة التداول + إحصائيات (win_rate, total_pnl, avg_return).
 
-```dart
-Future<bool> validateToken() async {
-  final token = await FlutterSecureStorage().read(key: 'auth_token');
-  if (token == null) return false;
-  
-  final response = await http.get(
-    Uri.parse('$baseUrl/api/mobile/auth/me'),
-    headers: {'Authorization': 'Bearer $token'},
-  );
-  
-  if (response.statusCode == 200) {
-    final data = jsonDecode(response.body);
-    if (data['success'] == true) {
-      // Token valid, update user info
-      await Hive.box('user').put('user', data['user']);
-      return true;
+---
+
+### 2. المراقب الذكي للمحفظة (Smart Portfolio Monitor)
+
+#### `GET /api/money/smart-monitor`
+تحليل ذكي لحظي لكل سهم في محفظة العميل.
+```json
+{
+  "summary": {
+    "total_assets": 11,
+    "total_invested": 208642.33,
+    "total_current_value": 200092.22,
+    "total_pnl": -8550.11,
+    "sell_count": 3,
+    "buy_more_count": 0,
+    "hold_count": 8
+  },
+  "stock_signals": [
+    {
+      "ticker": "DSCW",
+      "action": "STOP_LOSS",
+      "action_ar": "🚨 إيقاف خسارة — بِع فوراً",
+      "reason": "خسارة -9.3% — تجاوز حد الإيقاف",
+      "confidence": 90,
+      "stop_loss": 1.78,
+      "take_profit": 2.23,
+      "average_suggestion": null
     }
+  ],
+  "wealth_plan": {
+    "recommended_allocation": { "stock": 40, "gold": 25, "bank": 20, "cash": 10, "crypto": 5 },
+    "current_allocation": { "stock": 100.0 },
+    "gaps": ["زيادة في stock: 100% (المثالي 40%)"],
+    "recommendations": ["📤 قلّل أسهم 60%", "📥 زِد ذهب 25%"]
+  },
+  "alerts": ["🚨 DSCW: خسارة -9.3% — بِع فوراً"]
+}
+```
+
+**إشارات ذكية:**
+| الإشارة | الشرط | الإجراء |
+|---------|-------|---------|
+| `STOP_LOSS` | خسارة ≥ -8% | 🚨 بيع فوري |
+| `TAKE_PROFIT` | ربح ≥ +15% | ✅ جني أرباح |
+| `SELL` | RSI > 70 + ربح | 📤 بيع |
+| `BUY_MORE` | RSI < 30 + خسارة | 📥 متوسط (averaging) |
+| `HOLD` | ضمن الحدود | ⏸️ احتفظ |
+
+**اقتراح المتوسط (Averaging):**
+عند `BUY_MORE`، يرجع:
+```json
+{
+  "average_suggestion": {
+    "new_avg_if_buy": 1.85,
+    "shares_to_buy": 29938,
+    "cost_to_average": 52690.88
   }
-  
-  // 401 - clear token
-  await FlutterSecureStorage().delete(key: 'auth_token');
-  return false;
 }
 ```
 
 ---
 
-### 2. 📊 Stocks List Pagination
+### 3. تتبع الثروة (Wealth Tracking)
 
-```dart
-class StocksService {
-  int _currentPage = 1;
-  final int _pageSize = 50;
-  bool _hasMore = true;
-  List<Stock> _stocks = [];
-  
-  Future<List<Stock>> fetchFirstPage({String? market}) async {
-    _currentPage = 1;
-    _stocks = [];
-    _hasMore = true;
-    return _fetchPage(market: market);
-  }
-  
-  Future<List<Stock>> fetchNextPage({String? market}) async {
-    if (!_hasMore) return _stocks;
-    _currentPage++;
-    return _fetchPage(market: market);
-  }
-  
-  Future<List<Stock>> _fetchPage({String? market}) async {
-    final queryParams = {
-      'page': _currentPage.toString(),
-      'limit': _pageSize.toString(),
-    };
-    if (market != null) queryParams['market'] = market;
-    
-    final uri = Uri.parse('$baseUrl/api/stocks')
-        .replace(queryParameters: queryParams);
-    
-    final response = await http.get(uri, headers: _authHeaders());
-    final data = jsonDecode(response.body);
-    
-    final newStocks = (data['stocks'] as List)
-        .map((s) => Stock.fromJson(s))
-        .toList();
-    
-    _stocks.addAll(newStocks);
-    
-    // Check if more pages
-    final total = data['total'] as int;
-    _hasMore = _stocks.length < total;
-    
-    return _stocks;
+#### `GET /api/money/wealth?section=history&period=90`
+تاريخ الثروة اليومي للرسوم البيانية.
+```json
+{
+  "history": [
+    {
+      "date": "2026-07-11",
+      "invested": 6459242,
+      "current_value": 96000,
+      "pnl": -6363242,
+      "net_wealth": 96000,
+      "stocks": 208642,
+      "gold": 240600,
+      "bank": 6010000,
+      "income": 0,
+      "expenses": 0,
+      "obligations": 0
+    }
+  ],
+  "stats": {
+    "tracking_days": 1,
+    "tracking_since": "2026-07-11",
+    "latest_net_wealth": 96000,
+    "total_change": 0,
+    "best_day": { "date": "2026-07-11", "pnl": -6363242 },
+    "worst_day": { "date": "2026-07-11", "pnl": -6363242 },
+    "allocation": { "stocks": 208642, "gold": 240600, "bank": 6010000 },
+    "cashflow": { "income": 0, "expenses": 0, "net": 0 }
   }
 }
 ```
 
-**Usage with ScrollController:**
+#### `GET /api/money/wealth?section=expenses`
+المصاريف مجمّعة حسب الفئة + التاريخ.
 
-```dart
-ScrollController _scrollController = ScrollController();
+#### `POST /api/money/wealth`
+تسجيل لقطة ثروة جديدة (يومية تلقائية via MarketScheduler).
 
-@override
-void initState() {
-  super.initState();
-  _scrollController.addListener(() {
-    if (_scrollController.position.pixels == 
-        _scrollController.position.maxScrollExtent) {
-      _loadMore();  // fetch next page
+#### `POST /api/money/wealth` (body: `{ type: "expense", ... }`)
+إضافة مصروف جديد.
+
+---
+
+### 4. محرك التوقعات المحسّن (Prediction Optimizer)
+
+#### `GET /api/prediction-optimizer/params`
+قراءة المعاملات الحالية (11 معامل قابل للتحكم).
+
+#### `POST /api/prediction-optimizer/params`
+تحديث المعاملات من لوحة التحكم.
+
+#### `POST /api/prediction-optimizer/params/reset`
+إعادة التعيين للقيم الافتراضية.
+
+#### `POST /api/prediction-optimizer/backtest`
+اختبار سريع (100 سهم، آخر 60 يوم).
+
+#### `GET /api/market-manager/status`
+حالة كل الأسواق (EGX, Crypto, Tadawul).
+
+#### `GET /api/market-manager/analyze?ticker=COMI&market=EGX`
+تحليل سهم في سوق معين باستخدام كل المحركات.
+
+---
+
+### 5. الكريبتو (24/7 Live)
+
+#### `GET /api/crypto/live-simulation?limit=10`
+تحليل أهم العملات الرقمية لحظياً.
+
+#### `GET /api/crypto/live-simulation?symbol=BTC`
+تحليل عملة واحدة.
+
+#### `GET /api/crypto/historical-backtest?symbol=BTC&days=60`
+Backtest تاريخي للكريبتو.
+
+#### `GET /api/crypto/available`
+قائمة العملات المتاحة.
+
+---
+
+### 6. رفع بيانات EGX
+
+#### `POST /api/admin/egx-indices/upload`
+رفع CSV لبيانات EGX30/EGX100.
+- Body: FormData (`file` + `indexType`)
+- يدعم أعمدة عربية + إنجليزية
+- يخزّن في `price_history.db`
+
+#### `GET /api/admin/egx-indices/upload`
+حالة بيانات المؤشرات.
+
+---
+
+### 7. أداء التوقعات
+
+#### `GET /api/predictions/performance-dashboard?days=30`
+لوحة أداء شاملة (win rate, PF, by signal, by score).
+
+#### `GET /api/predictions/performance/summary`
+ملخص سريع للأداء.
+
+---
+
+# 🆕 تحديث يوليو 2026 — APIs الجديدة (v23)
+
+> **تاريخ التحديث:** 14 يوليو 2026
+> **سبب التحديث:** إضافة RAG AI pipeline + Live AI Monitor + Trade Recorder + Historical Trade Generator + Smart Portfolio Monitor + إصلاحات schema
+
+## جدول الـ APIs الجديدة
+
+| # | Endpoint | Method | الوصف |
+|---|----------|--------|------|
+| 1 | `/api/ai/status` | GET | فحص Ollama + قائمة النماذج |
+| 2 | `/api/ai/decision/<ticker>` | GET | قرار AI لسهم (BUY/SELL/HOLD + confidence + reason) |
+| 3 | `/api/ai/compare` | POST | مقارنة 2-5 أسهم بالـ AI |
+| 4 | `/api/ai/ask` | POST | سؤال حر للمحلل «الصايع» |
+| 5 | `/api/ai/live/signals` | GET | آخر إشارات AI (آخر N ساعة) |
+| 6 | `/api/ai/live/scan` | GET | مسح فوري: hot stocks + AI analysis |
+| 7 | `/api/ai/hot-stocks` | GET | الأسهم الساخنة (change + volume + RSI) |
+| 8 | `/api/ai/trades/record` | POST | تسجيل صفقة (BUY/SELL) |
+| 9 | `/api/ai/trades/<user_id>` | GET | كل صفقات المستخدم |
+| 10 | `/api/ai/trades/<user_id>/performance` | GET | إحصائيات الأداء (win rate, avg pnl) |
+| 11 | `/api/ai/trades/learn` | POST | تشغيل learning loop يدوياً |
+| 12 | `/api/ai/trades/outcomes` | GET | نتائج الصفقات للتحليل |
+| 13 | `/api/ai/historical/generate` | GET | توليد صفقات تاريخية للتعلم |
+| 14 | `/api/ai/historical/feed-ai` | POST | تغذية AI بالصفقات (→ stock_stories) |
+| 15 | `/api/ai/historical/stats` | GET | إحصائيات الصفقات التاريخية |
+| 16 | `/api/maestro/regime` | GET | حالة السوق (bull/bear/range) |
+| 17 | `/api/admin/trigger-analysis` | POST | تحليل فوري (يتخطّى is_market_open) |
+| 18 | `/api/daily/rebuild-predictions` | GET | إحصائيات التوقعات (performance object) |
+| 19 | `/api/unified/predictions` | GET/POST | قائمة + trigger التوقعات |
+| 20 | `/api/portfolio/smart-monitor` | GET | تحليل ذكي للمحفظة (TAKE_PROFIT/STOP_LOSS/SELL) |
+| 21 | `/api/portfolio/smart-monitor/signals` | GET | الإشارات النشطة فقط |
+
+---
+
+## 1. 🤖 AI APIs (الـ prefix: `/api/ai`)
+
+### 1.1 `GET /api/ai/status`
+فحص حالة Ollama + قائمة النماذج المثبتة.
+
+**Response:**
+```json
+{
+  "status": "online",
+  "models": ["glm-fast:latest", "qwen2.5:1.5b", "qwen3:1.7b"],
+  "ollama_url": "http://localhost:11434"
+}
+```
+
+### 1.2 `GET /api/ai/decision/<ticker>`
+قرار AI لسهم معيّن (BUY/SELL/HOLD + confidence + reason + narrative).
+
+**Query params:** None
+
+**Response:**
+```json
+{
+  "ticker": "DSCW",
+  "decision": "BUY",
+  "confidence": 85,
+  "reason": "RSI في المقدمة يشير إلى ارتفاع...",
+  "narrative": "السهم فيه مؤشرات إيجابية...",
+  "source": "database_precomputed",
+  "updated_at": "2026-07-14 07:10:16"
+}
+```
+
+**`source` values:**
+- `database_precomputed` — من كاش nightly_analysis (الأسرع)
+- `live_ai` — من استدعاء Ollama لحظياً
+- `live_fallback` — لو AI فشل
+
+### 1.3 `POST /api/ai/compare`
+مقارنة 2-5 أسهم بالـ AI.
+
+**Body:**
+```json
+{
+  "tickers": ["COMI", "EFID", "HRHO"]
+}
+```
+
+### 1.4 `POST /api/ai/ask`
+سؤال حر للـ AI.
+
+**Body:**
+```json
+{
+  "question": "هل أسهم COMI كويسة للشراء؟",
+  "context": {"market": "EGX"}
+}
+```
+
+### 1.5 `GET /api/ai/live/signals`
+آخر إشارات AI (آخر N ساعة).
+
+**Query params:**
+- `hours` — عدد الساعات (افتراضي 4)
+- `market` — السوق (افتراضي EGX)
+
+**Response:**
+```json
+{
+  "success": true,
+  "count": 5,
+  "hours": 4,
+  "signals": [
+    {
+      "ticker": "COMI",
+      "decision": "BUY",
+      "confidence": 75,
+      "reason": "...",
+      "source": "live_ai",
+      "detected_at": "2026-07-14T10:30:00"
     }
-  });
-  _loadFirstPage();
+  ]
+}
+```
+
+### 1.6 `GET /api/ai/live/scan`
+مسح فوري للأسهم الساخنة + تحليل AI.
+
+**Query params:**
+- `market` — السوق (افتراضي EGX)
+- `max_stocks` — أقصى عدد أسهم (افتراضي 10)
+
+**Response:**
+```json
+{
+  "success": true,
+  "analyzed": 5,
+  "success_count": 3,
+  "failed": 2,
+  "signals": [...]
+}
+```
+
+### 1.7 `GET /api/ai/hot-stocks`
+الأسهم الساخنة بدون AI.
+
+**Query params:**
+- `market` — السوق (افتراضي EGX)
+- `min_change_pct` — أدنى تغير % (افتراضي 2.0)
+- `min_volume_ratio` — أدنى نسبة حجم (افتراضي 1.5)
+
+---
+
+## 2. 📒 Trade Recorder APIs (الـ prefix: `/api/ai/trades`)
+
+### 2.1 `POST /api/ai/trades/record`
+تسجيل صفقة مستخدم (BUY/SELL).
+
+**Body:**
+```json
+{
+  "user_id": "user123",
+  "ticker": "ELKA",
+  "trade_type": "BUY",
+  "price": 10.50,
+  "quantity": 1000,
+  "trade_date": "2026-07-10",
+  "notes": "شراء عادي"
+}
+```
+
+**Response (SELL):**
+```json
+{
+  "success": true,
+  "outcome": "WIN",
+  "pnl": 2300.0,
+  "pnl_pct": 21.9,
+  "holding_days": 4,
+  "prediction_before_buy": "hold",
+  "had_live_signal": 0,
+  "pattern_type": "breakout"
+}
+```
+
+### 2.2 `GET /api/ai/trades/<user_id>`
+كل صفقات المستخدم.
+
+**Query params:**
+- `limit` — عدد النتائج (افتراضي 50)
+
+### 2.3 `GET /api/ai/trades/<user_id>/performance`
+إحصائيات الأداء.
+
+**Response:**
+```json
+{
+  "success": true,
+  "stats": {
+    "total_trades": 10,
+    "wins": 6,
+    "losses": 4,
+    "win_rate": 60.0,
+    "avg_pnl_pct": 5.2,
+    "best_trade": {"ticker": "ELKA", "pnl_pct": 21.9},
+    "worst_trade": {"ticker": "XYZ", "pnl_pct": -8.0}
+  }
+}
+```
+
+### 2.4 `POST /api/ai/trades/learn`
+تشغيل learning loop يدوياً.
+
+**Body:** `{"user_id": "user123"}` (اختياري)
+
+### 2.5 `GET /api/ai/trades/outcomes`
+نتائج الصفقات للتحليل.
+
+---
+
+## 3. 📜 Historical Trade Generator APIs (الـ prefix: `/api/ai/historical`)
+
+### 3.1 `GET /api/ai/historical/generate`
+توليد صفقات تاريخية للتعلم.
+
+**Query params:**
+- `days_back` — عدد الأيام للوراء (افتراضي 180)
+- `max_trades_per_ticker` — أقصى صفقات لكل سهم (افتراضي 50)
+- `ticker_limit` — عدد الأسهم (0 = الكل، افتراضي 20)
+
+**Response:**
+```json
+{
+  "success": true,
+  "total_tickers": 20,
+  "successful_tickers": 20,
+  "total_trades": 209,
+  "elapsed_seconds": 0.5
+}
+```
+
+### 3.2 `POST /api/ai/historical/feed-ai`
+تغذية AI بالصفقات (تحويلها لـ stories في stock_stories table).
+
+**Body:** `{"limit": 10000}`
+
+### 3.3 `GET /api/ai/historical/stats`
+إحصائيات الصفقات التاريخية.
+
+**Response:**
+```json
+{
+  "total_historical_trades": 209,
+  "fed_to_ai_stories": 39,
+  "total_stock_stories": 39,
+  "by_outcome": [
+    {"outcome": "WIN", "cnt": 81, "avg_pnl": 6.0},
+    {"outcome": "LOSS", "cnt": 123, "avg_pnl": -3.2}
+  ],
+  "by_pattern": [
+    {"pattern_type": "pullback", "cnt": 93, "wins": 41},
+    {"pattern_type": "accumulation", "cnt": 56, "wins": 18}
+  ]
 }
 ```
 
 ---
 
-### 3. 📈 Live Prices Polling
+## 4. 🎯 Maestro APIs
 
-```dart
-class LivePricesService {
-  Timer? _timer;
-  final StreamController<List<Stock>> _controller = 
-      StreamController.broadcast();
-  
-  Stream<List<Stock>> get pricesStream => _controller.stream;
-  
-  void startPolling() async {
-    // Get market status first
-    final marketStatus = await _fetchMarketStatus();
-    final isOpen = marketStatus['is_market_hours'] as bool;
-    
-    // Poll based on market status
-    final interval = isOpen ? Duration(minutes: 5) : Duration(minutes: 30);
-    
-    _timer = Timer.periodic(interval, (_) async {
-      final stocks = await _fetchDashboardTopMovers();
-      _controller.add(stocks);
-    });
-  }
-  
-  void stopPolling() {
-    _timer?.cancel();
-    _timer = null;
-  }
-  
-  Future<List<Stock>> _fetchDashboardTopMovers() async {
-    final response = await http.get(
-      Uri.parse('$baseUrl/api/mobile/dashboard'),
-      headers: _authHeaders(),
-    );
-    
-    if (response.statusCode == 200) {
-      final data = jsonDecode(response.body);
-      final topMovers = data['top_movers'];
-      return [
-        ...(topMovers['gainers'] as List).map((s) => Stock.fromJson(s)),
-        ...(topMovers['losers'] as List).map((s) => Stock.fromJson(s)),
-      ];
-    }
-    return [];
-  }
+### 4.1 `GET /api/maestro/regime` (جديد)
+حالة السوق (bull/bear/range).
+
+**Query params:**
+- `market` — السوق (افتراضي EGX)
+
+**Response:**
+```json
+{
+  "success": true,
+  "market": "EGX",
+  "regime": "range",
+  "regime_ar": "عرضي",
+  "stage": 2,
+  "confidence": 50,
+  "indicators": {},
+  "timestamp": "2026-07-14T12:00:00"
 }
 ```
 
-**Usage in Home Screen:**
+### 4.2 `POST /api/admin/trigger-analysis` (جديد)
+تحليل فوري لـ N أسهم — **يتخطّى `is_market_open` check**.
 
-```dart
-@override
-void initState() {
-  super.initState();
-  LivePricesService().startPolling();
-  LivePricesService().pricesStream.listen((stocks) {
-    setState(() {
-      _liveStocks = stocks;
-    });
-  });
+**Body:**
+```json
+{
+  "market": "EGX",
+  "limit": 20
 }
+```
 
-@override
-void dispose() {
-  LivePricesService().stopPolling();
-  super.dispose();
+**Response:**
+```json
+{
+  "success": true,
+  "market": "EGX",
+  "analyzed": 4,
+  "buy_signals": 1,
+  "errors": 0,
+  "total_stocks": 20,
+  "predictions_generated": 3,
+  "insert_errors": [],
+  "message": "تم تحليل 4 سهم — 1 إشارة شراء — 3 توقع في aiPrediction"
 }
 ```
 
 ---
 
-### 4. 💾 Mobile Caching Strategy
+## 5. 📊 Prediction Performance APIs
 
-**Three-tier caching:**
+### 5.1 `GET /api/daily/rebuild-predictions` (محدّث)
+إحصائيات التوقعات — الـ schema الكاملة.
 
-```dart
-class CacheManager {
-  // Tier 1: Memory (instant access)
-  final Map<String, CacheEntry> _memoryCache = {};
-  
-  // Tier 2: Disk (Hive boxes)
-  final Box _diskCache = Hive.box('api_cache');
-  
-  // Tier 3: Network
-  final http.Client _client = http.Client();
-  
-  Future<dynamic> get(String endpoint, {Duration? ttl}) async {
-    final cacheKey = endpoint;
-    final effectiveTtl = ttl ?? Duration(minutes: 5);
-    
-    // Check memory
-    if (_memoryCache.containsKey(cacheKey)) {
-      final entry = _memoryCache[cacheKey]!;
-      if (DateTime.now().difference(entry.timestamp) < effectiveTtl) {
-        return entry.data;
+**Response:**
+```json
+{
+  "success": true,
+  "performance": {
+    "total_predictions": 4,
+    "active_predictions": 4,
+    "closed_predictions": 2,
+    "successful": 1,
+    "stopped": 1,
+    "expired": 0,
+    "success_rate": 50.0,
+    "avg_return": 2.5,
+    "best_return": 5.0,
+    "worst_return": 0.0,
+    "high_confidence_rate": 25.0,
+    "medium_confidence_rate": 50.0,
+    "low_confidence_rate": 25.0
+  },
+  "activePredictions": [...],
+  "closedPredictions": [...],
+  "stats": {
+    "today": 4,
+    "weekly": 4,
+    "monthly": 4,
+    "totalProfitLoss": "+5.00%"
+  }
+}
+```
+
+### 5.2 `GET /api/unified/predictions` (محدّث)
+قائمة التوقعات مع **الأسماء العربية + القطاعات**.
+
+**Query params:**
+- `market` — السوق (افتراضي ALL)
+- `limit` — عدد النتائج (افتراضي 100)
+
+**Response (كل prediction):**
+```json
+{
+  "ticker": "ASCM",
+  "symbol": "ASCM",
+  "name": "اسيك للتعدين",
+  "name_ar": "اسيك للتعدين",
+  "sector": "المعادن الأخرى - غير مصادر الطاقة",
+  "score": 71.8,
+  "maestro_score": 71.8,
+  "signal": "BUY",
+  "signal_ar": "شراء",
+  "entry_price": 60.01,
+  "target_price": 66.01,
+  "stop_loss": 55.21,
+  "confidence": 100.0,
+  "regime": "range",
+  "created_at": "2026-07-14 12:30:16"
+}
+```
+
+### 5.3 `POST /api/unified/predictions`
+Trigger إعادة بناء التوقعات.
+
+**Body:** `{"market": "EGX"}`
+
+---
+
+## 6. 💼 Smart Portfolio Monitor APIs (الـ prefix: `/api/portfolio`)
+
+### 6.1 `GET /api/portfolio/smart-monitor` (جديد)
+تحليل ذكي لمحفظة المستخدم — بيع/شراء/احتفاظ لكل سهم.
+
+**Query params:**
+- `user_id` — مطلوب
+
+**Response:**
+```json
+{
+  "success": true,
+  "user_id": "user123",
+  "summary": {
+    "total_assets": 5,
+    "total_invested": 10000,
+    "total_current_value": 11500,
+    "total_pnl": 1500,
+    "total_pnl_pct": 15.0,
+    "sell_count": 2,
+    "buy_more_count": 1,
+    "hold_count": 2
+  },
+  "stock_signals": [
+    {
+      "ticker": "ELKA",
+      "name": "...",
+      "current_price": 12.5,
+      "purchase_price": 10.5,
+      "pnl_pct": 19.0,
+      "action": "TAKE_PROFIT",
+      "action_ar": "✅ جني أرباح — بِع جزء",
+      "reason": "ربح 19.0% — حقق الهدف (+15%)",
+      "confidence": 85
+    }
+  ],
+  "alerts": ["✅ ELKA: ربح 19.0% — جني أرباح موصى به"]
+}
+```
+
+**`action` values:**
+- `TAKE_PROFIT` — ربح ≥15%
+- `SELL` — RSI>70 + ربح >5%
+- `STOP_LOSS` — خسارة ≥8%
+- `BUY_MORE` — RSI<30 + خسارة >3% (فرصة متوسط)
+- `HOLD` — باقي الحالات
+
+### 6.2 `GET /api/portfolio/smart-monitor/signals` (جديد)
+الإشارات النشطة فقط (بدون HOLD) — أسرع endpoint.
+
+---
+
+## 7. 🔫 Sniper Engine APIs (محدّث)
+
+### 7.1 `GET /api/sniper/scan` (محدّث)
+مسح الأسهم بـ 5 بوابات — **`min_gates` بقى persona-aware**.
+
+**Query params:**
+- `market` — السوق (افتراضي EGX)
+- `persona` — `gambler` / `balanced` / `investor` (افتراضي balanced)
+- `min_gates` — لو مش محدد، بيتبنى على persona:
+  - `gambler` → 2 (يقبل مخاطرة أكبر)
+  - `balanced` → 3
+  - `investor` → 4 (أكثر حذر)
+- `limit` — عدد النتائج (افتراضي 10)
+
+---
+
+## 8. 🗄️ جداول DB الجديدة
+
+### 8.1 `live_ai_signals` (في predictions.db)
+إشارات AI اللحظية أثناء الجلسة.
+
+| العمود | النوع | الوصف |
+|--------|------|------|
+| `id` | INTEGER PK | — |
+| `ticker` | TEXT | رمز السهم |
+| `decision` | TEXT | BUY/SELL/HOLD/WATCH |
+| `confidence` | INTEGER | 0-100 |
+| `reason` | TEXT | السبب |
+| `narrative` | TEXT | التحليل بالعربي |
+| `source` | TEXT | live_ai / hot_stock / breakout / volume_spike |
+| `indicators_json` | TEXT | snapshot of indicators |
+| `detected_at` | TEXT | ISO timestamp |
+| `created_at` | TEXT | datetime('now') |
+
+### 8.2 `user_trades` (في predictions.db)
+صفقات المستخدم الفعلية.
+
+| العمود | النوع | الوصف |
+|--------|------|------|
+| `id` | INTEGER PK | — |
+| `user_id` | TEXT | معرف المستخدم |
+| `ticker` | TEXT | رمز السهم |
+| `trade_type` | TEXT | BUY / SELL |
+| `price` | REAL | السعر |
+| `quantity` | REAL | العدد |
+| `trade_date` | TEXT | ISO date |
+| `notes` | TEXT | ملاحظات |
+| `created_at` | TEXT | datetime('now') |
+
+### 8.3 `trade_outcomes` (في predictions.db)
+نتائج الصفقات + تحليلها.
+
+| العمود | النوع | الوصف |
+|--------|------|------|
+| `id` | INTEGER PK | — |
+| `user_id` | TEXT | — |
+| `ticker` | TEXT | — |
+| `buy_date` | TEXT | — |
+| `buy_price` | REAL | — |
+| `sell_date` | TEXT | — |
+| `sell_price` | REAL | — |
+| `quantity` | REAL | — |
+| `pnl` | REAL | الربح/الخسارة بالجنيه |
+| `pnl_pct` | REAL | النسبة % |
+| `holding_days` | INTEGER | — |
+| `outcome` | TEXT | WIN / LOSS / BREAKEVEN |
+| `prediction_before_buy` | TEXT | recommendation من stored_analyses |
+| `maestro_score_before` | REAL | — |
+| `ai_decision_before` | TEXT | — |
+| `had_live_signal` | INTEGER | هل فيه live_ai_signal قبل الشراء؟ |
+| `pattern_type` | TEXT | breakout/volume_spike/reversal/accumulation |
+| `lessons` | TEXT | دروس مستفادة بالعربي |
+| `analyzed` | INTEGER | هل الـ learning engine حله؟ |
+
+### 8.4 `historical_trades` (في predictions.db)
+صفقات تاريخية مولّدة للتعلم.
+
+| العمود | النوع | الوصف |
+|--------|------|------|
+| `id` | INTEGER PK | — |
+| `ticker` | TEXT | — |
+| `strategy` | TEXT | support_bounce/breakout_play/pullback_buy/momentum_ride/value_dip |
+| `buy_date` | TEXT | — |
+| `buy_price` | REAL | — |
+| `sell_date` | TEXT | — |
+| `sell_price` | REAL | — |
+| `pnl_pct` | REAL | — |
+| `holding_days` | INTEGER | — |
+| `outcome` | TEXT | WIN / LOSS / BREAKEVEN |
+| `pattern_type` | TEXT | breakout/reversal/accumulation/momentum/volume_spike/pullback |
+| `market_condition` | TEXT | bull / bear / sideways |
+| `rsi_at_buy` | REAL | — |
+| `volume_ratio_at_buy` | REAL | — |
+| `lesson_text` | TEXT | story عربية للـ AI |
+| `fed_to_ai` | INTEGER | هل اتبعتت لـ stock_stories؟ |
+
+---
+
+## 9. 🔄 Scheduler Tasks الجديدة
+
+| الـ Task | التكرار | الوقت | الوصف |
+|---------|--------|------|------|
+| `run_live_ai_scan` | كل 15 دقيقة | أثناء الجلسة | كشف أسهم ساخنة + AI analysis |
+| `run_daily_trade_learning` | يومياً | 15:30 post-market | تحليل صفقات المستخدم |
+| `run_weekly_historical_learning` | أسبوعياً (السبت) | 16:00 | توليد صفقات تاريخية + feed AI |
+
+---
+
+## 10. 📝 ملاحظات للموبايل
+
+### 10.1 الـ endpoints اللي محتاجها auth
+- `/api/ai/trades/*` — محتاجة `user_id`
+- `/api/portfolio/smart-monitor*` — محتاجة `user_id`
+- `/api/portfolio/*` — محتاجة auth token
+
+### 10.2 الـ endpoints المفتوحة
+- `/api/ai/status` — فحص Ollama
+- `/api/ai/decision/<ticker>` — قرار AI (ممكن بدون auth)
+- `/api/ai/hot-stocks` — أسهم ساخنة
+- `/api/ai/live/scan` — مسح فوري
+- `/api/maestro/regime` — حالة السوق
+- `/api/unified/predictions` — قائمة التوقعات
+- `/api/daily/rebuild-predictions` — إحصائيات
+
+### 10.3 الـ response format الموحّد
+كل الـ endpoints الجديدة بترجّع:
+```json
+{
+  "success": true/false,
+  "error": "رسالة الخطأ (لو فيه)",
+  ...data
+}
+```
+
+### 10.4 الـ errors
+- `400` — bad request (field مطلوب ناقص)
+- `404` — السهم مش موجود
+- `500` — internal error (الـ response بيرجّع 200 مش 500 عشان الـ frontend ما يفصلش)
+- `503` — service unavailable (Ollama واقل مثلاً)
+
+### 10.5 الـ rate limiting
+مفيش rate limiting حالياً. بس الـ AI endpoints (`/api/ai/live/scan`, `/api/ai/decision`) بياخدوا وقت (30-60s) عشان Ollama. يفضل الـ mobile يعمل timeout = 90s.
+
+
+---
+
+# 🆕 تحديث إضافي يوليو 2026 — Telegram Importer + Premium
+
+## Telegram Signal Importer APIs (جديد)
+
+| # | Endpoint | Method | الوصف |
+|---|----------|--------|------|
+| 1 | `/api/ai/telegram/import` | POST | استيراد توصيات من جروب |
+| 2 | `/api/ai/telegram/evaluate` | POST | تقييم التوصيات (بعد N أيام) |
+| 3 | `/api/ai/telegram/stats` | GET | إحصائيات التوصيات |
+| 4 | `/api/ai/telegram/signals` | GET | قائمة التوصيات |
+
+### `POST /api/ai/telegram/import`
+**Body:** `{"group_username": "@group_name", "limit": 100}`
+
+**Response:** `{"success": true, "imported": 25, "skipped": 75}`
+
+### `POST /api/ai/telegram/evaluate`
+**Body:** `{"days_back": 7}`
+
+**Response:**
+```json
+{
+  "success": true,
+  "evaluated": 20,
+  "wins": 12,
+  "losses": 8,
+  "win_rate": 60.0
+}
+```
+
+## Premium Predictions APIs (جديد)
+
+### `GET /api/ai/premium/predictions`
+توقعات أعمق للمدفوعين.
+
+**Query params:**
+- `market` — السوق (افتراضي EGX)
+- `limit` — عدد النتائج (افتراضي 10، حد أقصى 20)
+- `tier` — فلترة (1/2/3/all)
+
+**Response:**
+```json
+{
+  "success": true,
+  "premium": true,
+  "count": 5,
+  "predictions": [
+    {
+      "ticker": "COMI",
+      "name": "البنك التجاري الدولي",
+      "tier": {
+        "number": 1,
+        "name": "Strong Buy",
+        "name_ar": "شراء قوي",
+        "description": "🟢 عوامل متفقة بقوة — فرصة ممتازة"
+      },
+      "confluence_score": 82.5,
+      "maestro_score": 85,
+      "ai_confidence": 75,
+      "risk_reward": 2.5,
+      "premium_features": {
+        "ai_narrative": "تحليل AI متقدم...",
+        "risk_assessment": "...",
+        "multi_factor": true
       }
     }
-    
-    // Check disk
-    final diskData = _diskCache.get(cacheKey);
-    if (diskData != null) {
-      final entry = CacheEntry.fromJson(diskData);
-      if (DateTime.now().difference(entry.timestamp) < effectiveTtl) {
-        _memoryCache[cacheKey] = entry;
-        return entry.data;
-      }
-    }
-    
-    // Fetch from network
-    final response = await _client.get(
-      Uri.parse('$baseUrl$endpoint'),
-      headers: _authHeaders(),
-    );
-    
-    if (response.statusCode == 200) {
-      final data = jsonDecode(response.body);
-      final entry = CacheEntry(
-        data: data,
-        timestamp: DateTime.now(),
-      );
-      
-      // Save to both caches
-      _memoryCache[cacheKey] = entry;
-      await _diskCache.put(cacheKey, entry.toJson());
-      
-      return data;
-    }
-    
-    // Return stale cache if available
-    if (_memoryCache.containsKey(cacheKey)) {
-      return _memoryCache[cacheKey]!.data;
-    }
-    if (diskData != null) {
-      return CacheEntry.fromJson(diskData).data;
-    }
-    
-    throw Exception('Failed to fetch: ${response.statusCode}');
-  }
-}
-
-class CacheEntry {
-  final dynamic data;
-  final DateTime timestamp;
-  
-  CacheEntry({required this.data, required this.timestamp});
-  
-  Map<String, dynamic> toJson() => {
-    'data': data,
-    'timestamp': timestamp.toIso8601String(),
-  };
-  
-  factory CacheEntry.fromJson(Map<String, dynamic> json) => CacheEntry(
-    data: json['data'],
-    timestamp: DateTime.parse(json['timestamp']),
-  );
+  ],
+  "tier_distribution": {"1": 2, "2": 3, "3": 0, "4": 0}
 }
 ```
 
-**Recommended Cache TTLs:**
+### Confidence Tiers
+| Tier | Score | المعنى |
+|------|-------|--------|
+| 1 | ≥75 | 🟢 Strong Buy — فرصة ممتازة |
+| 2 | 60-74 | 🟡 Buy — فرصة جيدة |
+| 3 | 45-59 | 🟠 Accumulate — تجميع تدريجي |
+| 4 | <45 | ⚪ Watch — انتظر تأكيد |
 
-| Endpoint | TTL | Reason |
-|----------|-----|--------|
-| `/api/auth/me` | 1 hour | User data rarely changes |
-| `/api/stocks` (list) | 5 min | Prices update, but list stable |
-| `/api/stocks/{ticker}` | 1 min | Live prices during market |
-| `/api/stocks/{ticker}/history` | 1 hour | Daily history stable |
-| `/api/chart/{ticker}` | 5 min | Intraday updates |
-| `/api/mobile/dashboard` | 5 min | Aggregated data |
-| `/api/mobile/news` | 5 min | Server-side cache 5 min |
-| `/api/predictions` | 1 hour | New predictions daily |
-| `/api/subscription/plans` | 24 hours | Plans rarely change |
-| `/api/subscription/current` | 1 min | After payment, refresh |
-
----
-
-### 5. 🔄 Error Handling & Retries
-
-```dart
-class ApiClient {
-  final http.Client _client;
-  
-  Future<ApiResponse> request(
-    String method,
-    String endpoint, {
-    Map<String, dynamic>? body,
-    int maxRetries = 3,
-  }) async {
-    int attempt = 0;
-    
-    while (attempt < maxRetries) {
-      attempt++;
-      
-      try {
-        final response = await _client
-            .send(http.Request(method, Uri.parse('$baseUrl$endpoint'))
-              ..headers.addAll(_authHeaders())
-              ..body = body != null ? jsonEncode(body) : '')
-            .timeout(Duration(seconds: 15));
-        
-        // Success
-        if (response.statusCode >= 200 && response.statusCode < 300) {
-          final data = jsonDecode(await response.stream.bytesToString());
-          return ApiResponse(success: true, data: data);
-        }
-        
-        // Auth errors - no retry
-        if (response.statusCode == 401 || response.statusCode == 403) {
-          await _handleAuthError(response.statusCode);
-          return ApiResponse(
-            success: false, 
-            error: 'Authentication error',
-            statusCode: response.statusCode,
-          );
-        }
-        
-        // Client errors (4xx) - no retry
-        if (response.statusCode >= 400 && response.statusCode < 500) {
-          return ApiResponse(
-            success: false,
-            error: 'Client error: ${response.statusCode}',
-            statusCode: response.statusCode,
-          );
-        }
-        
-        // Server errors (5xx) - retry with exponential backoff
-        if (response.statusCode >= 500 && attempt < maxRetries) {
-          final delay = Duration(seconds: 1 << attempt); // 2, 4, 8 seconds
-          await Future.delayed(delay);
-          continue;
-        }
-        
-        return ApiResponse(
-          success: false,
-          error: 'Server error: ${response.statusCode}',
-          statusCode: response.statusCode,
-        );
-        
-      } on TimeoutException {
-        if (attempt < maxRetries) {
-          await Future.delayed(Duration(seconds: 2 * attempt));
-          continue;
-        }
-        return ApiResponse(success: false, error: 'Request timeout');
-        
-      } on SocketException {
-        if (attempt < maxRetries) {
-          await Future.delayed(Duration(seconds: 2 * attempt));
-          continue;
-        }
-        return ApiResponse(success: false, error: 'No internet connection');
-      }
-    }
-    
-    return ApiResponse(success: false, error: 'Max retries exceeded');
-  }
-  
-  Future<void> _handleAuthError(int statusCode) async {
-    if (statusCode == 401) {
-      // Token expired or invalid
-      await FlutterSecureStorage().delete(key: 'auth_token');
-      // Navigate to login
-      navigatorKey.currentState?.pushNamedAndRemoveUntil(
-        '/login', 
-        (_) => false,
-      );
-    }
-  }
-}
-```
-
----
-
-### 6. 📱 Complete App Flow Example
-
-**App Launch → Home Screen:**
-
-```
-1. App opens
-   ↓
-2. Splash screen
-   ↓
-3. Check stored token in SecureStorage
-   ├─ Token exists → GET /api/mobile/auth/me
-   │   ├─ 200 → Navigate to Home
-   │   └─ 401 → Clear token, Navigate to Login
-   └─ No token → Navigate to Login
-   
-4. Login Screen
-   ↓
-   User enters credentials OR taps Google Sign-In
-   ↓
-   POST /api/auth/login OR POST /api/auth/google
-   ├─ 200 → Save token, Navigate to Home
-   └─ 401/403 → Show error
-   
-5. Home Screen loads
-   ↓
-   Parallel calls:
-   ├─ GET /api/mobile/dashboard (cached 5 min)
-   ├─ GET /api/mobile/notifications (cached 1 min)
-   └─ GET /api/subscription/current (cached 1 min)
-   
-6. Start live prices polling
-   ↓
-   Every 5 min (if market open):
-   GET /api/mobile/dashboard → update UI
-   
-7. User taps Stock
-   ↓
-   GET /api/mobile/stocks/COMI
-   ↓
-   Navigate to Stock Detail Screen
-   
-8. Stock Detail Screen
-   ↓
-   Parallel calls:
-   ├─ GET /api/mobile/stocks/COMI (main data)
-   ├─ GET /api/chart/COMI?period=1m&asset=stock (chart)
-   ├─ GET /api/stocks/COMI/history?days=30 (history)
-   └─ GET /api/mobile/stocks/COMI/recommendation (recommendation)
-```
-
----
-
-### 7. 🌐 Network Configuration
-
-**HTTP Client Setup (Dart/Flutter):**
-
-```dart
-class ApiConfig {
-  static const String productionUrl = 'https://invist.m2y.net';
-  static const String developmentUrl = 'http://localhost:3000';
-  static const String pythonBackendUrl = 'http://localhost:8010';
-  
-  // Use production by default, dev on debug builds
-  static String get baseUrl =>
-      kDebugMode ? developmentUrl : productionUrl;
-  
-  static const Duration defaultTimeout = Duration(seconds: 15);
-  static const Duration aiTimeout = Duration(seconds: 60);
-  static const int maxRetries = 3;
-}
-
-Map<String, String> authHeaders() {
-  final token = GetIt<AuthService>().token;
-  return {
-    'Content-Type': 'application/json',
-    'Accept': 'application/json',
-    if (token != null) 'Authorization': 'Bearer $token',
-    'User-Agent': 'DalelInvestment/1.0 (Flutter ${Platform.operatingSystem})',
-  };
-}
-```
-
-**Dio Interceptor (Flutter):**
-
-```dart
-class AuthInterceptor extends Interceptor {
-  @override
-  void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
-    final token = GetIt<AuthService>().token;
-    if (token != null) {
-      options.headers['Authorization'] = 'Bearer $token';
-    }
-    super.onRequest(options, handler);
-  }
-  
-  @override
-  void onError(DioException err, ErrorInterceptorHandler handler) {
-    if (err.response?.statusCode == 401) {
-      GetIt<AuthService>().logout();
-    }
-    super.onError(err, handler);
-  }
-}
-
-class RetryInterceptor extends Interceptor {
-  @override
-  Future<void> onError(
-    DioException err,
-    ErrorInterceptorHandler handler,
-  ) async {
-    final shouldRetry = err.response?.statusCode != null &&
-        err.response!.statusCode! >= 500 &&
-        (err.requestOptions.extra['retries'] ?? 0) < 3;
-    
-    if (shouldRetry) {
-      err.requestOptions.extra['retries'] =
-          (err.requestOptions.extra['retries'] ?? 0) + 1;
-      
-      final delay = Duration(seconds: 1 << (err.requestOptions.extra['retries']));
-      await Future.delayed(delay);
-      
-      try {
-        final response = await GetIt<Dio>().fetch(err.requestOptions);
-        handler.resolve(response);
-        return;
-      } catch (e) {
-        // Continue with original error
-      }
-    }
-    
-    handler.next(err);
-  }
-}
-```
-
----
-
-### 8. 📋 Endpoint Priority for Mobile MVP
-
-إذا كنت بتبني MVP للموبايل، ركز على الـ endpoints دي بالترتيب:
-
-**Phase 1 (MVP - يوم 1-3):**
-1. `POST /api/auth/login` + `POST /api/auth/register`
-2. `GET /api/mobile/auth/me`
-3. `GET /api/mobile/dashboard` (Home screen)
-4. `GET /api/stocks?market=EGX&page=1&limit=50` (Stocks list)
-5. `GET /api/mobile/stocks/[ticker]` (Stock detail)
-6. `GET /api/chart/[ticker]?period=1m&asset=stock` (Chart)
-7. `GET /api/mobile/news` (News feed)
-
-**Phase 2 (Core Features - يوم 4-7):**
-8. `GET /api/mobile/predictions` (Predictions tab)
-9. `GET /api/mobile/recommendations?persona=balanced` (Recommendations)
-10. `GET /api/mobile/portfolio` (Portfolio)
-11. `POST /api/mobile/portfolio` (Add to portfolio)
-12. `GET /api/watchlist` + `POST /api/watchlist` (Watchlist)
-13. `GET /api/mobile/notifications` (Notifications)
-14. `GET /api/mobile/subscription` (Subscription plans)
-
-**Phase 3 (Advanced - يوم 8-14):**
-15. `POST /api/paymob/create-payment` (Payments)
-16. `GET /api/subscription/current` (Subscription status)
-17. `POST /api/ai/chat` (AI chat)
-18. `GET /api/crypto` + `GET /api/crypto/[id]` (Crypto)
-19. `GET /api/mobile/alerts/settings` + POST/DELETE (Alerts)
-20. `GET /api/learning/content` (Learning)
-
-**Phase 4 (Polish):**
-21. `POST /api/auth/google` (Google Sign-In)
-22. `GET /api/market/status` (Market status banner)
-23. `GET /api/hunter/screener` (Screener)
-24. `GET /api/predictions/performance` (Performance tracking)
-25. `GET /api/mobile/zakat-calculator` (Zakat calculator)
-
----
-
-### 9. 🚨 Common Pitfalls
-
-**❌ Don't:**
-- Don't use `/api/portfolio` (web only) - use `/api/mobile/portfolio`
-- Don't store token in `SharedPreferences` (use `flutter_secure_storage` / `EncryptedSharedPreferences`)
-- Don't poll live prices every second - 5 min is enough
-- Don't forget `Authorization: Bearer ` prefix
-- Don't ignore `success: false` responses
-- Don't use `force_local=1` unless debugging
-
-**✅ Do:**
-- Use `/api/mobile/*` endpoints when available
-- Cache responses with proper TTLs
-- Show loading states for AI chat (can take 60s+)
-- Handle 401 gracefully (clear token, redirect to login)
-- Use `Accept: application/json` header
-- Implement exponential backoff for 5xx errors
-- Send `User-Agent` header with app name and version
-
----
-
-### 10. 🔍 Debugging Tips
-
-**Enable request logging in development:**
-
-```dart
-Dio()
-  ..interceptors.add(LogInterceptor(
-    request: true,
-    requestHeader: true,
-    requestBody: true,
-    responseHeader: true,
-    responseBody: true,
-    error: true,
-    logPrint: (obj) => print('[API] $obj'),
-  ))
-  ..interceptors.add(AuthInterceptor())
-  ..interceptors.add(RetryInterceptor());
-```
-
-**Check Python Backend health:**
-```
-GET https://invist.m2y.net/api/python/health
-```
-
-**Check Next.js API health:**
-```
-GET https://invist.m2y.net/api/health
-```
-
-**Test token validity:**
-```
-GET https://invist.m2y.net/api/mobile/auth/me
-Authorization: Bearer <your_token>
-```
-
----
-
-## 📞 Support & Resources
-
-| Resource | URL |
-|----------|-----|
-| Production | https://invist.m2y.net |
-| API Status | https://invist.m2y.net/api/health |
-| Python Backend Status | https://invist.m2y.net/api/python/health |
-| GitHub Repo | (internal) |
-| Documentation | /Documentation/ |
-| Telegram Channel | @Arabian_investment_guide |
-| Android App | https://play.google.com/store/apps/details?id=com.egx.investment |
-| Support Email | support@invist.m2y.net |
-
----
-
-## 📊 Statistics
-
-- **Total API routes (Next.js):** 360
-- **Python blueprints:** 42
-- **Mobile-specific endpoints:** 24+
-- **Phase 11 audited endpoints:** 30 (9 mobile free + 2 mobile auth + 7 fixed + 12 POST/auth)
-- **Total documented endpoints:** 200+
-- **Multi-market support:** 7 markets (EGX, TADAWUL, KSE, QSE, DFM, ADX, BSE)
-- **Auth methods:** Email/Password, Google OAuth
-- **Payment gateways:** Paymob, InstaPay, Google Play
-- **AI models:** DeepSeek V3 (chat), DeepSeek R1 (analysis)
-
----
-
-## 📝 Changelog
-
-| Version | Date | Changes |
-|---------|------|---------|
-| 18.0 | Jun 2026 | **Phase 11 Mobile API Audit (Task #14):** Added comprehensive Phase 11 Mobile API Audit section documenting all 9 mobile endpoints + 8 fixed endpoints + 11 POST endpoints. New "Authentication Requirements" section classifying endpoints into Free / Bearer Token / NextAuth / Body-based / Admin. New "Free User Quotas & Limits" subsection in Rate Limits & Timeouts. Per-endpoint Error Handling documentation. Live audit verified all 9 free endpoints return 200 OK; `/api/auth/me` correctly returns 401 without token. |
-| 17.0 | Jan 2026 | Complete rewrite for mobile app. Added Mobile Integration Guide, JSON schemas, polling intervals, caching strategy, retry logic. |
-| 16.0 | Dec 2025 | Initial API Handbook |
-
----
-
-**End of API Handbook** - للاستفسار تواصل مع فريق التطوير على Telegram: @Arabian_investment_guide

@@ -26,7 +26,7 @@ class GoogleAuthConfig {
   // ===========================================================================
   
   // Replace this with your Web Client ID (NOT the Android one!)
-  static const String webClientId = '642150971767-c6uktkb0j2tnhu220lvtrrrkftr0t9b4.apps.googleusercontent.com';
+  static const String webClientId = '393659426254-n4ngsvhtfie714l0o5h8mlcpm5c58195.apps.googleusercontent.com';
   
   // iOS Client ID (if needed for iOS)
   static const String iosClientId = '';

@@ -10,6 +10,7 @@ import '../theme/typography.dart';
 import '../api/client.dart';
 import '../models/types.dart';
 import '../widgets/state_view.dart';
+import '../services/subscription_service.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -93,6 +94,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
     if (confirm == true) {
       await api.logout();
+      await SubscriptionService.instance.clearCache();
       if (mounted) {
         Navigator.of(context).pushReplacementNamed('/auth');
       }

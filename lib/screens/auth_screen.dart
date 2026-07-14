@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import '../theme/colors.dart';
+import 'dart:async';
 import '../api/client.dart';
 import '../config/google_auth_config.dart';
+import '../services/subscription_service.dart';
 
 class AuthScreen extends StatefulWidget {
   const AuthScreen({super.key});
@@ -49,6 +51,16 @@ class _AuthScreenState extends State<AuthScreen> {
     try {
       debugPrint('[Auth] Starting Google Sign-In...');
 
+      // Clear any stale/cached Google session first. A leftover account is a
+      // very common cause of silent failures and null id tokens, especially
+      // after an OAuth client ID change or a reinstall.
+      try {
+        await _googleSignIn.signOut();
+        debugPrint('[Auth] Cleared previous Google session.');
+      } catch (e) {
+        debugPrint('[Auth] signOut (pre-signIn) warning: $e');
+      }
+
       final googleUser = await _googleSignIn.signIn();
       if (googleUser == null) {
         debugPrint('[Auth] User cancelled Google Sign-In');
@@ -75,7 +87,7 @@ class _AuthScreenState extends State<AuthScreen> {
         setState(() {
           _isLoading = false;
           _error =
-              'لم يتم الحصول على رمز التوثيق من Google. تأكد من إعداد OAuth بشكل صحيح.';
+              'لم يتم الحصول على رمز التوثيق من Google. تأكد من إعداد OAuth بشكل صحيح وأن التطبيق موقّع بمفتاح matching لـ SHA-1 المسجّل في Google Console.';
         });
         return;
       }
@@ -88,6 +100,7 @@ class _AuthScreenState extends State<AuthScreen> {
 
       if (result.success && result.token != null) {
         debugPrint('[Auth] Login successful!');
+        unawaited(SubscriptionService.instance.getStatus(forceRefresh: true));
         if (mounted) {
           final user = result.user;
           final isNewUser = result.isNewUser == true ||
@@ -111,13 +124,20 @@ class _AuthScreenState extends State<AuthScreen> {
       setState(() {
         final errorStr = e.toString();
         if (errorStr.contains('NOT_FOUND') ||
-            errorStr.contains('sign_in_canceled')) {
+            errorStr.contains('sign_in_canceled') ||
+            errorStr.contains('cancelled')) {
           _error = 'تم إلغاء عملية تسجيل الدخول';
         } else if (errorStr.contains('network') ||
-            errorStr.contains('SocketException')) {
+            errorStr.contains('SocketException') ||
+            errorStr.contains('Failed host lookup')) {
           _error = 'خطأ في الاتصال. تحقق من اتصال الإنترنت.';
         } else if (errorStr.contains('timeout')) {
           _error = 'انتهت مهلة الاتصال. حاول مرة أخرى.';
+        } else if (errorStr.contains('ApiException') ||
+            errorStr.contains('INTERNAL') ||
+            errorStr.contains('DEVELOPER_ERROR')) {
+          _error =
+              'خطأ في إعداد Google Sign-In. تأكد من تطابق SHA-1 و Package Name مع Google Console. ($errorStr)';
         } else {
           _error = 'فشل تسجيل الدخول بواسطة Google: $errorStr';
         }

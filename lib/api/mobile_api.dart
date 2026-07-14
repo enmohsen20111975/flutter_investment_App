@@ -5,6 +5,8 @@
 
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
 import 'client.dart';
 import 'cache_manager.dart';
 import '../models/types.dart';
@@ -88,11 +90,49 @@ class MobileApiService {
   // Mobile Dashboard
   // ============================================================================
 
-  Future<Map<String, dynamic>> getDashboard() {
-    return _withRetry(
-      () => _api.getDashboard(),
+  Future<Map<String, dynamic>> getDashboard({String? market, bool forceRefresh = false}) async {
+    SharedPreferences? prefs;
+    try {
+      prefs = await SharedPreferences.getInstance();
+    } catch (_) {}
+    final cacheKey = 'cached_mobile_dashboard_${market ?? "EGX"}';
+    
+    if (!forceRefresh && prefs != null) {
+      final cachedStr = prefs.getString(cacheKey);
+      if (cachedStr != null && cachedStr.isNotEmpty) {
+        try {
+          final Map<String, dynamic> cachedData = jsonDecode(cachedStr) as Map<String, dynamic>;
+          debugPrint('[MobileApi] Returning cached dashboard data for $market');
+          _fetchAndCacheDashboard(prefs, market);
+          return cachedData;
+        } catch (e) {
+          debugPrint('[MobileApi] Failed to parse cached dashboard: $e');
+        }
+      }
+    }
+
+    final data = await _withRetry(
+      () => _api.getDashboard(market: market),
       label: 'getDashboard',
     );
+
+    if (prefs != null && data.isNotEmpty) {
+      await prefs.setString(cacheKey, jsonEncode(data));
+    }
+    return data;
+  }
+
+  Future<void> _fetchAndCacheDashboard(SharedPreferences prefs, String? market) async {
+    try {
+      final data = await _api.getDashboard(market: market);
+      if (data.isNotEmpty) {
+        final cacheKey = 'cached_mobile_dashboard_${market ?? "EGX"}';
+        await prefs.setString(cacheKey, jsonEncode(data));
+        debugPrint('[MobileApi] Background dashboard cache updated successfully for $market.');
+      }
+    } catch (e) {
+      debugPrint('[MobileApi] Background dashboard fetch failed: $e');
+    }
   }
 
   // ============================================================================
@@ -212,11 +252,47 @@ class MobileApiService {
   // News
   // ============================================================================
 
-  Future<List<dynamic>> getMobileNews() {
-    return _withRetry(
+  Future<List<dynamic>> getMobileNews({bool forceRefresh = false}) async {
+    SharedPreferences? prefs;
+    try {
+      prefs = await SharedPreferences.getInstance();
+    } catch (_) {}
+
+    if (!forceRefresh && prefs != null) {
+      final cachedStr = prefs.getString('cached_mobile_news');
+      if (cachedStr != null && cachedStr.isNotEmpty) {
+        try {
+          final List<dynamic> cachedData = jsonDecode(cachedStr) as List<dynamic>;
+          debugPrint('[MobileApi] Returning cached news data');
+          _fetchAndCacheNews(prefs);
+          return cachedData;
+        } catch (e) {
+          debugPrint('[MobileApi] Failed to parse cached news: $e');
+        }
+      }
+    }
+
+    final data = await _withRetry(
       () => _api.getMobileNews(),
       label: 'getMobileNews',
     );
+
+    if (prefs != null && data.isNotEmpty) {
+      await prefs.setString('cached_mobile_news', jsonEncode(data));
+    }
+    return data;
+  }
+
+  Future<void> _fetchAndCacheNews(SharedPreferences prefs) async {
+    try {
+      final data = await _api.getMobileNews();
+      if (data.isNotEmpty) {
+        await prefs.setString('cached_mobile_news', jsonEncode(data));
+        debugPrint('[MobileApi] Background news cache updated successfully.');
+      }
+    } catch (e) {
+      debugPrint('[MobileApi] Background news fetch failed: $e');
+    }
   }
 
   // ============================================================================

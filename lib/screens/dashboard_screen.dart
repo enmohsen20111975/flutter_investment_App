@@ -13,6 +13,7 @@ import '../widgets/state_view.dart';
 import '../widgets/skeleton_loader.dart';
 import '../widgets/market_status_banner.dart';
 import '../services/polling_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class DashboardScreen extends StatefulWidget {
   final int marketVersion;
@@ -45,6 +46,14 @@ class _DashboardScreenState extends State<DashboardScreen>
     super.dispose();
   }
 
+  @override
+  void didUpdateWidget(covariant DashboardScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.marketVersion != widget.marketVersion) {
+      _refresh();
+    }
+  }
+
   void _startPolling() {
     _pollingSubscription?.cancel();
     _pollingSubscription = pollingService.dashboardStream.listen((data) {
@@ -59,7 +68,12 @@ class _DashboardScreenState extends State<DashboardScreen>
 
   Future<Map<String, dynamic>> _fetchDashboard() async {
     try {
-      final data = await mobileApi.getDashboard();
+      SharedPreferences? prefs;
+      try {
+        prefs = await SharedPreferences.getInstance();
+      } catch (_) {}
+      final market = prefs?.getString('active_market') ?? 'EGX';
+      final data = await mobileApi.getDashboard(market: market);
       _dashboardData = data;
       return data;
     } catch (e) {

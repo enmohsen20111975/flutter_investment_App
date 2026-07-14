@@ -52,83 +52,100 @@ class _RecommendationsScreenState extends State<RecommendationsScreen> {
       if (mounted) setState(() => _activeMarket = market);
       final persona = _statusFilter != 'all' ? _statusFilter : null;
 
-      // 1) Try market-specific recommendations first (matches the user's
-      //    selected market, e.g. EGX) so predictions aren't from another
-      //    market (e.g. Saudi TADAWUL).
-      List<dynamic> rawRecs = await api.getMarketRecommendations(
-          market: market, persona: persona);
-
-      // 2) Fallback to all-markets mobile endpoint (with market hint) if the
-      //    market route is unavailable or empty.
-      if (rawRecs.isEmpty) {
-        rawRecs =
-            await api.getMobileRecommendations(persona: persona, market: market);
+      // 1) Try market-specific recommendations first
+      List<dynamic> rawRecs = <dynamic>[];
+      try {
+        rawRecs = await api.getMarketRecommendations(market: market, persona: persona);
+      } catch (e) {
+        debugPrint('[Recommendations] getMarketRecommendations failed: $e');
       }
 
-      List<ExpertRecommendation> recs = rawRecs
-          .map((e) =>
-              ExpertRecommendation.fromJson(e is Map<String, dynamic> ? e : {}))
-          .toList();
+      // 2) Fallback to all-markets mobile endpoint (with market hint)
+      if (rawRecs.isEmpty) {
+        try {
+          rawRecs = await api.getMobileRecommendations(persona: persona, market: market);
+        } catch (e) {
+          debugPrint('[Recommendations] getMobileRecommendations failed: $e');
+        }
+      }
+
+      List<ExpertRecommendation> recs = <ExpertRecommendation>[];
+      for (final e in rawRecs) {
+        if (e is Map) {
+          recs.add(ExpertRecommendation.fromJson(Map<String, dynamic>.from(e)));
+        }
+      }
+
+      List<ExpertStats> stats = <ExpertStats>[];
+      List<Map<String, dynamic>> reports = <Map<String, dynamic>>[];
 
       // Fallback to expert recommendations if empty
       if (recs.isEmpty) {
-        final response = await api.getExpertRecommendations(
-            status: _statusFilter != 'all' ? _statusFilter : null);
-        recs = (response['recommendations'] as List?)
-                ?.map((e) => ExpertRecommendation.fromJson(
-                    Map<String, dynamic>.from(e as Map)))
-                .toList() ??
-            [];
-        if (recs.isEmpty) {
-          recs = (response['data'] as List?)
-                  ?.map((e) => ExpertRecommendation.fromJson(
-                      Map<String, dynamic>.from(e as Map)))
-                  .toList() ??
-              [];
+        Map<String, dynamic> response = {};
+        try {
+          response = await api.getExpertRecommendations(
+              status: _statusFilter != 'all' ? _statusFilter : null);
+        } catch (e) {
+          debugPrint('[Recommendations] getExpertRecommendations failed: $e');
         }
 
-        var stats = (response['expertStats'] as List?)
-                ?.map((e) =>
-                    ExpertStats.fromJson(Map<String, dynamic>.from(e as Map)))
-                .toList() ??
-            [];
-        if (stats.isEmpty) {
-          stats = (response['stats'] as List?)
-                  ?.map((e) =>
-                      ExpertStats.fromJson(Map<String, dynamic>.from(e as Map)))
-                  .toList() ??
-              [];
+        final dynamic recsRaw = response['recommendations'] ?? response['data'];
+        if (recsRaw is List) {
+          for (final e in recsRaw) {
+            if (e is Map) {
+              recs.add(ExpertRecommendation.fromJson(Map<String, dynamic>.from(e)));
+            }
+          }
         }
 
-        final aiInsights = await api.getMarketAiInsights();
-        final reportsResponse = await api.getMorningReports();
-        final reports = (reportsResponse['reports'] as List?)
-                ?.map((e) => Map<String, dynamic>.from(e as Map))
-                .toList() ??
-            <Map<String, dynamic>>[];
-
-        return RecommendationsData(
-          recommendations: recs,
-          expertStats: stats,
-          aiInsights: aiInsights,
-          morningReports: reports,
-        );
+        final dynamic statsRaw = response['expertStats'] ?? response['stats'];
+        if (statsRaw is List) {
+          for (final e in statsRaw) {
+            if (e is Map) {
+              stats.add(ExpertStats.fromJson(Map<String, dynamic>.from(e)));
+            }
+          }
+        }
       }
 
-      final aiInsights = await api.getMarketAiInsights();
-      final reportsResponse = await api.getMorningReports();
-      final reports = (reportsResponse['reports'] as List?)
-              ?.map((e) => Map<String, dynamic>.from(e as Map))
-              .toList() ??
-          <Map<String, dynamic>>[];
+      // Fetch morning reports safely
+      try {
+        final reportsResponse = await api.getMorningReports();
+        final dynamic reportsRaw = reportsResponse['reports'] ?? reportsResponse['data'];
+        if (reportsRaw is List) {
+          for (final e in reportsRaw) {
+            if (e is Map) {
+              reports.add(Map<String, dynamic>.from(e));
+            }
+          }
+        }
+      } catch (e) {
+        debugPrint('[Recommendations] getMorningReports failed: $e');
+      }
+
+      // Filter recommendations locally by active market
+      List<ExpertRecommendation> filteredRecs = <ExpertRecommendation>[];
+      for (final rec in recs) {
+        final symbol = rec.stockSymbol ?? '';
+        final isNumeric4 = RegExp(r'^\d{4}$').hasMatch(symbol.trim());
+        if (market == 'TADAWUL') {
+          if (isNumeric4) filteredRecs.add(rec);
+        } else if (market == 'EGX') {
+          if (!isNumeric4) filteredRecs.add(rec);
+        } else {
+          filteredRecs.add(rec);
+        }
+      }
+      recs = filteredRecs;
 
       return RecommendationsData(
         recommendations: recs,
-        expertStats: [],
-        aiInsights: aiInsights,
+        expertStats: stats,
+        aiInsights: null, // Removed AI Insights as requested
         morningReports: reports,
       );
-    } catch (_) {
+    } catch (e, stack) {
+      debugPrint('[Recommendations] _fetchData outer exception: $e\n$stack');
       return null;
     }
   }
@@ -277,15 +294,7 @@ class _RecommendationsScreenState extends State<RecommendationsScreen> {
                     else
                       ...data.recommendations
                           .map((rec) => _buildRecommendationCard(rec)),
-                    // AI Insights
-                    if (data.aiInsights != null &&
-                        data.aiInsights!.isNotEmpty) ...[
-                      const SizedBox(height: 20),
-                      const SectionHeader(
-                          title: 'تحليلات AI للسوق', icon: Icons.auto_awesome),
-                      const SizedBox(height: 8),
-                      _buildAiInsightsCard(data.aiInsights!),
-                    ],
+                    // AI Insights section removed by request
                     // Morning Reports
                     if (data.morningReports.isNotEmpty) ...[
                       const SizedBox(height: 20),
@@ -512,45 +521,6 @@ class _RecommendationsScreenState extends State<RecommendationsScreen> {
     ]);
   }
 
-  Widget _buildAiInsightsCard(Map<String, dynamic> insights) {
-    final summary = insights['summary']?.toString() ??
-        insights['market_outlook']?.toString() ??
-        '';
-    final recommendations = (insights['recommendations'] as List?)
-            ?.map((e) => Map<String, dynamic>.from(e as Map))
-            .toList() ??
-        <Map<String, dynamic>>[];
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-          color: AppColors.primaryMuted,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppColors.primary.withValues(alpha: 0.3))),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: const [
-          Icon(Icons.auto_awesome, size: 18, color: AppColors.primary),
-          SizedBox(width: 8),
-          Text('رؤية AI للسوق', style: AppTypography.titleSmall)
-        ]),
-        if (summary.isNotEmpty) ...[
-          const SizedBox(height: 10),
-          Text(summary, style: AppTypography.bodyMedium)
-        ],
-        if (recommendations.isNotEmpty) ...[
-          const SizedBox(height: 10),
-          ...recommendations.take(3).map((r) => Padding(
-              padding: const EdgeInsets.only(bottom: 4),
-              child:
-                  Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                const Text('• ', style: TextStyle(color: AppColors.primary)),
-                Expanded(
-                    child: Text(r['title'] ?? r['ticker'] ?? r.toString(),
-                        style: AppTypography.bodySmall)),
-              ]))),
-        ],
-      ]),
-    );
-  }
 
   Widget _buildMorningReportCard(Map<String, dynamic> report) {
     final text = report['report_text'] ?? report['content'] ?? '';

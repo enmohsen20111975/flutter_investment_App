@@ -7,6 +7,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import '../api/client.dart';
 import '../api/mobile_api.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// Polling frequency configuration
 class PollingConfig {
@@ -117,7 +118,12 @@ class PollingService {
   /// Poll dashboard endpoint and emit to stream
   Future<void> _pollDashboard() async {
     try {
-      final data = await _mobileApi.getDashboard();
+      SharedPreferences? prefs;
+      try {
+        prefs = await SharedPreferences.getInstance();
+      } catch (_) {}
+      final market = prefs?.getString('active_market') ?? 'EGX';
+      final data = await _mobileApi.getDashboard(market: market, forceRefresh: true);
       if (data.isNotEmpty) {
         _dashboardController.add(data);
       }

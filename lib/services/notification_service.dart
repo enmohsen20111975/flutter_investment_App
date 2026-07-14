@@ -168,6 +168,50 @@ class NotificationService {
     );
   }
 
+  Future<void> showLocalNotification({
+    required int id,
+    required String title,
+    required String body,
+    String? payload,
+    String? channelId,
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    final bool notificationsEnabled =
+        prefs.getBool('notifications_enabled') ?? true;
+    
+    if (!notificationsEnabled) return;
+    
+    final currentChannel = channelId ?? _recommendationsChannel;
+    final channelName = currentChannel == _analysisChannel ? 'التحليل اليومي' : 'التوقعات';
+    final channelDesc = currentChannel == _analysisChannel ? 'إشعارات التحليل اليومي للسوق' : 'إشعارات التوقعات الجديدة';
+    
+    final AndroidNotificationDetails androidDetails =
+        AndroidNotificationDetails(
+      currentChannel,
+      channelName,
+      channelDescription: channelDesc,
+      importance: Importance.high,
+      priority: Priority.high,
+    );
+    
+    const DarwinNotificationDetails iosDetails =
+        DarwinNotificationDetails();
+    
+    final NotificationDetails notificationDetails =
+        NotificationDetails(
+      android: androidDetails,
+      iOS: iosDetails,
+    );
+    
+    await _notificationsPlugin.show(
+      id: id,
+      title: title,
+      body: body,
+      notificationDetails: notificationDetails,
+      payload: payload,
+    );
+  }
+
   Future<void> cancelAllNotifications() async {
     await _notificationsPlugin.cancelAll();
   }
