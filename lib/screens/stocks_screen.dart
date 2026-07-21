@@ -22,7 +22,7 @@ class _StocksScreenState extends State<StocksScreen> {
   Future<List<Stock>>? _stocksFuture;
   final TextEditingController _searchCtrl = TextEditingController();
   String _query = '';
-  bool _showMovers = false;
+  bool _showMovers = true;
   bool _isLoadingMore = false;
   int _currentPage = 1;
   static const int _pageSize = 20;
@@ -105,7 +105,10 @@ class _StocksScreenState extends State<StocksScreen> {
 
   Future<Map<String, dynamic>?> _fetchMovement([String? market]) async {
     try {
-      return await api.getStockMovementClassification(market: market);
+      final data = await api.getStockMovementClassification(market: market);
+      final rawWrapper = data['data'];
+      final wrapper = rawWrapper is Map ? Map<String, dynamic>.from(rawWrapper) : null;
+      return wrapper ?? data;
     } catch (e) {
       debugPrint(
           '[Stocks] Movement classification error (may be unavailable): $e');
@@ -156,9 +159,46 @@ class _StocksScreenState extends State<StocksScreen> {
   Future<void> _loadMovement() async {
     final data = await _fetchMovement(_activeMarket);
     if (mounted) {
-      setState(() {
-        _movementData = data;
-      });
+      if (data != null &&
+          (data['gainers'] is List || data['losers'] is List || data['most_active'] is List)) {
+        setState(() => _movementData = data);
+      } else {
+        _fetchMovementFallback(_activeMarket);
+      }
+    }
+  }
+
+  Future<void> _fetchMovementFallback(String market) async {
+    try {
+      final overview = await api.getMarketOverview(market);
+      final topMovers = <String, dynamic>{
+        'gainers': (overview.topGainers ?? [])
+            .map((s) => <String, dynamic>{
+                  'ticker': s.ticker,
+                  'price': s.currentPrice,
+                  'change_percent': s.changePercent,
+                })
+            .toList(),
+        'losers': (overview.topLosers ?? [])
+            .map((s) => <String, dynamic>{
+                  'ticker': s.ticker,
+                  'price': s.currentPrice,
+                  'change_percent': s.changePercent,
+                })
+            .toList(),
+        'most_active': (overview.mostActive ?? [])
+            .map((s) => <String, dynamic>{
+                  'ticker': s.ticker,
+                  'price': s.currentPrice,
+                  'change_percent': s.changePercent,
+                })
+            .toList(),
+      };
+      if (mounted) {
+        setState(() => _movementData = topMovers);
+      }
+    } catch (e) {
+      debugPrint('[Stocks] Movement fallback failed: $e');
     }
   }
 
@@ -295,13 +335,36 @@ class _StocksScreenState extends State<StocksScreen> {
   }
 
   Widget _buildMoversSliver() {
+    if (_movementData == null) {
+      return const SliverToBoxAdapter(
+        child: Padding(
+          padding: EdgeInsets.all(16),
+          child: Center(
+            child: CircularProgressIndicator(color: AppColors.primary, strokeWidth: 2),
+          ),
+        ),
+      );
+    }
     final movers = _movementFilter == 'gainers'
         ? _gainers
         : _movementFilter == 'losers'
             ? _losers
             : _active;
     if (movers.isEmpty)
-      return const SliverToBoxAdapter(child: SizedBox.shrink());
+      return SliverToBoxAdapter(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Text(
+            _movementFilter == 'gainers'
+                ? 'لا توجد أسهم مرتفعة حالياً'
+                : _movementFilter == 'losers'
+                    ? 'لا توجد أسهم منخفضة حالياً'
+                    : 'لا توجد بيانات نشاط حالياً',
+            style: const TextStyle(color: AppColors.textMuted, fontSize: 12),
+            textAlign: TextAlign.center,
+          ),
+        ),
+      );
     return SliverToBoxAdapter(
       child: SizedBox(
         height: 140,
@@ -320,42 +383,48 @@ class _StocksScreenState extends State<StocksScreen> {
             final change =
                 double.tryParse((m['change_percent'] ?? '0').toString()) ?? 0;
             final isUp = change >= 0;
-            return Container(
-              width: 120,
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: AppColors.surface,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppColors.border),
-              ),
-              child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(ticker,
-                        style: const TextStyle(
-                            fontWeight: FontWeight.w700, fontSize: 13)),
-                    const SizedBox(height: 4),
-                    Text(price.toStringAsFixed(2),
-                        style: const TextStyle(fontSize: 12)),
-                    const SizedBox(height: 4),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: (isUp ? AppColors.success : AppColors.danger)
-                            .withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Text(
-                          '${isUp ? '+' : ''}${change.toStringAsFixed(2)}%',
-                          style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                              color:
-                                  isUp ? AppColors.success : AppColors.danger)),
-                    ),
-                  ]),
-            );
+             return Container(
+               width: 120,
+               padding: const EdgeInsets.all(10),
+               decoration: BoxDecoration(
+                 color: AppColors.surface,
+                 borderRadius: BorderRadius.circular(12),
+                 border: Border.all(color: AppColors.border),
+               ),
+               child: Column(
+                   crossAxisAlignment: CrossAxisAlignment.start,
+                   children: [
+                     Text(ticker,
+                         style: const TextStyle(
+                             fontWeight: FontWeight.w700, fontSize: 13),
+                         overflow: TextOverflow.ellipsis,
+                         maxLines: 1),
+                     const SizedBox(height: 4),
+                     Text(price.toStringAsFixed(2),
+                         style: const TextStyle(fontSize: 12)),
+                     const SizedBox(height: 4),
+                     Container(
+                       padding: const EdgeInsets.symmetric(
+                           horizontal: 6, vertical: 2),
+                       decoration: BoxDecoration(
+                         color: (isUp ? AppColors.success : AppColors.danger)
+                             .withValues(alpha: 0.1),
+                         borderRadius: BorderRadius.circular(4),
+                       ),
+                       child: Text(
+                           '${isUp ? '+' : ''}${change.toStringAsFixed(2)}%',
+                           style: TextStyle(
+                               fontSize: 11,
+                               fontWeight: FontWeight.w600,
+                               color:
+                                   isUp ? AppColors.success : AppColors.danger),
+                           overflow: TextOverflow.ellipsis,
+                           maxLines: 1,
+                         ),
+                     ),
+                   ],
+                 ),
+             );
           },
         ),
       ),

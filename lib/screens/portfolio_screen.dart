@@ -11,8 +11,6 @@ import '../theme/typography.dart';
 import '../api/client.dart';
 import '../models/types.dart';
 import '../widgets/state_view.dart';
-import '../services/subscription_service.dart';
-import '../widgets/upgrade_modal.dart';
 
 class PortfolioScreen extends StatefulWidget {
   const PortfolioScreen({super.key});
@@ -70,22 +68,6 @@ class _PortfolioScreenState extends State<PortfolioScreen> {
   }
 
   Future<void> _showAddDialog() async {
-    try {
-      final data = await _portfolioFuture;
-      final totalCount = (data?.items ?? data?.positions)?.length ?? 0;
-      if (!SubscriptionService.instance.canAddToPortfolio(totalCount)) {
-        UpgradeModal.show(context,
-            feature: 'portfolio_unlimited',
-            reason: 'لقد وصلت للحد الأقصى (3 أصول) في المحفظة المجانية');
-        return;
-      }
-    } catch (_) {
-      UpgradeModal.show(context,
-          feature: 'portfolio_unlimited',
-          reason: 'لقد وصلت للحد الأقصى (3 أصول) في المحفظة المجانية');
-      return;
-    }
-
     String type = _selectedCategory;
     final symbolCtrl = TextEditingController();
     final quantityCtrl = TextEditingController();

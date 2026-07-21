@@ -130,8 +130,12 @@ class PortfolioResponse {
     List<PortfolioPosition> positionsList = [];
     List<PortfolioPosition> allItemsList = [];
 
+    final rawDataWrapper = json['data'];
+    final dataWrapper = rawDataWrapper is Map ? Map<String, dynamic>.from(rawDataWrapper) : null;
+    final Map<String, dynamic> actualData = dataWrapper ?? json;
+
     // Parse positions (stocks only)
-    final rawPositions = json['positions'];
+    final rawPositions = actualData['positions'];
     if (rawPositions is List) {
       positionsList = rawPositions
           .map((e) => e is Map ? PortfolioPosition.fromJson(Map<String, dynamic>.from(e)) : null)
@@ -141,7 +145,7 @@ class PortfolioResponse {
     }
 
     // Parse items (all assets)
-    final rawItems = json['items'];
+    final rawItems = actualData['items'];
     if (rawItems is List) {
       allItemsList = rawItems
           .map((e) => e is Map ? PortfolioPosition.fromJson(Map<String, dynamic>.from(e)) : null)
@@ -157,7 +161,7 @@ class PortfolioResponse {
 
     // Parse by_type if available
     Map<String, List<PortfolioPosition>>? byType;
-    final rawByType = json['by_type'];
+    final rawByType = actualData['by_type'];
     if (rawByType is Map) {
       byType = {};
       for (final entry in rawByType.entries) {
@@ -172,7 +176,7 @@ class PortfolioResponse {
       }
     }
 
-    final rawSummary = json['summary'];
+    final rawSummary = actualData['summary'];
     return PortfolioResponse(
       success: parseBool(json['success']) ?? true,
       positions: positionsList,

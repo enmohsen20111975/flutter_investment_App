@@ -10,8 +10,6 @@ import '../theme/typography.dart';
 import '../api/client.dart';
 import '../models/types.dart';
 import '../widgets/state_view.dart';
-import '../services/subscription_service.dart';
-import '../widgets/upgrade_modal.dart';
 
 class WatchlistScreen extends StatefulWidget {
   const WatchlistScreen({super.key});
@@ -86,22 +84,6 @@ class _WatchlistScreenState extends State<WatchlistScreen> {
   }
 
   Future<void> _showAddDialog() async {
-    try {
-      final data = await _listFuture;
-      if (!SubscriptionService.instance
-          .canAddToWatchlist(data?.items.length ?? 0)) {
-        UpgradeModal.show(context,
-            feature: 'watchlist_unlimited',
-            reason: 'لقد وصلت للحد الأقصى (3 أصول) في قائمة المراقبة المجانية');
-        return;
-      }
-    } catch (_) {
-      UpgradeModal.show(context,
-          feature: 'watchlist_unlimited',
-          reason: 'لقد وصلت للحد الأقصى (3 أصول) في قائمة المراقبة المجانية');
-      return;
-    }
-
     String type = _selectedCategory;
     final symbolCtrl = TextEditingController();
     final alertAboveCtrl = TextEditingController();

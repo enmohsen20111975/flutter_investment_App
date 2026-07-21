@@ -7,12 +7,9 @@ import 'package:flutter/material.dart';
 import '../theme/colors.dart';
 import '../theme/typography.dart';
 import '../api/client.dart';
-import '../api/mobile_api.dart';
 import '../models/json_helpers.dart';
 import '../widgets/state_view.dart';
 import '../widgets/skeleton_loader.dart';
-import '../services/subscription_service.dart';
-import '../widgets/upgrade_modal.dart';
 
 class AiAnalysisScreen extends StatefulWidget {
   const AiAnalysisScreen({super.key});
@@ -26,7 +23,6 @@ class _AiAnalysisScreenState extends State<AiAnalysisScreen>
   late TabController _tabController;
   Future<Map<String, dynamic>?>? _analysisFuture;
   Future<Map<String, dynamic>?>? _predictionsFuture;
-  Future<SubscriptionStatus>? _subscriptionFuture;
 
   @override
   void initState() {
@@ -34,7 +30,6 @@ class _AiAnalysisScreenState extends State<AiAnalysisScreen>
     _tabController = TabController(length: 3, vsync: this);
     _analysisFuture = _fetchAnalysis();
     _predictionsFuture = _fetchPredictions();
-    _subscriptionFuture = SubscriptionService.instance.getStatus();
   }
 
   @override
@@ -93,66 +88,55 @@ class _AiAnalysisScreenState extends State<AiAnalysisScreen>
           title: const Text('تحليل AI',
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
         ),
-        body: FutureBuilder<SubscriptionStatus>(
-          future: _subscriptionFuture,
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const SkeletonAiAnalysis();
-            }
-            final hasAccess = snapshot.data?.hasFeature('ai_analysis') ?? false;
-            return !hasAccess
-                ? _buildLockedView()
-                : RefreshIndicator(
-                    color: AppColors.primary,
-                    onRefresh: _refresh,
-                    child: SingleChildScrollView(
-                      physics: const AlwaysScrollableScrollPhysics(),
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const HeaderCard(
-                            icon: Icons.auto_awesome,
-                            title: 'تحليل AI الذكي',
-                            subtitle: 'رؤى وتحليلات مدعومة بالذكاء الاصطناعي',
-                          ),
-                          const SizedBox(height: 16),
-                          Container(
-                            margin: const EdgeInsets.symmetric(horizontal: 16),
-                            decoration: BoxDecoration(
-                              color: AppColors.surface,
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: AppColors.border),
-                            ),
-                            child: TabBar(
-                              controller: _tabController,
-                              indicatorColor: AppColors.primary,
-                              labelColor: AppColors.primary,
-                              unselectedLabelColor: AppColors.textMuted,
-                              tabs: const [
-                                Tab(text: 'التوقعات'),
-                                Tab(text: 'التحليل المباشر'),
-                                Tab(text: 'توقعات عالمية'),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          SizedBox(
-                            height: MediaQuery.of(context).size.height * 0.8,
-                            child: TabBarView(
-                              controller: _tabController,
-                              children: [
-                                _buildPredictionsTab(),
-                                _buildAnalysisTab(),
-                                _buildGlobalPredictionsTab(),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-          },
+        body: RefreshIndicator(
+          color: AppColors.primary,
+          onRefresh: _refresh,
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const HeaderCard(
+                  icon: Icons.auto_awesome,
+                  title: 'تحليل AI الذكي',
+                  subtitle: 'رؤى وتحليلات مدعومة بالذكاء الاصطناعي',
+                ),
+                const SizedBox(height: 16),
+                Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 16),
+                  decoration: BoxDecoration(
+                    color: AppColors.surface,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppColors.border),
+                  ),
+                  child: TabBar(
+                    controller: _tabController,
+                    indicatorColor: AppColors.primary,
+                    labelColor: AppColors.primary,
+                    unselectedLabelColor: AppColors.textMuted,
+                    tabs: const [
+                      Tab(text: 'التوقعات'),
+                      Tab(text: 'التحليل المباشر'),
+                      Tab(text: 'توقعات عالمية'),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                SizedBox(
+                  height: MediaQuery.of(context).size.height * 0.8,
+                  child: TabBarView(
+                    controller: _tabController,
+                    children: [
+                      _buildPredictionsTab(),
+                      _buildAnalysisTab(),
+                      _buildGlobalPredictionsTab(),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );
@@ -417,32 +401,6 @@ class _AiAnalysisScreenState extends State<AiAnalysisScreen>
                   const TextStyle(fontSize: 12, color: AppColors.textSecondary))
         ],
       ]),
-    );
-  }
-
-  Widget _buildLockedView() {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-          const Icon(Icons.lock_outline, size: 64, color: AppColors.textMuted),
-          const SizedBox(height: 16),
-          const Text('هذه الميزة متاحة للمشتركين فقط',
-              style: TextStyle(fontSize: 16, color: AppColors.textSecondary)),
-          const SizedBox(height: 8),
-          const Text('اشترك الآن للاستفادة من تحليلات الذكاء الاصطناعي',
-              style: TextStyle(fontSize: 12, color: AppColors.textMuted),
-              textAlign: TextAlign.center),
-          const SizedBox(height: 24),
-          ElevatedButton(
-            onPressed: () => UpgradeModal.show(context,
-                feature: 'ai_analysis', reason: 'التحليل بالذكاء الاصطناعي'),
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
-            child: const Text('عرض الباقات',
-                style: TextStyle(color: AppColors.white)),
-          ),
-        ]),
-      ),
     );
   }
 }

@@ -1,161 +1,313 @@
-# مساعد الاستثمار - API Test Report
+# API Test Report
 
-**Date:** 2026-06-18  
-**Environment:** Production (`https://invist.m2y.net/api`)  
-**Tester:** Automated API health check via Python  
-
----
-
-## 🟢 WORKING ENDPOINTS (200 OK)
-
-| Method | Endpoint | Flutter Method | Notes |
-|--------|----------|----------------|-------|
-| GET | `/api/health` | `healthCheck()` | Healthy |
-| GET | `/api/market/overview` | `getMarketOverview()` | Standard response |
-| GET | `/api/stocks` | `getStocks()` | Returns stock list |
-| GET | `/api/crypto` | `getCrypto()` | Returns crypto list |
-| GET | `/api/subscription/plans` | `getSubscriptionPlans()` / `getSubscriptionPlansV2()` | Works |
-| GET | `/api/market/status` | `getMarketStatus()` | Market open/closed info |
-| GET | `/api/market/live-data` | `getMarketLiveData()` | Live data |
-| GET | `/api/market/recommendations/ai-insights` | `getMarketAiInsights()` | AI insights present |
-| GET | `/api/v2/live-analysis` | `getLiveAnalysis()` | Live analysis works |
-| GET | `/api/reports/morning` | `getMorningReports()` | Morning reports |
-| GET | `/api/watchlist-enhanced` | `getWatchlistEnhanced()` | Enhanced watchlist |
-| GET | `/api/currency/list` | `getCurrencyList()` | Currency list |
-| GET | `/api/portfolio/analyze` | `analyzePortfolio()` | Portfolio analysis |
-| GET | `/api/mobile/recommendations` | `getMobileRecommendations()` | Mobile recommendations |
-| GET | `/api/mobile/news` | `getMobileNews()` | News feed |
-| GET | `/api/mobile/notifications` | `getMobileNotifications()` | Notifications |
-| GET | `/api/expert-recommendations` | `getExpertRecommendations()` | Expert recs |
-| GET | `/api/mobile/gold` | `getGold()` | Gold prices via mobile |
-| GET | `/api/mobile/predictions` | `getMobilePredictions()` | Predictions |
-| GET | `/api/learning/content` | `getLearningContent()` | Learning content |
-| GET | `/api/hunter/screener` | `getHunterScreener()` | Hunter screener |
-| POST | `/api/ai/chat` | `sendAiChat()` | AI chat works |
-| POST | `/api/backtest` | `runBacktest()` | Backtest endpoint |
+**Generated:** 2026-07-15 03:00:58.878208
+**Base URL:** https://invist.m2y.net
 
 ---
 
-## 🔴 FAILING ENDPOINTS
+ملخص النتيجة (127 endpoint مُختبر):
+الحالة	العدد	النسبة
+شغال (2xx)	75	59%
+محتاج Auth (401)	12	متوقع
+مش موجود (404)	28	يحتاج إنشاء
+Method غلط (405)	7	خطأ في الكلاينت
+Server Error (500)	1	bug في السيرفر
+Other	4	-
+المشاكل اللي محتاجة إصلاح:
+1. Endpoints ناقصة على السيرفر (28 endpoint) — يجب على مبرمج السيرفر ينشئها:
+#	Endpoint	الاستخدام في التطبيق
+1	POST /api/subscription/subscribe	subscription_screen.dart
+2	POST /api/subscription/trial	subscription_screen.dart
+3	POST /api/subscription/checkout	subscription_screen.dart
+4	POST /api/subscription/verify	subscription_screen.dart
+5	GET /api/subscription/status	client.dart
+6	POST /api/ai/analyze-stock	client.dart
+7	GET /api/recommendations/expert	recommendations_screen.dart
+8	GET /api/metals	client.dart
+9	GET /api/mobile/gold/history	metals_screen.dart
+10	POST /api/zakat/calculate	zakat_screen.dart
+11	GET /api/v2/unified/personas	persona_screen.dart
+12	GET /api/v2/unified/config	persona_screen.dart
+13	POST /api/v2/unified/scan	persona_screen.dart
+14	POST /api/v2/unified/analyze	persona_screen.dart
+15	GET /api/confluence/analyze/:ticker	persona_screen.dart
+16	GET /api/confluence/market-scan	persona_screen.dart
+17	GET /api/persona/analyze/:ticker	persona_screen.dart
+18	GET /api/persona/recommendations	persona_screen.dart
+19	GET /api/maestro/stock/:ticker	persona_screen.dart
+20	GET /api/scanner/quick	hunter_screen.dart
+21	GET /api/data-engine/health	client.dart
+22	GET /api/data-engine/metals	client.dart
+23	GET /api/risk/decision-table	client.dart
+24	GET /api/risk/stock-types	client.dart
+25	POST /api/push/register	client.dart
+26	GET /api/stocks/AAPL/professional-analysis	stock_history_screen.dart
+27	GET /api/crypto/backtesting	client.dart
+2. أخطاء في الكلاينت (HTTP Method غلط) — يجب إصلاحها في lib/api/client.dart:
+Endpoint	المethod الغلط	المmethod الصح
+/api/mobile/portfolio (POST)	POST	لازم يتأكد من الميثود الصح
+/api/mobile/portfolio (DELETE)	DELETE	لازم يتأكد من الميثود الصح
+/api/watchlist (POST)	POST	لازم يتأكد من الميثود الصح
+/api/auth/profile (PUT)	PUT	ممكن POST
+/api/market/incremental-sync (GET)	GET	ممكن POST
+/api/currency/convert (POST)	POST	ممكن GET
+/api/backtest (POST)	POST	لازم يتأكد
+/api/backtesting/unified (POST)	POST	لازم يتأكد
+/api/unified-learning/intelligent (POST)	POST	لازم يتأكد
+3. Bugs في السيرفر:
+GET /api/mobile/notifications يرجع 500 — السيرفر ي crash
+/api/watchlist و /api/watchlist-enhanced بيرجعوا بيانات market breadth بدل بيانات Watchlist الحقيقية
+/api/stocks/AAPL/recommendation بيرجع بيانات breadth عامة بدل تحليل السهم المطلوب
+4. Endpoints شغالة ومستقرة (75 endpoint):
+/api/market/overview, /api/market/live-data, /api/market/investing
+/api/stocks, /api/stocks/movement-classification
+/api/crypto, /api/crypto/bitcoin, /api/crypto/ohlc
+/api/mobile/portfolio, /api/mobile/portfolio/analyze
+/api/subscription/plans, /api/subscription/check-access
+/api/mobile/predictions, /api/global-predictions
+/api/mobile/gold, /api/currency, /api/currency/list
+/api/health, /api/mobile/dashboard, /api/mobile/news
+وغيرهم...
+--------------
+## Summary
 
-### Critical Failures (Cannot serve expected data)
+| Metric | Count |
+|--------|-------|
+| Total endpoints tested | 127 |
+| Working (2xx) | 75 |
+| Auth required (401) | 12 |
+| Not found (404) | 28 |
+| Server errors (5xx) | 1 |
+| Other errors | 11 |
 
-| Status | Endpoint | Flutter Method | Likely Cause | Impact |
-|--------|----------|----------------|--------------|--------|
-| **503** | `/api/stocks/movement-classification` | `getStockMovementClassification()` | Service Unavailable | Stocks screen gainers/losers filter broken |
-| **500** | `/api/market/investing` | `getMarketInvesting()` | Internal Server Error | Dashboard investing section broken |
-| **500** | `/api/predictions` | `getPredictions()` | Internal Server Error | AI predictions screen broken |
-| **500** | `/api/maestro/stock/COMI` | `getMaestroAnalysis()` | Internal Server Error | Maestro analysis broken |
-| **500** | `/api/instapay/verify` | `verifyInstapayPayment()` | Internal Server Error | Payment verification broken |
+## Issues Found
 
-### Not Found (404)
+### Endpoints with Problems
 
-| Status | Endpoint | Flutter Method | Notes |
-|--------|----------|----------------|-------|
-| **404** | `/api/market/gold` | (Old path) | Use `/api/mobile/gold` instead (works) |
-| **404** | `/api/ai/batch-analysis` | `getBatchAnalysis()` | Endpoint does not exist |
-| **404** | `/api/stocks/AEFM/recommendation` | `getStockRecommendation()` (case test) | Ticker-specific test |
-| **404** | `/api/kimi/backtest/run` | `runKimiBacktest()` | Missing endpoint |
-| **404** | `/api/walk-forward/run` | `runWalkForward()` | Missing endpoint |
-| **404** | `/api/unified-learning/status` | `getUnifiedLearningStatus()` | Missing endpoint |
-| **404** | `/api/unified-learning/indicators` | `getUnifiedLearningIndicators()` | Missing endpoint |
+| # | Endpoint | Method | Auth | Status | Error/Response |
+|---|----------|--------|------|--------|----------------|
+| 1 | `/api/auth/google` | POST | No | 401 | DioException [bad response]: This exception was thrown because the response has a status code of 401 and RequestOptions.validateStatus was configured to throw for this status code. The status code of 401 has the following meaning: "Client error - the request contains bad syntax or cannot be fulfilled" Read more about status codes at https://developer.mozilla.org/en-US/docs/Web/HTTP/Status In order to resolve this exception you typically have either to verify and fix your request code or you have to fix the server code.  |
+| 2 | `/api/auth/me` | GET | Yes | 401 | DioException [bad response]: This exception was thrown because the response has a status code of 401 and RequestOptions.validateStatus was configured to throw for this status code. The status code of 401 has the following meaning: "Client error - the request contains bad syntax or cannot be fulfilled" Read more about status codes at https://developer.mozilla.org/en-US/docs/Web/HTTP/Status In order to resolve this exception you typically have either to verify and fix your request code or you have to fix the server code.  |
+| 3 | `/api/auth/profile` | PUT | Yes | 405 | DioException [bad response]: This exception was thrown because the response has a status code of 405 and RequestOptions.validateStatus was configured to throw for this status code. The status code of 405 has the following meaning: "Client error - the request contains bad syntax or cannot be fulfilled" Read more about status codes at https://developer.mozilla.org/en-US/docs/Web/HTTP/Status In order to resolve this exception you typically have either to verify and fix your request code or you have to fix the server code.  |
+| 4 | `/api/market/incremental-sync` | GET | Yes | 405 | DioException [bad response]: This exception was thrown because the response has a status code of 405 and RequestOptions.validateStatus was configured to throw for this status code. The status code of 405 has the following meaning: "Client error - the request contains bad syntax or cannot be fulfilled" Read more about status codes at https://developer.mozilla.org/en-US/docs/Web/HTTP/Status In order to resolve this exception you typically have either to verify and fix your request code or you have to fix the server code.  |
+| 5 | `/api/stocks/AAPL/professional-analysis` | GET | No | 404 | DioException [bad response]: This exception was thrown because the response has a status code of 404 and RequestOptions.validateStatus was configured to throw for this status code. The status code of 404 has the following meaning: "Client error - the request contains bad syntax or cannot be fulfilled" Read more about status codes at https://developer.mozilla.org/en-US/docs/Web/HTTP/Status In order to resolve this exception you typically have either to verify and fix your request code or you have to fix the server code.  |
+| 6 | `/api/crypto/backtesting` | GET | No | 404 | DioException [bad response]: This exception was thrown because the response has a status code of 404 and RequestOptions.validateStatus was configured to throw for this status code. The status code of 404 has the following meaning: "Client error - the request contains bad syntax or cannot be fulfilled" Read more about status codes at https://developer.mozilla.org/en-US/docs/Web/HTTP/Status In order to resolve this exception you typically have either to verify and fix your request code or you have to fix the server code.  |
+| 7 | `/api/mobile/portfolio` | POST | Yes | 405 | DioException [bad response]: This exception was thrown because the response has a status code of 405 and RequestOptions.validateStatus was configured to throw for this status code. The status code of 405 has the following meaning: "Client error - the request contains bad syntax or cannot be fulfilled" Read more about status codes at https://developer.mozilla.org/en-US/docs/Web/HTTP/Status In order to resolve this exception you typically have either to verify and fix your request code or you have to fix the server code.  |
+| 8 | `/api/mobile/portfolio` | DELETE | Yes | 405 | DioException [bad response]: This exception was thrown because the response has a status code of 405 and RequestOptions.validateStatus was configured to throw for this status code. The status code of 405 has the following meaning: "Client error - the request contains bad syntax or cannot be fulfilled" Read more about status codes at https://developer.mozilla.org/en-US/docs/Web/HTTP/Status In order to resolve this exception you typically have either to verify and fix your request code or you have to fix the server code.  |
+| 9 | `/api/watchlist` | POST | Yes | 405 | DioException [bad response]: This exception was thrown because the response has a status code of 405 and RequestOptions.validateStatus was configured to throw for this status code. The status code of 405 has the following meaning: "Client error - the request contains bad syntax or cannot be fulfilled" Read more about status codes at https://developer.mozilla.org/en-US/docs/Web/HTTP/Status In order to resolve this exception you typically have either to verify and fix your request code or you have to fix the server code.  |
+| 10 | `/api/watchlist/test-id` | DELETE | Yes | 401 | DioException [bad response]: This exception was thrown because the response has a status code of 401 and RequestOptions.validateStatus was configured to throw for this status code. The status code of 401 has the following meaning: "Client error - the request contains bad syntax or cannot be fulfilled" Read more about status codes at https://developer.mozilla.org/en-US/docs/Web/HTTP/Status In order to resolve this exception you typically have either to verify and fix your request code or you have to fix the server code.  |
+| 11 | `/api/subscription/upgrade` | POST | Yes | 401 | DioException [bad response]: This exception was thrown because the response has a status code of 401 and RequestOptions.validateStatus was configured to throw for this status code. The status code of 401 has the following meaning: "Client error - the request contains bad syntax or cannot be fulfilled" Read more about status codes at https://developer.mozilla.org/en-US/docs/Web/HTTP/Status In order to resolve this exception you typically have either to verify and fix your request code or you have to fix the server code.  |
+| 12 | `/api/subscription/subscribe` | POST | Yes | 404 | DioException [bad response]: This exception was thrown because the response has a status code of 404 and RequestOptions.validateStatus was configured to throw for this status code. The status code of 404 has the following meaning: "Client error - the request contains bad syntax or cannot be fulfilled" Read more about status codes at https://developer.mozilla.org/en-US/docs/Web/HTTP/Status In order to resolve this exception you typically have either to verify and fix your request code or you have to fix the server code.  |
+| 13 | `/api/subscription/trial` | POST | Yes | 404 | DioException [bad response]: This exception was thrown because the response has a status code of 404 and RequestOptions.validateStatus was configured to throw for this status code. The status code of 404 has the following meaning: "Client error - the request contains bad syntax or cannot be fulfilled" Read more about status codes at https://developer.mozilla.org/en-US/docs/Web/HTTP/Status In order to resolve this exception you typically have either to verify and fix your request code or you have to fix the server code.  |
+| 14 | `/api/subscription/checkout` | POST | Yes | 404 | DioException [bad response]: This exception was thrown because the response has a status code of 404 and RequestOptions.validateStatus was configured to throw for this status code. The status code of 404 has the following meaning: "Client error - the request contains bad syntax or cannot be fulfilled" Read more about status codes at https://developer.mozilla.org/en-US/docs/Web/HTTP/Status In order to resolve this exception you typically have either to verify and fix your request code or you have to fix the server code.  |
+| 15 | `/api/subscription/verify` | POST | Yes | 404 | DioException [bad response]: This exception was thrown because the response has a status code of 404 and RequestOptions.validateStatus was configured to throw for this status code. The status code of 404 has the following meaning: "Client error - the request contains bad syntax or cannot be fulfilled" Read more about status codes at https://developer.mozilla.org/en-US/docs/Web/HTTP/Status In order to resolve this exception you typically have either to verify and fix your request code or you have to fix the server code.  |
+| 16 | `/api/subscription/status` | GET | Yes | 404 | DioException [bad response]: This exception was thrown because the response has a status code of 404 and RequestOptions.validateStatus was configured to throw for this status code. The status code of 404 has the following meaning: "Client error - the request contains bad syntax or cannot be fulfilled" Read more about status codes at https://developer.mozilla.org/en-US/docs/Web/HTTP/Status In order to resolve this exception you typically have either to verify and fix your request code or you have to fix the server code.  |
+| 17 | `/api/ai/analyze-stock` | POST | Yes | 404 | DioException [bad response]: This exception was thrown because the response has a status code of 404 and RequestOptions.validateStatus was configured to throw for this status code. The status code of 404 has the following meaning: "Client error - the request contains bad syntax or cannot be fulfilled" Read more about status codes at https://developer.mozilla.org/en-US/docs/Web/HTTP/Status In order to resolve this exception you typically have either to verify and fix your request code or you have to fix the server code.  |
+| 18 | `/api/ai/chat` | POST | Yes | 401 | DioException [bad response]: This exception was thrown because the response has a status code of 401 and RequestOptions.validateStatus was configured to throw for this status code. The status code of 401 has the following meaning: "Client error - the request contains bad syntax or cannot be fulfilled" Read more about status codes at https://developer.mozilla.org/en-US/docs/Web/HTTP/Status In order to resolve this exception you typically have either to verify and fix your request code or you have to fix the server code.  |
+| 19 | `/api/recommendations/expert` | GET | No | 404 | DioException [bad response]: This exception was thrown because the response has a status code of 404 and RequestOptions.validateStatus was configured to throw for this status code. The status code of 404 has the following meaning: "Client error - the request contains bad syntax or cannot be fulfilled" Read more about status codes at https://developer.mozilla.org/en-US/docs/Web/HTTP/Status In order to resolve this exception you typically have either to verify and fix your request code or you have to fix the server code.  |
+| 20 | `/api/metals` | GET | No | 404 | DioException [bad response]: This exception was thrown because the response has a status code of 404 and RequestOptions.validateStatus was configured to throw for this status code. The status code of 404 has the following meaning: "Client error - the request contains bad syntax or cannot be fulfilled" Read more about status codes at https://developer.mozilla.org/en-US/docs/Web/HTTP/Status In order to resolve this exception you typically have either to verify and fix your request code or you have to fix the server code.  |
+| 21 | `/api/mobile/gold/history` | GET | No | 404 | DioException [bad response]: This exception was thrown because the response has a status code of 404 and RequestOptions.validateStatus was configured to throw for this status code. The status code of 404 has the following meaning: "Client error - the request contains bad syntax or cannot be fulfilled" Read more about status codes at https://developer.mozilla.org/en-US/docs/Web/HTTP/Status In order to resolve this exception you typically have either to verify and fix your request code or you have to fix the server code.  |
+| 22 | `/api/currency/convert` | POST | No | 405 | DioException [bad response]: This exception was thrown because the response has a status code of 405 and RequestOptions.validateStatus was configured to throw for this status code. The status code of 405 has the following meaning: "Client error - the request contains bad syntax or cannot be fulfilled" Read more about status codes at https://developer.mozilla.org/en-US/docs/Web/HTTP/Status In order to resolve this exception you typically have either to verify and fix your request code or you have to fix the server code.  |
+| 23 | `/api/zakat/calculate` | POST | No | 404 | DioException [bad response]: This exception was thrown because the response has a status code of 404 and RequestOptions.validateStatus was configured to throw for this status code. The status code of 404 has the following meaning: "Client error - the request contains bad syntax or cannot be fulfilled" Read more about status codes at https://developer.mozilla.org/en-US/docs/Web/HTTP/Status In order to resolve this exception you typically have either to verify and fix your request code or you have to fix the server code.  |
+| 24 | `/api/learning/progress` | POST | Yes | 401 | DioException [bad response]: This exception was thrown because the response has a status code of 401 and RequestOptions.validateStatus was configured to throw for this status code. The status code of 401 has the following meaning: "Client error - the request contains bad syntax or cannot be fulfilled" Read more about status codes at https://developer.mozilla.org/en-US/docs/Web/HTTP/Status In order to resolve this exception you typically have either to verify and fix your request code or you have to fix the server code.  |
+| 25 | `/api/unified-learning/intelligent` | POST | Yes | 405 | DioException [bad response]: This exception was thrown because the response has a status code of 405 and RequestOptions.validateStatus was configured to throw for this status code. The status code of 405 has the following meaning: "Client error - the request contains bad syntax or cannot be fulfilled" Read more about status codes at https://developer.mozilla.org/en-US/docs/Web/HTTP/Status In order to resolve this exception you typically have either to verify and fix your request code or you have to fix the server code.  |
+| 26 | `/api/backtest` | POST | Yes | 405 | DioException [bad response]: This exception was thrown because the response has a status code of 405 and RequestOptions.validateStatus was configured to throw for this status code. The status code of 405 has the following meaning: "Client error - the request contains bad syntax or cannot be fulfilled" Read more about status codes at https://developer.mozilla.org/en-US/docs/Web/HTTP/Status In order to resolve this exception you typically have either to verify and fix your request code or you have to fix the server code.  |
+| 27 | `/api/backtesting/unified` | POST | Yes | 405 | DioException [bad response]: This exception was thrown because the response has a status code of 405 and RequestOptions.validateStatus was configured to throw for this status code. The status code of 405 has the following meaning: "Client error - the request contains bad syntax or cannot be fulfilled" Read more about status codes at https://developer.mozilla.org/en-US/docs/Web/HTTP/Status In order to resolve this exception you typically have either to verify and fix your request code or you have to fix the server code.  |
+| 28 | `/api/v2/unified/personas` | GET | No | 404 | DioException [bad response]: This exception was thrown because the response has a status code of 404 and RequestOptions.validateStatus was configured to throw for this status code. The status code of 404 has the following meaning: "Client error - the request contains bad syntax or cannot be fulfilled" Read more about status codes at https://developer.mozilla.org/en-US/docs/Web/HTTP/Status In order to resolve this exception you typically have either to verify and fix your request code or you have to fix the server code.  |
+| 29 | `/api/v2/unified/config` | GET | No | 404 | DioException [bad response]: This exception was thrown because the response has a status code of 404 and RequestOptions.validateStatus was configured to throw for this status code. The status code of 404 has the following meaning: "Client error - the request contains bad syntax or cannot be fulfilled" Read more about status codes at https://developer.mozilla.org/en-US/docs/Web/HTTP/Status In order to resolve this exception you typically have either to verify and fix your request code or you have to fix the server code.  |
+| 30 | `/api/v2/unified/scan` | POST | Yes | 404 | DioException [bad response]: This exception was thrown because the response has a status code of 404 and RequestOptions.validateStatus was configured to throw for this status code. The status code of 404 has the following meaning: "Client error - the request contains bad syntax or cannot be fulfilled" Read more about status codes at https://developer.mozilla.org/en-US/docs/Web/HTTP/Status In order to resolve this exception you typically have either to verify and fix your request code or you have to fix the server code.  |
+| 31 | `/api/v2/unified/analyze` | POST | Yes | 404 | DioException [bad response]: This exception was thrown because the response has a status code of 404 and RequestOptions.validateStatus was configured to throw for this status code. The status code of 404 has the following meaning: "Client error - the request contains bad syntax or cannot be fulfilled" Read more about status codes at https://developer.mozilla.org/en-US/docs/Web/HTTP/Status In order to resolve this exception you typically have either to verify and fix your request code or you have to fix the server code.  |
+| 32 | `/api/confluence/analyze/AAPL` | GET | Yes | 404 | DioException [bad response]: This exception was thrown because the response has a status code of 404 and RequestOptions.validateStatus was configured to throw for this status code. The status code of 404 has the following meaning: "Client error - the request contains bad syntax or cannot be fulfilled" Read more about status codes at https://developer.mozilla.org/en-US/docs/Web/HTTP/Status In order to resolve this exception you typically have either to verify and fix your request code or you have to fix the server code.  |
+| 33 | `/api/confluence/market-scan` | GET | Yes | 404 | DioException [bad response]: This exception was thrown because the response has a status code of 404 and RequestOptions.validateStatus was configured to throw for this status code. The status code of 404 has the following meaning: "Client error - the request contains bad syntax or cannot be fulfilled" Read more about status codes at https://developer.mozilla.org/en-US/docs/Web/HTTP/Status In order to resolve this exception you typically have either to verify and fix your request code or you have to fix the server code.  |
+| 34 | `/api/persona/analyze/AAPL` | GET | Yes | 404 | DioException [bad response]: This exception was thrown because the response has a status code of 404 and RequestOptions.validateStatus was configured to throw for this status code. The status code of 404 has the following meaning: "Client error - the request contains bad syntax or cannot be fulfilled" Read more about status codes at https://developer.mozilla.org/en-US/docs/Web/HTTP/Status In order to resolve this exception you typically have either to verify and fix your request code or you have to fix the server code.  |
+| 35 | `/api/persona/recommendations` | GET | Yes | 404 | DioException [bad response]: This exception was thrown because the response has a status code of 404 and RequestOptions.validateStatus was configured to throw for this status code. The status code of 404 has the following meaning: "Client error - the request contains bad syntax or cannot be fulfilled" Read more about status codes at https://developer.mozilla.org/en-US/docs/Web/HTTP/Status In order to resolve this exception you typically have either to verify and fix your request code or you have to fix the server code.  |
+| 36 | `/api/maestro/stock/AAPL` | GET | Yes | 404 | DioException [bad response]: This exception was thrown because the response has a status code of 404 and RequestOptions.validateStatus was configured to throw for this status code. The status code of 404 has the following meaning: "Client error - the request contains bad syntax or cannot be fulfilled" Read more about status codes at https://developer.mozilla.org/en-US/docs/Web/HTTP/Status In order to resolve this exception you typically have either to verify and fix your request code or you have to fix the server code.  |
+| 37 | `/api/scanner/quick` | GET | No | 404 | DioException [bad response]: This exception was thrown because the response has a status code of 404 and RequestOptions.validateStatus was configured to throw for this status code. The status code of 404 has the following meaning: "Client error - the request contains bad syntax or cannot be fulfilled" Read more about status codes at https://developer.mozilla.org/en-US/docs/Web/HTTP/Status In order to resolve this exception you typically have either to verify and fix your request code or you have to fix the server code.  |
+| 38 | `/api/scanner/quick` | GET | No | 404 | DioException [bad response]: This exception was thrown because the response has a status code of 404 and RequestOptions.validateStatus was configured to throw for this status code. The status code of 404 has the following meaning: "Client error - the request contains bad syntax or cannot be fulfilled" Read more about status codes at https://developer.mozilla.org/en-US/docs/Web/HTTP/Status In order to resolve this exception you typically have either to verify and fix your request code or you have to fix the server code.  |
+| 39 | `/api/data-engine/health` | GET | No | 404 | DioException [bad response]: This exception was thrown because the response has a status code of 404 and RequestOptions.validateStatus was configured to throw for this status code. The status code of 404 has the following meaning: "Client error - the request contains bad syntax or cannot be fulfilled" Read more about status codes at https://developer.mozilla.org/en-US/docs/Web/HTTP/Status In order to resolve this exception you typically have either to verify and fix your request code or you have to fix the server code.  |
+| 40 | `/api/data-engine/metals` | GET | No | 404 | DioException [bad response]: This exception was thrown because the response has a status code of 404 and RequestOptions.validateStatus was configured to throw for this status code. The status code of 404 has the following meaning: "Client error - the request contains bad syntax or cannot be fulfilled" Read more about status codes at https://developer.mozilla.org/en-US/docs/Web/HTTP/Status In order to resolve this exception you typically have either to verify and fix your request code or you have to fix the server code.  |
+| 41 | `/api/risk/decision-table` | GET | No | 404 | DioException [bad response]: This exception was thrown because the response has a status code of 404 and RequestOptions.validateStatus was configured to throw for this status code. The status code of 404 has the following meaning: "Client error - the request contains bad syntax or cannot be fulfilled" Read more about status codes at https://developer.mozilla.org/en-US/docs/Web/HTTP/Status In order to resolve this exception you typically have either to verify and fix your request code or you have to fix the server code.  |
+| 42 | `/api/risk/stock-types` | GET | No | 404 | DioException [bad response]: This exception was thrown because the response has a status code of 404 and RequestOptions.validateStatus was configured to throw for this status code. The status code of 404 has the following meaning: "Client error - the request contains bad syntax or cannot be fulfilled" Read more about status codes at https://developer.mozilla.org/en-US/docs/Web/HTTP/Status In order to resolve this exception you typically have either to verify and fix your request code or you have to fix the server code.  |
+| 43 | `/api/finance/assets` | POST | Yes | 401 | DioException [bad response]: This exception was thrown because the response has a status code of 401 and RequestOptions.validateStatus was configured to throw for this status code. The status code of 401 has the following meaning: "Client error - the request contains bad syntax or cannot be fulfilled" Read more about status codes at https://developer.mozilla.org/en-US/docs/Web/HTTP/Status In order to resolve this exception you typically have either to verify and fix your request code or you have to fix the server code.  |
+| 44 | `/api/finance/assets/test-id` | DELETE | Yes | 401 | DioException [bad response]: This exception was thrown because the response has a status code of 401 and RequestOptions.validateStatus was configured to throw for this status code. The status code of 401 has the following meaning: "Client error - the request contains bad syntax or cannot be fulfilled" Read more about status codes at https://developer.mozilla.org/en-US/docs/Web/HTTP/Status In order to resolve this exception you typically have either to verify and fix your request code or you have to fix the server code.  |
+| 45 | `/api/mobile/notifications` | GET | Yes | 500 | DioException [bad response]: This exception was thrown because the response has a status code of 500 and RequestOptions.validateStatus was configured to throw for this status code. The status code of 500 has the following meaning: "Server error - the server failed to fulfil an apparently valid request" Read more about status codes at https://developer.mozilla.org/en-US/docs/Web/HTTP/Status In order to resolve this exception you typically have either to verify and fix your request code or you have to fix the server code.  |
+| 46 | `/api/mobile/alerts/settings` | GET | Yes | 401 | DioException [bad response]: This exception was thrown because the response has a status code of 401 and RequestOptions.validateStatus was configured to throw for this status code. The status code of 401 has the following meaning: "Client error - the request contains bad syntax or cannot be fulfilled" Read more about status codes at https://developer.mozilla.org/en-US/docs/Web/HTTP/Status In order to resolve this exception you typically have either to verify and fix your request code or you have to fix the server code.  |
+| 47 | `/api/mobile/alerts/settings` | POST | Yes | 401 | DioException [bad response]: This exception was thrown because the response has a status code of 401 and RequestOptions.validateStatus was configured to throw for this status code. The status code of 401 has the following meaning: "Client error - the request contains bad syntax or cannot be fulfilled" Read more about status codes at https://developer.mozilla.org/en-US/docs/Web/HTTP/Status In order to resolve this exception you typically have either to verify and fix your request code or you have to fix the server code.  |
+| 48 | `/api/mobile/alerts/settings` | DELETE | Yes | 401 | DioException [bad response]: This exception was thrown because the response has a status code of 401 and RequestOptions.validateStatus was configured to throw for this status code. The status code of 401 has the following meaning: "Client error - the request contains bad syntax or cannot be fulfilled" Read more about status codes at https://developer.mozilla.org/en-US/docs/Web/HTTP/Status In order to resolve this exception you typically have either to verify and fix your request code or you have to fix the server code.  |
+| 49 | `/api/paymob/create-payment` | POST | Yes | 401 | DioException [bad response]: This exception was thrown because the response has a status code of 401 and RequestOptions.validateStatus was configured to throw for this status code. The status code of 401 has the following meaning: "Client error - the request contains bad syntax or cannot be fulfilled" Read more about status codes at https://developer.mozilla.org/en-US/docs/Web/HTTP/Status In order to resolve this exception you typically have either to verify and fix your request code or you have to fix the server code.  |
+| 50 | `/api/instapay/verify` | POST | Yes | 400 | DioException [bad response]: This exception was thrown because the response has a status code of 400 and RequestOptions.validateStatus was configured to throw for this status code. The status code of 400 has the following meaning: "Client error - the request contains bad syntax or cannot be fulfilled" Read more about status codes at https://developer.mozilla.org/en-US/docs/Web/HTTP/Status In order to resolve this exception you typically have either to verify and fix your request code or you have to fix the server code.  |
+| 51 | `/api/google-play/verify-receipt` | POST | Yes | 400 | DioException [bad response]: This exception was thrown because the response has a status code of 400 and RequestOptions.validateStatus was configured to throw for this status code. The status code of 400 has the following meaning: "Client error - the request contains bad syntax or cannot be fulfilled" Read more about status codes at https://developer.mozilla.org/en-US/docs/Web/HTTP/Status In order to resolve this exception you typically have either to verify and fix your request code or you have to fix the server code.  |
+| 52 | `/api/push/register` | POST | Yes | 404 | DioException [bad response]: This exception was thrown because the response has a status code of 404 and RequestOptions.validateStatus was configured to throw for this status code. The status code of 404 has the following meaning: "Client error - the request contains bad syntax or cannot be fulfilled" Read more about status codes at https://developer.mozilla.org/en-US/docs/Web/HTTP/Status In order to resolve this exception you typically have either to verify and fix your request code or you have to fix the server code.  |
 
-### Method Not Allowed (405)
+## Detailed Results
 
-| Status | Endpoint | Flutter Method | Notes |
-|--------|----------|----------------|-------|
-| **405** | `/api/auth/google` (GET) | `googleLogin()` | Requires POST (client uses POST correctly, test used GET) |
-| **405** | `/api/subscription/upgrade` (GET) | `upgradeSubscription()` | Requires POST (client uses POST correctly) |
-| **405** | `/api/google-play/verify-receipt` (GET) | `verifyGooglePlayReceipt()` | Requires POST (client uses POST correctly) |
-| **405** | `/api/paymob/create-payment` (GET) | `createPaymobPayment()` | Requires POST (client uses POST correctly) |
+| # | Endpoint | Method | Auth | Status | Duration | Preview |
+|---|----------|--------|------|--------|----------|---------|
+| 1 | `/api/auth/google` | POST | No | 401 | 751ms | {success: false, error: فشل التحقق من Google token, error_en: Google verification failed: 400} |
+| 2 | `/api/auth/logout` | POST | Yes | 200 | 336ms | {success: true, message: Logged out successfully, message_ar: تم تسجيل الخروج بنجاح} |
+| 3 | `/api/auth/me` | GET | Yes | 401 | 115ms | {success: false, error: غير مسجل الدخول} |
+| 4 | `/api/auth/profile` | PUT | Yes | 405 | 113ms |  |
+| 5 | `/api/market/overview` | GET | No | 200 | 301ms | {data: {gainers: [{avg_volume: null, beta: null, book_value_per_share: null, change_percent: 20, change_value: null, close: null, created_at: null, current_price: 25.44, current_ratio: null, debt_to_e... |
+| 6 | `/api/market/overview` | GET | No | 200 | 157ms | {data: {gainers: [{avg_volume: 149.99119040247678, beta: null, book_value_per_share: null, change_percent: 20, change_value: 0, close: 0, created_at: 2026-06-04T14:54:32.680905, current_price: 247.59,... |
+| 7 | `/api/market/live-data` | GET | No | 200 | 1544ms | {success: true, source: database, fetched_at: 2026-07-15T00:00:29.201Z, data_count: 1042, stocks: [{ticker: COMI, name_ar: البنك التجاري الدولي, current_price: 132.5, change: 0.396, change_percent: 0.... |
+| 8 | `/api/market/investing` | GET | No | 200 | 234ms | {success: true, market: EGX, source: data_engine, fetched_at: 2026-07-15T00:00:30.218Z, summary: {total_stocks: 50, gainers: 19, losers: 30, unchanged: 1, market_breadth: 38}, top_gainers: [{ticker: F... |
+| 9 | `/api/market/recommendations/ai-insights` | GET | No | 200 | 135ms | {data: {breadth: {adv_dec_ratio: 0.47, gainers: 257, losers: 552, total_turnover: 142387424, total_turnover_bn: 0.14, unchanged: 215}, cairo_time: 2026-07-13 15:16:32, divergence: {action: CAUTION, ac... |
+| 10 | `/api/market/status` | GET | No | 200 | 114ms | {data: {breadth: {adv_dec_ratio: 0.47, gainers: 257, losers: 552, total_turnover: 142387424, total_turnover_bn: 0.14, unchanged: 215}, cairo_time: 2026-07-13 15:16:32, divergence: {action: CAUTION, ac... |
+| 11 | `/api/market/connections` | GET | No | 200 | 109ms | {timestamp: 2026-07-14T23:43:52.424Z, environment: development, architecture: {hostinger: Node.js only (Next.js), vps: Python only (egxpy-bridge FastAPI), vps_ip: YOUR_VPS_IP, vps_port: 8010, connecti... |
+| 12 | `/api/market/incremental-sync` | GET | Yes | 405 | 116ms |  |
+| 13 | `/api/market/sync-live` | POST | Yes | 200 | 4997ms | {success: true, source: database, fetched_at: 2026-07-15T00:00:35.718Z, data_count: 1042, matched_count: 0, updated_count: 0, skipped_count: 1042, price_history_inserted: 0, price_history_skipped: 0, ... |
+| 14 | `/api/market/sync` | POST | Yes | 200 | 3045ms | {success: true, timestamp: 2026-07-15T00:00:38.771Z, results: {stocks: {success: true, count: 272, source: EGXPilot (via Python)}, sync_light: {success: false, count: 0, error: Error: Command failed: ... |
+| 15 | `/api/multi-market/sync` | GET | Yes | 200 | 106ms | {success: true, status: {EGX: {available: true, count: 464}, TADAWUL: {available: true, count: 388}, KSE: {available: true, count: 139}, DFM: {available: false, count: 0}, BSE: {available: false, coun... |
+| 16 | `/api/stocks` | GET | No | 200 | 674ms | {stocks: [{current_price: 20.51, egx100_member: false, egx30_member: false, egx70_member: false, high_52w: null, low_52w: null, ma_50: null, market_cap: 82.96 B SAR, name: الرياض, name_ar: الرياض, pe_... |
+| 17 | `/api/stocks/movement-classification` | GET | No | 200 | 115ms | {data: {breadth: {adv_dec_ratio: 0.47, gainers: 257, losers: 552, total_turnover: 142387424, total_turnover_bn: 0.14, unchanged: 215}, cairo_time: 2026-07-13 15:16:32, divergence: {action: CAUTION, ac... |
+| 18 | `/api/stocks/movement-classification` | GET | No | 200 | 144ms | {data: {breadth: {adv_dec_ratio: 0.47, gainers: 257, losers: 552, total_turnover: 142387424, total_turnover_bn: 0.14, unchanged: 215}, cairo_time: 2026-07-13 15:34:05, divergence: {action: CAUTION, ac... |
+| 19 | `/api/stocks/fundamentals` | GET | No | 200 | 541ms | {success: true, total: 1, fetched: 0, failed: 1, errors: [], data: []} |
+| 20 | `/api/stocks/AAPL` | GET | No | 200 | 134ms | {error: Stock not found, success: false} |
+| 21 | `/api/stocks/AAPL/history` | GET | No | 200 | 184ms | {error: No historical data found, success: false} |
+| 22 | `/api/stocks/AAPL/recommendation` | GET | No | 200 | 117ms | {data: {breadth: {adv_dec_ratio: 0.47, gainers: 257, losers: 552, total_turnover: 142387424, total_turnover_bn: 0.14, unchanged: 215}, cairo_time: 2026-07-13 15:16:32, divergence: {action: CAUTION, ac... |
+| 23 | `/api/stocks/AAPL/professional-analysis` | GET | No | 404 | 125ms | {success: false, error: فشل في جلب التحليل, ticker: AAPL, python_backend: http://localhost:8010} |
+| 24 | `/api/stocks/AAPL/news` | GET | No | 200 | 106ms | {data: {breadth: {adv_dec_ratio: 0.47, gainers: 257, losers: 552, total_turnover: 142387424, total_turnover_bn: 0.14, unchanged: 215}, cairo_time: 2026-07-13 15:16:32, divergence: {action: CAUTION, ac... |
+| 25 | `/api/crypto` | GET | No | 200 | 111ms | {data: {all_cryptos: [{change_24h: -0.06698, change_7d: 2.5929736198674878, circulating_supply: 20055428, market_cap: 1287550852352, market_cap_rank: 1, name: Bitcoin, price_usd: 64198, rank: 1, symbo... |
+| 26 | `/api/crypto/bitcoin` | GET | No | 200 | 315ms | {success: true, data: {id: bitcoin, symbol: BTC, name: Bitcoin, image: {thumb: https://coin-images.coingecko.com/coins/images/1/thumb/bitcoin.png?1696501400, small: https://coin-images.coingecko.com/c... |
+| 27 | `/api/crypto/ohlc` | GET | No | 200 | 776ms | {data: {all_cryptos: [{change_24h: 4.45186, change_7d: 2.3175750398729673, circulating_supply: 20056475, market_cap: 1303237785862, market_cap_rank: 1, name: Bitcoin, price_usd: 64978, rank: 1, symbol... |
+| 28 | `/api/crypto/recommendations` | GET | No | 200 | 123ms | {data: {all_cryptos: [{change_24h: -0.06698, change_7d: 2.5929736198674878, circulating_supply: 20055428, market_cap: 1287550852352, market_cap_rank: 1, name: Bitcoin, price_usd: 64198, rank: 1, symbo... |
+| 29 | `/api/crypto/backtesting` | GET | No | 404 | 307ms | {success: false, error: Coin 'backtesting' not found} |
+| 30 | `/api/crypto/portfolio` | GET | Yes | 200 | 305ms | {success: true, items: [], total: 0} |
+| 31 | `/api/crypto/stats` | GET | No | 200 | 119ms | {totalCryptos: 0, topCryptos: [], stats: {}} |
+| 32 | `/api/crypto/status` | GET | No | 200 | 144ms | {running: false, progress: {current: 0, total: 60}, logs: [🚀 بدء سحب العملات الرقمية...], results: [{rank: 1, symbol: BTC, name: Bitcoin, price_usd: 63911, price_change_24h: 3.1187, price_change_7d: ... |
+| 33 | `/api/crypto/simulation` | POST | Yes | 200 | 120ms | {success: false, error: Python backend unavailable for trade execution} |
+| 34 | `/api/mobile/crypto` | GET | No | 200 | 111ms | {success: true, source: python_backend, crypto: [{symbol: USDT, name: Tether, name_ar: Tether, price: 0.999278, change_24h: 0.03, market_cap: 186762028849, volume_24h: 51565916310, ath: 1.32, atl: 0.5... |
+| 35 | `/api/mobile/crypto/bitcoin` | GET | No | 200 | 121ms | {data: {all_cryptos: [{change_24h: -0.06698, change_7d: 2.5929736198674878, circulating_supply: 20055428, market_cap: 1287550852352, market_cap_rank: 1, name: Bitcoin, price_usd: 64198, rank: 1, symbo... |
+| 36 | `/api/mobile/crypto/recommendations` | GET | No | 200 | 807ms | {success: true, timestamp: 2026-07-15T00:00:44.391Z, recommendations: [{id: tether, symbol: USDT, name: Tether, price: 0.999278, change_24h: 0.03, market_cap: 186762028849, signal: STRONG_BUY, signal_... |
+| 37 | `/api/mobile/crypto/analysis` | GET | No | 200 | 342ms | {data: {all_cryptos: [{change_24h: 4.45186, change_7d: 2.3175750398729673, circulating_supply: 20056475, market_cap: 1303237785862, market_cap_rank: 1, name: Bitcoin, price_usd: 64978, rank: 1, symbol... |
+| 38 | `/api/mobile/crypto/learning` | GET | No | 200 | 114ms | {success: true, timestamp: 2026-07-15T00:00:44.843Z, content: [{id: intro, title: مقدمة في العملات الرقمية, title_en: Introduction to Cryptocurrency, category: basics, level: beginner, duration: 10 دق... |
+| 39 | `/api/mobile/crypto/portfolio` | GET | Yes | 200 | 210ms | {data: {all_cryptos: [{change_24h: -0.06698, change_7d: 2.5929736198674878, circulating_supply: 20055428, market_cap: 1287550852352, market_cap_rank: 1, name: Bitcoin, price_usd: 64198, rank: 1, symbo... |
+| 40 | `/api/mobile/crypto/watchlist` | GET | Yes | 200 | 682ms | {success: true, timestamp: 2026-07-15T00:00:45.736Z, watchlist: [{id: tether, symbol: USDT, name: Tether, price: 0.999278, change_24h: 0.03, market_cap: 186762028849, market_cap_rank: 3, signal: STRON... |
+| 41 | `/api/mobile/portfolio` | GET | Yes | 200 | 125ms | {data: {cairo_time: 2026-07-14 14:57:05, cairo_time_iso: 2026-07-14T14:57:05.998767+03:00, data_sources: {end_of_day: EGXPilot, end_of_day_note: EGXPilot is used ONLY for end-of-day data, NOT for intr... |
+| 42 | `/api/mobile/portfolio/analyze` | GET | Yes | 200 | 102ms | {data: {cairo_time: 2026-07-14 14:57:05, cairo_time_iso: 2026-07-14T14:57:05.998767+03:00, data_sources: {end_of_day: EGXPilot, end_of_day_note: EGXPilot is used ONLY for end-of-day data, NOT for intr... |
+| 43 | `/api/mobile/portfolio` | POST | Yes | 405 | 115ms |  |
+| 44 | `/api/mobile/portfolio` | DELETE | Yes | 405 | 121ms |  |
+| 45 | `/api/mobile/portfolio/intelligence` | GET | Yes | 200 | 190ms | {data: {cairo_time: 2026-07-14 14:57:05, cairo_time_iso: 2026-07-14T14:57:05.998767+03:00, data_sources: {end_of_day: EGXPilot, end_of_day_note: EGXPilot is used ONLY for end-of-day data, NOT for intr... |
+| 46 | `/api/portfolio/analyze` | GET | Yes | 200 | 105ms | {data: {cairo_time: 2026-07-12 16:13:19, egx30_change: 2.16, fire_count: 0, market_action: مراقبة, market_assessment: السوق محايد - استنى تأكيد, sector_heatmap: [{avg_change: -0.28, breadth: 2.6, gain... |
+| 47 | `/api/watchlist` | GET | Yes | 200 | 116ms | {data: {breadth: {adv_dec_ratio: 0.47, gainers: 257, losers: 552, total_turnover: 142387424, total_turnover_bn: 0.14, unchanged: 215}, cairo_time: 2026-07-13 15:16:32, divergence: {action: CAUTION, ac... |
+| 48 | `/api/watchlist-enhanced` | GET | Yes | 200 | 119ms | {data: {breadth: {adv_dec_ratio: 0.47, gainers: 257, losers: 552, total_turnover: 142387424, total_turnover_bn: 0.14, unchanged: 215}, cairo_time: 2026-07-13 15:16:32, divergence: {action: CAUTION, ac... |
+| 49 | `/api/watchlist` | POST | Yes | 405 | 116ms |  |
+| 50 | `/api/watchlist/test-id` | DELETE | Yes | 401 | 120ms | {success: false, error: يجب تسجيل الدخول لحذف عنصر من قائمة المراقبة} |
+| 51 | `/api/mobile/watchlist/intelligence` | GET | Yes | 200 | 124ms | {data: {breadth: {adv_dec_ratio: 0.47, gainers: 257, losers: 552, total_turnover: 142387424, total_turnover_bn: 0.14, unchanged: 215}, cairo_time: 2026-07-13 15:16:32, divergence: {action: CAUTION, ac... |
+| 52 | `/api/subscription/current` | GET | Yes | 200 | 116ms | {success: true, subscription: null, tier: free, message: لا يوجد اشتراك نشط} |
+| 53 | `/api/subscription/plans` | GET | No | 200 | 129ms | {success: true, plans: [{id: free, name: free, name_ar: مجانى, price: 0, price_yearly: null, trial_days: 0, features: [بيانات السوق الأساسية, 5 أسهم في قائمة المراقبة, محفظة استثمارية واحدة, 3 تنبيهات... |
+| 54 | `/api/subscription/upgrade` | POST | Yes | 401 | 164ms | {success: false, error: يجب تسجيل الدخول أولاً} |
+| 55 | `/api/subscription/subscribe` | POST | Yes | 404 | 155ms | <!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charSet="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><link rel="stylesheet" href="/_next/static/css/a6cd961185b576... |
+| 56 | `/api/subscription/trial` | POST | Yes | 404 | 381ms | <!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charSet="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><link rel="stylesheet" href="/_next/static/css/a6cd961185b576... |
+| 57 | `/api/subscription/check-access` | POST | Yes | 200 | 139ms | {success: true, hasAccess: false, tier: free, feature: stock_history, message: هذه الميزة متاحة للمشتركين فقط, message_en: This feature is available for subscribers only, requiresAuth: true} |
+| 58 | `/api/subscription/checkout` | POST | Yes | 404 | 188ms | <!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charSet="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><link rel="stylesheet" href="/_next/static/css/a6cd961185b576... |
+| 59 | `/api/subscription/verify` | POST | Yes | 404 | 170ms | <!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charSet="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><link rel="stylesheet" href="/_next/static/css/a6cd961185b576... |
+| 60 | `/api/subscription/status` | GET | Yes | 404 | 132ms | <!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charSet="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><link rel="stylesheet" href="/_next/static/css/a6cd961185b576... |
+| 61 | `/api/v2/live-analysis` | GET | Yes | 200 | 119ms | {data: {breadth: {adv_dec_ratio: 0.47, gainers: 257, losers: 552, total_turnover: 142387424, total_turnover_bn: 0.14, unchanged: 215}, cairo_time: 2026-07-13 15:16:32, divergence: {action: CAUTION, ac... |
+| 62 | `/api/health` | GET | No | 200 | 116ms | {status: ok, diagnostics: {cwd: /root/GLMinvestment, timestamp: 2026-07-14T23:43:50.733Z, node_version: v20.20.2, env_node_env: production, databases: {db/stocks.db: {exists: true, size_bytes: 2010726... |
+| 63 | `/api/ai/batch-analysis` | GET | Yes | 200 | 101ms | {success: true, results: [], source: stub, message: استخدم POST مع body يحتوي tickers[]} |
+| 64 | `/api/ai/analyze-stock` | POST | Yes | 404 | 187ms | <!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charSet="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><link rel="stylesheet" href="/_next/static/css/a6cd961185b576... |
+| 65 | `/api/ai/chat` | POST | Yes | 401 | 114ms | {success: false, error: Unauthorized, error_ar: يجب تسجيل الدخول لاستخدام المساعد الذكي} |
+| 66 | `/api/mobile/predictions` | GET | Yes | 200 | 106ms | {predictions: [], statistics: {avg_score: 49.9, buy_count: 226, hold_count: 222, sell_count: 288, total: 736}, success: true, timestamp: 2026-07-14T11:56:29.994881, total: 0} |
+| 67 | `/api/predictions/performance` | GET | Yes | 200 | 108ms | {predictions: [], statistics: {avg_score: 49.9, buy_count: 226, hold_count: 222, sell_count: 288, total: 736}, success: true, timestamp: 2026-07-14T11:56:29.994881, total: 0} |
+| 68 | `/api/global-predictions` | GET | Yes | 200 | 131ms | {count: 17, data: [{action: استنى, action_en: WAIT, change_percent: 0, color: gray, cross_validation: 30, current_price: 2.13, egx30_change: 2.16, flow_score: 53.5, label: رماد, label_en: ASH, macro_f... |
+| 69 | `/api/recommendations/expert` | GET | No | 404 | 128ms | <!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charSet="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><link rel="stylesheet" href="/_next/static/css/a6cd961185b576... |
+| 70 | `/api/reports/morning` | GET | No | 200 | 116ms | {success: true, count: 0, reports: []} |
+| 71 | `/api/metals` | GET | No | 404 | 144ms | <!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charSet="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><link rel="stylesheet" href="/_next/static/css/a6cd961185b576... |
+| 72 | `/api/mobile/gold` | GET | No | 200 | 128ms | {success: true, timestamp: 2026-07-14T23:43:54.251Z, last_updated: 2026-07-14 23:37:43, source: data_engine.db, prices: {karats: [{key: 24, name_ar: عيار 24, price_per_gram: 3778.94, change: null, cur... |
+| 73 | `/api/mobile/gold/history` | GET | No | 404 | 132ms | <!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charSet="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><link rel="stylesheet" href="/_next/static/css/a6cd961185b576... |
+| 74 | `/api/currency` | GET | No | 200 | 117ms | {success: true, rates: [{id: 35299, code: AED, currency: AED, name_ar: درهم إماراتي, buy_rate: 13.69, sell_rate: 13.71, buy: 13.69, sell: 13.71, rate_to_egp: 13.69, rate_to_usd: 3.67, change: 0, is_ma... |
+| 75 | `/api/currency/list` | GET | No | 200 | 107ms | {success: true, count: 65, currencies: {USD: {name: US Dollar, name_ar: دولار أمريكي, symbol: $}, EUR: {name: Euro, name_ar: يورو, symbol: €}, GBP: {name: British Pound, name_ar: جنيه إسترليني, symbol... |
+| 76 | `/api/currency/convert` | POST | No | 405 | 108ms |  |
+| 77 | `/api/zakat/calculate` | POST | No | 404 | 147ms | <!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charSet="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><link rel="stylesheet" href="/_next/static/css/a6cd961185b576... |
+| 78 | `/api/mobile/zakat-calculator` | GET | No | 200 | 230ms | {data: {breadth: {adv_dec_ratio: 0.51, gainers: 263, losers: 517, total_turnover: 291075996, total_turnover_bn: 0.29, unchanged: 262}, cairo_time: 2026-07-15 03:00:50, divergence: {action: CAUTION, ac... |
+| 79 | `/api/learning/content` | GET | No | 200 | 108ms | {data: {breadth: {adv_dec_ratio: 0.47, gainers: 257, losers: 552, total_turnover: 142387424, total_turnover_bn: 0.14, unchanged: 215}, cairo_time: 2026-07-13 15:16:32, divergence: {action: CAUTION, ac... |
+| 80 | `/api/learning/progress` | POST | Yes | 401 | 110ms | {success: false, error: Authentication required} |
+| 81 | `/api/unified-learning/status` | GET | Yes | 200 | 103ms | {success: true, status: idle, last_run: null, patterns_count: 0, accuracy: 0, source: python, data: {active_indicators: 10, disabled_indicators: 0, indicator_scores_count: 10, lessons_learned: 0, patt... |
+| 82 | `/api/unified-learning/iterative` | POST | Yes | 200 | 177ms | {success: true, iteration: 0, accuracy: 0.5, loss: 1, source: python, result: {best_parameters: {confidence_threshold: 55, ma_weight: 12, macd_weight: 10, rsi_overbought: 70, rsi_oversold: 30, rsi_wei... |
+| 83 | `/api/unified-learning/intelligent` | POST | Yes | 405 | 151ms | <!DOCTYPE html><html><head><meta charSet="utf-8"/><meta name="viewport" content="width=device-width"/><title>405: Method Not Allowed</title><meta name="next-head-count" content="3"/><noscript data-n-c... |
+| 84 | `/api/unified-learning/indicators` | GET | Yes | 200 | 102ms | {success: true, indicators: [], source: unavailable, message: خدمة التعلم الموحّد غير متاحة حالياً — لا توجد مؤشرات لعرضها} |
+| 85 | `/api/unified-learning/patterns` | GET | Yes | 200 | 115ms | {success: true, patterns: [], source: unavailable, message: خدمة التعلم الموحّد غير متاحة حالياً — لا توجد أنماط لعرضها} |
+| 86 | `/api/unified-learning/mine-lessons` | POST | Yes | 200 | 138ms | {success: true, lessons: [], source: python, lessons_mined: 0, timestamp: 2026-07-15T00:00:52.040084} |
+| 87 | `/api/backtest` | POST | Yes | 405 | 102ms |  |
+| 88 | `/api/backtesting` | GET | Yes | 200 | 120ms | {data: {breadth: {adv_dec_ratio: 0.47, gainers: 257, losers: 552, total_turnover: 142387424, total_turnover_bn: 0.14, unchanged: 215}, cairo_time: 2026-07-13 15:16:32, divergence: {action: CAUTION, ac... |
+| 89 | `/api/backtesting/unified` | POST | Yes | 405 | 123ms |  |
+| 90 | `/api/kimi/backtest/run` | GET | Yes | 200 | 127ms | {success: true, message: هذا endpoint يستقبل POST فقط. الرجاء تمرير body يحتوي strategy, start_date, end_date, initial_capital, tickers, stub_results: {total_return: 0, win_rate: 0, trades_count: 0, e... |
+| 91 | `/api/walk-forward/run` | GET | Yes | 200 | 146ms | {success: true, message: هذا endpoint يستقبل POST فقط. الرجاء تمرير body يحتوي strategy, ticker, start_date, end_date, stub_results: {periods: [{name: فترة 1, return: 0, sharpe: 0, drawdown: 0}, {name... |
+| 92 | `/api/unified-stocks` | GET | No | 200 | 383ms | {success: true, data: [{id: 493, ticker: 1030, name: الإستثمار, name_ar: الإستثمار, market: TADAWUL, sector: القطاع المالي, industry: null, current_price: 13.41, previous_close: 13.400619566303588, op... |
+| 93 | `/api/v2/unified/personas` | GET | No | 404 | 141ms | <!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charSet="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><link rel="stylesheet" href="/_next/static/css/a6cd961185b576... |
+| 94 | `/api/v2/unified/config` | GET | No | 404 | 128ms | <!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charSet="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><link rel="stylesheet" href="/_next/static/css/a6cd961185b576... |
+| 95 | `/api/v2/unified/scan` | POST | Yes | 404 | 134ms | <!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charSet="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><link rel="stylesheet" href="/_next/static/css/a6cd961185b576... |
+| 96 | `/api/v2/unified/analyze` | POST | Yes | 404 | 148ms | <!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charSet="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><link rel="stylesheet" href="/_next/static/css/a6cd961185b576... |
+| 97 | `/api/confluence/analyze/AAPL` | GET | Yes | 404 | 163ms | <!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charSet="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><link rel="stylesheet" href="/_next/static/css/a6cd961185b576... |
+| 98 | `/api/confluence/market-scan` | GET | Yes | 404 | 124ms | <!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charSet="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><link rel="stylesheet" href="/_next/static/css/a6cd961185b576... |
+| 99 | `/api/persona/analyze/AAPL` | GET | Yes | 404 | 129ms | <!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charSet="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><link rel="stylesheet" href="/_next/static/css/a6cd961185b576... |
+| 100 | `/api/persona/recommendations` | GET | Yes | 404 | 118ms | <!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charSet="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><link rel="stylesheet" href="/_next/static/css/a6cd961185b576... |
+| 101 | `/api/maestro/stock/AAPL` | GET | Yes | 404 | 122ms | {success: false, error: السهم AAPL غير موجود, message: Stock AAPL not found} |
+| 102 | `/api/scanner/quick` | GET | No | 404 | 143ms | <!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charSet="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><link rel="stylesheet" href="/_next/static/css/a6cd961185b576... |
+| 103 | `/api/scanner/quick` | GET | No | 404 | 225ms | <!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charSet="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><link rel="stylesheet" href="/_next/static/css/a6cd961185b576... |
+| 104 | `/api/data-engine/health` | GET | No | 404 | 279ms | <!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charSet="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><link rel="stylesheet" href="/_next/static/css/a6cd961185b576... |
+| 105 | `/api/data-engine/stocks` | GET | No | 200 | 529ms | {success: true, timestamp: 2026-07-15T00:00:55.015Z, market: all, market_name: الكل, page: 1, total: 2492, total_pages: 50, stocks: [{id: 5031, symbol: 1030, name: الإستثمار, price: 13.41, change_perc... |
+| 106 | `/api/data-engine/metals` | GET | No | 404 | 378ms | <!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charSet="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><link rel="stylesheet" href="/_next/static/css/a6cd961185b576... |
+| 107 | `/api/data-engine/crypto` | GET | No | 200 | 122ms | {data: {all_cryptos: [{change_24h: -0.06698, change_7d: 2.5929736198674878, circulating_supply: 20055428, market_cap: 1287550852352, market_cap_rank: 1, name: Bitcoin, price_usd: 64198, rank: 1, symbo... |
+| 108 | `/api/data-engine/forex` | GET | No | 200 | 116ms | {success: true, timestamp: 2026-07-14T23:43:48.781Z, count: 14, data: {base: USD, rates: {AED: {currency: AED, rate_to_usd: 3.67, name: درهم إماراتي, flag: 🇦🇪, country: الإمارات}, BHD: {currency: BH... |
+| 109 | `/api/data-engine/status` | GET | No | 200 | 101ms | {success: true, timestamp: 2026-07-14T23:43:48.936Z, databases: {live_data: data_engine.db, historical_data: price_history.db}, data_counts: {stocks: 2492, crypto: 74841, gold_prices: 98729, silver_pr... |
+| 110 | `/api/risk/decision-table` | GET | No | 404 | 145ms | <!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charSet="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><link rel="stylesheet" href="/_next/static/css/a6cd961185b576... |
+| 111 | `/api/risk/stock-types` | GET | No | 404 | 124ms | <!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charSet="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><link rel="stylesheet" href="/_next/static/css/a6cd961185b576... |
+| 112 | `/api/finance/assets` | GET | Yes | 200 | 121ms | {success: true, items: [], total: 0} |
+| 113 | `/api/finance/assets` | POST | Yes | 401 | 103ms | {success: false, error: يجب تسجيل الدخول} |
+| 114 | `/api/finance/assets/test-id` | DELETE | Yes | 401 | 109ms | {success: false, error: يجب تسجيل الدخول} |
+| 115 | `/api/mobile/notifications` | GET | Yes | 500 | 130ms | {success: false, error: Failed to load notifications} |
+| 116 | `/api/mobile/notifications` | POST | Yes | 200 | 126ms | {success: true, message: Notification undefined marked as read} |
+| 117 | `/api/mobile/alerts/settings` | GET | Yes | 401 | 148ms | {success: false, error: Unauthorized, error_ar: يجب تسجيل الدخول} |
+| 118 | `/api/mobile/alerts/settings` | POST | Yes | 401 | 109ms | {success: false, error: Unauthorized, error_ar: يجب تسجيل الدخول} |
+| 119 | `/api/mobile/alerts/settings` | DELETE | Yes | 401 | 126ms | {success: false, error: Unauthorized, error_ar: يجب تسجيل الدخول} |
+| 120 | `/api/paymob/create-payment` | POST | Yes | 401 | 106ms | {success: false, error: يجب تسجيل الدخول أولاً} |
+| 121 | `/api/instapay/verify` | POST | Yes | 400 | 103ms | {error: البيانات غير مكتملة} |
+| 122 | `/api/google-play/verify-receipt` | POST | Yes | 400 | 114ms | {success: false, error: Missing required fields: product_id, purchase_token, error_ar: بيانات ناقصة: معرف المنتج أو رمز الشراء} |
+| 123 | `/api/push/register` | POST | Yes | 404 | 155ms | <!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charSet="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><link rel="stylesheet" href="/_next/static/css/a6cd961185b576... |
+| 124 | `/api/mobile/dashboard` | GET | No | 200 | 136ms | {data: {breadth: {adv_dec_ratio: 0.47, gainers: 257, losers: 552, total_turnover: 142387424, total_turnover_bn: 0.14, unchanged: 215}, cairo_time: 2026-07-13 15:16:32, divergence: {action: CAUTION, ac... |
+| 125 | `/api/mobile/news` | GET | No | 200 | 525ms | {success: true, cached: false, timestamp: 2026-07-15T00:00:58.539Z, news: [{id: egx-1762356662902963, title: البورصة توافق على قيد أسهم زيادة رأس مال النيل للأدوية, summary: , source: EGXPilot, timest... |
+| 126 | `/api/mobile/recommendations` | GET | No | 200 | 122ms | {data: {breadth: {adv_dec_ratio: 0.47, gainers: 257, losers: 552, total_turnover: 142387424, total_turnover_bn: 0.14, unchanged: 215}, cairo_time: 2026-07-13 15:16:32, divergence: {action: CAUTION, ac... |
+| 127 | `/api/mobile/stocks/EGX/recommendation` | GET | No | 200 | 246ms | {success: true, market: EGX, total_stocks: 1058, top_buy_signals: [{ticker: 2030, current_price: 46.52, change_percent: -5.14, recommendation: {action: BUY, confidence: 75, target_price: 51.17, stop_l... |
 
-### Unauthorized (401) - Expected behavior (auth required)
+## Recommendations for Backend Developer
 
-| Status | Endpoint | Flutter Method | Notes |
-|--------|----------|----------------|-------|
-| **401** | `/api/mobile/portfolio` | `getMobilePortfolio()` | Requires valid Bearer token |
-| **401** | `/api/mobile/alerts/settings` | `getAlertSettings()` | Requires valid Bearer token |
-| **401** | `/api/auth/me` | `getMe()` | Requires valid Bearer token |
+### Missing Endpoints (404)
+
+- **GET /api/stocks/AAPL/professional-analysis** - This endpoint does not exist on the server. Please implement it.
+- **GET /api/crypto/backtesting** - This endpoint does not exist on the server. Please implement it.
+- **POST /api/subscription/subscribe** - This endpoint does not exist on the server. Please implement it.
+- **POST /api/subscription/trial** - This endpoint does not exist on the server. Please implement it.
+- **POST /api/subscription/checkout** - This endpoint does not exist on the server. Please implement it.
+- **POST /api/subscription/verify** - This endpoint does not exist on the server. Please implement it.
+- **GET /api/subscription/status** - This endpoint does not exist on the server. Please implement it.
+- **POST /api/ai/analyze-stock** - This endpoint does not exist on the server. Please implement it.
+- **GET /api/recommendations/expert** - This endpoint does not exist on the server. Please implement it.
+- **GET /api/metals** - This endpoint does not exist on the server. Please implement it.
+- **GET /api/mobile/gold/history** - This endpoint does not exist on the server. Please implement it.
+- **POST /api/zakat/calculate** - This endpoint does not exist on the server. Please implement it.
+- **GET /api/v2/unified/personas** - This endpoint does not exist on the server. Please implement it.
+- **GET /api/v2/unified/config** - This endpoint does not exist on the server. Please implement it.
+- **POST /api/v2/unified/scan** - This endpoint does not exist on the server. Please implement it.
+- **POST /api/v2/unified/analyze** - This endpoint does not exist on the server. Please implement it.
+- **GET /api/confluence/analyze/AAPL** - This endpoint does not exist on the server. Please implement it.
+- **GET /api/confluence/market-scan** - This endpoint does not exist on the server. Please implement it.
+- **GET /api/persona/analyze/AAPL** - This endpoint does not exist on the server. Please implement it.
+- **GET /api/persona/recommendations** - This endpoint does not exist on the server. Please implement it.
+- **GET /api/maestro/stock/AAPL** - This endpoint does not exist on the server. Please implement it.
+- **GET /api/scanner/quick** - This endpoint does not exist on the server. Please implement it.
+- **GET /api/scanner/quick** - This endpoint does not exist on the server. Please implement it.
+- **GET /api/data-engine/health** - This endpoint does not exist on the server. Please implement it.
+- **GET /api/data-engine/metals** - This endpoint does not exist on the server. Please implement it.
+- **GET /api/risk/decision-table** - This endpoint does not exist on the server. Please implement it.
+- **GET /api/risk/stock-types** - This endpoint does not exist on the server. Please implement it.
+- **POST /api/push/register** - This endpoint does not exist on the server. Please implement it.
+
+### Server Errors (5xx)
+
+- **GET /api/mobile/notifications** - Returns 500. Check server logs.
 
 ---
 
-## ⚠️ ENDPOINTS REQUIRING POST BODY PARAMETERS
-
-These endpoints returned 400/405 in GET-only testing because they require POST request body. Client code uses POST correctly.
-
-| Endpoint | Method | Issue | Client Status |
-|----------|--------|-------|---------------|
-| `/api/stocks/fundamentals` | GET | Requires `ticker` query param | ✅ Client passes `ticker` |
-| `/api/auth/google` | POST | Needs `id_token` body | ✅ Client uses POST |
-| `/api/subscription/upgrade` | POST | Needs `plan_id` body | ✅ Client uses POST |
-| `/api/paymob/create-payment` | POST | Needs amount/currency/plan_id | ✅ Client uses POST |
-| `/api/google-play/verify-receipt` | POST | Needs `receipt_data` body | ✅ Client uses POST |
-| `/api/instapay/verify` | POST | Needs `tx_hash` body | ✅ Client uses POST |
-
----
-
-## 📊 SUCCESS RATE SUMMARY
-
-| Category | Count |
-|----------|-------|
-| Total tested | 33 |
-| 200 OK | 23 |
-| 401 Unauthorized | 3 |
-| 405 Method Not Allowed (GET tested, POST used by client) | 4 |
-| 404 Not Found | 7 |
-| 500 Internal Server Error | 5 |
-| 503 Service Unavailable | 1 |
-| 400 Bad Request | 1 |
-
----
-
-## 🚨 ACTION ITEMS FOR FULLSTACK ENGINEER
-
-### P0 - Immediate Fix Required (500/503)
-1. **`/api/market/investing`** - 500 Internal Server Error. Dashboard investing section non-functional.
-2. **`/api/predictions`** - 500 Internal Server Error. AI predictions completely broken.
-3. **`/api/stocks/movement-classification`** - 503 Service Unavailable. Gainers/losers filter broken.
-4. **`/api/maestro/stock/[ticker]`** - 500 Internal Server Error. Maestro analysis broken.
-5. **`/api/instapay/verify`** - 500 Internal Server Error. Instapay payment verification broken.
-
-### P1 - Missing Endpoints (404)
-1. **`/api/ai/batch-analysis`** - Implement or remove from client.
-2. **`/api/kimi/backtest/run`** - Implement or remove.
-3. **`/api/walk-forward/run`** - Implement or remove.
-4. **`/api/unified-learning/status`** - Implement or remove.
-5. **`/api/unified-learning/indicators`** - Implement or remove.
-6. **`/api/unified-learning/patterns`** - Implement or remove (referenced in client).
-7. **`/api/unified-learning/iterative`** - Implement or remove.
-8. **`/api/unified-learning/intelligent`** - Implement or remove.
-9. **`/api/unified-learning/mine-lessons`** - Implement or remove.
-
-### P2 - Client Fallback Verification
-1. **`/api/market/gold`** vs `/api/mobile/gold` - Gold screen already falls back to `/api/mobile/gold` (works).
-2. **`/api/stocks/movement-classification`** - Client already catches error and returns `{}`.
-
-### P3 - Minor Issues
-1. **`/api/currency`** returns 503. Client `getCurrency()` may fail. Fallback to `/api/currency/list` works.
-2. **`/api/currency/convert`** - Not tested (POST endpoint). Should be verified.
-3. **`/api/subscription/plans`** - Works via GET, but `getSubscriptionPlansV2()` expects list or `plans` key.
-4. **Auth endpoints** - All require proper POST body. GET testing gives 405, which is expected.
-
----
-
-## 📝 ADDITIONAL NOTES
-
-### Client-side Robustness
-The Flutter client (`GLMApiClient`) is well-designed with:
-- Comprehensive try/catch blocks
-- Local fallbacks for many failing APIs
-- Empty data return instead of crash (graceful degradation)
-- Separate Dio instances for different timeouts
-
-### Screens Most Affected
-| Screen | Broken APIs | User Impact |
-|--------|-------------|-------------|
-| `stocks_screen.dart` | `getStockMovementClassification()` | Gainers/losers filter shows nothing |
-| `dashboard_screen.dart` | `getMarketInvesting()` | Investing.com data section hidden |
-| `ai_analysis_screen.dart` | `getPredictions()` | Predictions tab empty/fallback |
-| `learning_backtest_screen.dart` | `getUnifiedLearningStatus()`, `getUnifiedLearningIndicators()` | Learning section broken |
-| `payment_screen.dart` | `verifyInstapayPayment()` | Instapay payments fail |
-| `subscription_screen.dart` | `upgradeSubscription()` | May use wrong HTTP method |
+*Report generated by API Test Runner*

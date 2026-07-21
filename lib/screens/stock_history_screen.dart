@@ -61,7 +61,8 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
       }),
       api.getStockFundamentals(ticker: widget.ticker).then((dynamic response) {
         if (response is Map) {
-          return Map<String, dynamic>.from(response);
+          final dataMap = response['data'] ?? response;
+          return Map<String, dynamic>.from(dataMap);
         }
         return <String, dynamic>{};
       }).catchError((e) {
@@ -70,7 +71,8 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
       }),
       api.getStockNews(widget.ticker).then((dynamic response) {
         if (response is Map) {
-          final newsList = response['news'];
+          final dataMap = response['data'] ?? response;
+          final newsList = dataMap['news'];
           if (newsList is List) {
             return newsList
                 .map((e) => e is Map ? Map<String, dynamic>.from(e) : null)
@@ -91,36 +93,38 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
     final fundamentals = results[2] as Map<String, dynamic>?;
     final news = results[3] as List<Map<String, dynamic>>?;
 
-    final accessResults = await Future.wait([
-      SubscriptionService.instance.checkAccess('recommendations'),
-      SubscriptionService.instance.checkAccess('ai_analysis'),
-    ]);
-    final recAccess = accessResults[0];
-    final anaAccess = accessResults[1];
+    final recAccess = FeatureAccessResult(
+      feature: 'recommendations',
+      hasAccess: true,
+      tier: 'free',
+    );
+    final anaAccess = FeatureAccessResult(
+      feature: 'ai_analysis',
+      hasAccess: true,
+      tier: 'free',
+    );
 
-    final recommendation = recAccess.hasAccess
-        ? await api.getStockRecommendation(widget.ticker).then((dynamic response) {
-            if (response is Map) {
-              return Map<String, dynamic>.from(response);
-            }
-            return <String, dynamic>{};
-          }).catchError((e) {
-            debugPrint('Error getting stock recommendation: $e');
-            return <String, dynamic>{};
-          })
-        : null;
+    final recommendation = await api.getStockRecommendation(widget.ticker).then((dynamic response) {
+        if (response is Map) {
+          final dataMap = response['data'] ?? response;
+          return Map<String, dynamic>.from(dataMap);
+        }
+        return <String, dynamic>{};
+      }).catchError((e) {
+        debugPrint('Error getting stock recommendation: $e');
+        return <String, dynamic>{};
+      });
 
-    final analysis = anaAccess.hasAccess
-        ? await api.getStockProfessionalAnalysis(widget.ticker).then((dynamic response) {
-            if (response is Map) {
-              return Map<String, dynamic>.from(response);
-            }
-            return <String, dynamic>{};
-          }).catchError((e) {
-            debugPrint('Error getting stock analysis: $e');
-            return <String, dynamic>{};
-          })
-        : null;
+    final analysis = await api.getStockProfessionalAnalysis(widget.ticker).then((dynamic response) {
+        if (response is Map) {
+          final dataMap = response['data'] ?? response;
+          return Map<String, dynamic>.from(dataMap);
+        }
+        return <String, dynamic>{};
+      }).catchError((e) {
+        debugPrint('Error getting stock analysis: $e');
+        return <String, dynamic>{};
+      });
 
     return {
       'history': historyResponse,
@@ -129,6 +133,8 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
       'news': news ?? <Map<String, dynamic>>[],
       'recommendation': recommendation,
       'analysis': analysis,
+      'recAccess': recAccess,
+      'anaAccess': anaAccess,
     };
   }
 
@@ -224,10 +230,12 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
                     controller: _tabController,
                     children: [
                       _buildHistoryTab(historyData, stock),
-                      _buildRecommendationTab(
-                          data['recommendation'] is Map ? Map<String, dynamic>.from(data['recommendation'] as Map) : null),
-                      _buildAnalysisTab(
-                          data['analysis'] is Map ? Map<String, dynamic>.from(data['analysis'] as Map) : null),
+                       _buildRecommendationTab(
+                           data['recommendation'] is Map ? Map<String, dynamic>.from(data['recommendation'] as Map) : null,
+                           data['recAccess']),
+                       _buildAnalysisTab(
+                           data['analysis'] is Map ? Map<String, dynamic>.from(data['analysis'] as Map) : null,
+                           data['anaAccess']),
                       _buildNewsTab(
                           data['fundamentals'] is Map ? Map<String, dynamic>.from(data['fundamentals'] as Map) : null,
                           data['news'] is List
@@ -344,9 +352,9 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
     );
   }
 
-  Widget _buildRecommendationTab(Map<String, dynamic>? rec) {
-    final sub = SubscriptionService.instance;
-    if (!sub.hasAccess('recommendations')) {
+  Widget _buildRecommendationTab(Map<String, dynamic>? rec, FeatureAccessResult? recAccess) {
+    final hasAccess = recAccess?.hasAccess ?? false;
+    if (!hasAccess) {
       return _buildLockedTab('recommendations');
     }
     if (rec == null || rec.isEmpty) {
@@ -491,9 +499,9 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
     );
   }
 
-  Widget _buildAnalysisTab(Map<String, dynamic>? analysis) {
-    final sub = SubscriptionService.instance;
-    if (!sub.hasAccess('ai_analysis')) {
+  Widget _buildAnalysisTab(Map<String, dynamic>? analysis, FeatureAccessResult? anaAccess) {
+    final hasAccess = anaAccess?.hasAccess ?? false;
+    if (!hasAccess) {
       return _buildLockedTab('ai_analysis');
     }
     if (analysis == null || analysis.isEmpty) {

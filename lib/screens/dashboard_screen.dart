@@ -13,7 +13,7 @@ import '../models/json_helpers.dart';
 import '../models/market.dart';
 import '../widgets/state_view.dart';
 import '../widgets/skeleton_loader.dart';
-import '../widgets/market_status_banner.dart';
+import '../widgets/app_card.dart';
 import '../services/polling_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -30,6 +30,8 @@ class _DashboardScreenState extends State<DashboardScreen>
     with SingleTickerProviderStateMixin {
   Future<Map<String, dynamic>>? _dashboardFuture;
   Map<String, dynamic>? _dashboardData;
+  Map<String, dynamic>? _goldData;
+  Map<String, dynamic>? _currencyData;
   late TabController _topMoversTabController;
   StreamSubscription<Map<String, dynamic>>? _pollingSubscription;
 
@@ -189,42 +191,108 @@ class _DashboardScreenState extends State<DashboardScreen>
               onRefresh: _refresh,
               child: SingleChildScrollView(
                 physics: const AlwaysScrollableScrollPhysics(),
-                child: Column(
-                  children: [
-                    const MarketStatusBanner(),
-                    Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
                         children: [
-                          const HeaderCard(
-                            icon: Icons.dashboard_rounded,
-                            title: 'نظرة عامة على السوق',
-                            subtitle: 'آخر تحديث للبيانات',
+                          Expanded(
+                            child: AppCard(
+                              padding: const EdgeInsets.all(16),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(children: [
+                                    Icon(Icons.dashboard_rounded, size: 20, color: AppColors.primary),
+                                    const SizedBox(width: 8),
+                                    Text('السوق', style: AppTypography.titleSmall),
+                                  ]),
+                                  const SizedBox(height: 12),
+                                  _buildMiniIndices(),
+                                ],
+                              ),
+                            ),
                           ),
-                          const SizedBox(height: 16),
-                          _buildIndicesRow(),
-                          const SizedBox(height: 16),
-                          _buildMarketSummary(),
-                          const SizedBox(height: 16),
-                          _buildTopMovers(),
-                          if (_dashboardData?['gold_prices'] != null) ...[
-                            const SizedBox(height: 16),
-                            _buildSectionTitle('أسعار الذهب', Icons.diamond),
-                            const SizedBox(height: 8),
-                            _buildGoldPrices(),
-                          ],
-                          if (_dashboardData?['currency_rates'] != null) ...[
-                            const SizedBox(height: 16),
-                            _buildSectionTitle(
-                                'أسعار العملات', Icons.currency_exchange),
-                            const SizedBox(height: 8),
-                            _buildCurrencyRates(),
-                          ],
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: AppCard(
+                              padding: const EdgeInsets.all(16),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(children: [
+                                    Icon(Icons.trending_up_rounded, size: 20, color: AppColors.success),
+                                    const SizedBox(width: 8),
+                                    Text('الحركة', style: AppTypography.titleSmall),
+                                  ]),
+                                  const SizedBox(height: 12),
+                                  _buildMiniMovers(),
+                                ],
+                              ),
+                            ),
+                          ),
                         ],
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 16),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: AppCard(
+                              padding: const EdgeInsets.all(16),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(children: [
+                                    Icon(Icons.diamond_rounded, size: 20, color: AppColors.warning),
+                                    const SizedBox(width: 8),
+                                    Text('الذهب', style: AppTypography.titleSmall),
+                                  ]),
+                                  const SizedBox(height: 12),
+                                  _buildMiniGold(),
+                                ],
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: AppCard(
+                              padding: const EdgeInsets.all(16),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(children: [
+                                    Icon(Icons.currency_exchange_rounded, size: 20, color: AppColors.info),
+                                    const SizedBox(width: 8),
+                                    Text('العملات', style: AppTypography.titleSmall),
+                                  ]),
+                                  const SizedBox(height: 12),
+                                  _buildMiniCurrency(),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      AppCard(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(children: [
+                              Icon(Icons.show_chart_rounded, size: 20, color: AppColors.primary),
+                              const SizedBox(width: 8),
+                              Text('أكثر ارتفاعاً وانخفاضاً', style: AppTypography.titleSmall),
+                            ]),
+                            const SizedBox(height: 12),
+                            _buildTopMovers(),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             );
@@ -239,87 +307,6 @@ class _DashboardScreenState extends State<DashboardScreen>
       Icon(icon, size: 18, color: AppColors.primary),
       const SizedBox(width: 8),
       Text(title, style: AppTypography.titleSmall),
-    ]);
-  }
-
-  Widget _buildIndicesRow() {
-    final indices =
-        _dashboardData?['indices'] ?? _dashboardData?['market_indices'];
-    if (indices is! List || indices.isEmpty) {
-      if (_dashboardData != null) return const SizedBox.shrink();
-      return const SkeletonBox(height: 100);
-    }
-    return SizedBox(
-      height: 100,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        itemCount: indices.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 8),
-        itemBuilder: (_, i) {
-          final idx = indices[i] is Map
-              ? Map<String, dynamic>.from(indices[i])
-              : <String, dynamic>{};
-          final name = idx['name']?.toString() ?? '';
-          final value = parseDouble(idx['value']) ?? 0;
-          final change = parseDouble(idx['change_percent'] ?? idx['change']);
-          final isPositive = change != null && change >= 0;
-          return Container(
-            width: 120,
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: AppColors.surface,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppColors.border),
-            ),
-            child:
-                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(name,
-                  style: const TextStyle(
-                      fontSize: 10, color: AppColors.textMuted)),
-              const SizedBox(height: 4),
-              Text(value.toStringAsFixed(1),
-                  style: const TextStyle(
-                      fontWeight: FontWeight.w800, fontSize: 16)),
-              if (change != null)
-                Text('${isPositive ? '+' : ''}${change.toStringAsFixed(2)}%',
-                    style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        color:
-                            isPositive ? AppColors.success : AppColors.danger)),
-            ]),
-          );
-        },
-      ),
-    );
-  }
-
-  Widget _buildMarketSummary() {
-    final summary =
-        _dashboardData?['market_summary'] ?? _dashboardData?['summary'];
-    if (summary is! Map) return const SizedBox.shrink();
-    final s = Map<String, dynamic>.from(summary);
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        gradient: AppColors.gradientPrimary,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [
-        _buildSummaryBadge('🟢', '${s['advances'] ?? s['gainers'] ?? 0}', 'مرتفع'),
-        _buildSummaryBadge('🔴', '${s['declines'] ?? s['losers'] ?? 0}', 'منخفض'),
-        _buildSummaryBadge('⚪', '${s['unchanged'] ?? 0}', 'بدون تغيير'),
-      ]),
-    );
-  }
-
-  Widget _buildSummaryBadge(String emoji, String count, String label) {
-    return Column(children: [
-      Text('$emoji $count',
-          style: const TextStyle(
-              fontSize: 18, fontWeight: FontWeight.w800, color: Colors.white)),
-      const SizedBox(height: 4),
-      Text(label, style: const TextStyle(fontSize: 11, color: Colors.white70)),
     ]);
   }
 
@@ -417,124 +404,136 @@ class _DashboardScreenState extends State<DashboardScreen>
     );
   }
 
-  Widget _buildGoldPrices() {
-    final rawGold = _dashboardData?['gold_prices'] ?? _dashboardData?['gold'];
-    if (rawGold == null) return const SizedBox.shrink();
+  Widget _buildMiniIndices() {
+    final indices = _dashboardData?['indices'] ?? _dashboardData?['market_indices'];
+    if (indices is! List || indices.isEmpty) {
+      return const Text('لا توجد بيانات', style: TextStyle(fontSize: 12, color: AppColors.textMuted));
+    }
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: indices.take(4).map((i) {
+        final idx = i is Map ? Map<String, dynamic>.from(i) : <String, dynamic>{};
+        final name = idx['name']?.toString() ?? '';
+        final change = parseDouble(idx['change_percent'] ?? idx['change']) ?? 0;
+        final isPositive = change >= 0;
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: (isPositive ? AppColors.success : AppColors.danger).withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Text(
+            '$name ${change.toStringAsFixed(1)}%',
+            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: isPositive ? AppColors.success : AppColors.danger),
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  Widget _buildMiniMovers() {
+    final movers = _dashboardData?['top_movers'] ?? _dashboardData?['top_gainers'] ?? _dashboardData?['gainers'];
+    if (movers is! List || movers.isEmpty) {
+      return const Text('لا توجد بيانات', style: TextStyle(fontSize: 12, color: AppColors.textMuted));
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: movers.take(3).map((m) {
+        final map = m is Map ? Map<String, dynamic>.from(m) : <String, dynamic>{};
+        final ticker = map['ticker']?.toString() ?? map['symbol']?.toString() ?? '';
+        final change = parseDouble(map['change_percent'] ?? map['change']) ?? 0;
+        final isPositive = change >= 0;
+        return Padding(
+          padding: const EdgeInsets.symmetric(vertical: 2),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(ticker, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+              Text(
+                '${isPositive ? '+' : ''}${change.toStringAsFixed(2)}%',
+                style: TextStyle(fontSize: 11, color: isPositive ? AppColors.success : AppColors.danger),
+              ),
+            ],
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  Widget _buildMiniGold() {
+    final rawGold = _goldData?['gold_prices'] ?? _goldData?['gold'] ?? _goldData?['items'];
+    if (rawGold == null) return const Text('جاري التحميل...', style: TextStyle(fontSize: 12, color: AppColors.textMuted));
 
     List<Map<String, dynamic>> gold = [];
     if (rawGold is List) {
       gold = rawGold.map((e) => Map<String, dynamic>.from(e as Map)).toList();
     } else if (rawGold is Map) {
       final map = Map<String, dynamic>.from(rawGold);
-      if (map.containsKey('karat_24')) {
-        gold.add({'karat': 'عيار 24', 'price': parseDouble(map['karat_24'])});
-      }
-      if (map.containsKey('karat_21')) {
-        gold.add({'karat': 'عيار 21', 'price': parseDouble(map['karat_21'])});
-      }
-      if (map.containsKey('karat_18')) {
-        gold.add({'karat': 'عيار 18', 'price': parseDouble(map['karat_18'])});
-      }
-      if (map.containsKey('silver') && parseDouble(map['silver']) != 0) {
-        gold.add({'karat': 'فضة', 'price': parseDouble(map['silver'])});
+      final entries = map.entries.take(3);
+      for (final entry in entries) {
+        gold.add({'karat': entry.key, 'price': entry.value});
       }
     }
 
-    if (gold.isEmpty) return const SizedBox.shrink();
+    if (gold.isEmpty) return const Text('لا توجد بيانات', style: TextStyle(fontSize: 12, color: AppColors.textMuted));
 
-    return SizedBox(
-      height: 80,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        itemCount: gold.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 8),
-        itemBuilder: (_, i) {
-          final g = gold[i];
-          final karat = g['karat']?.toString() ?? '';
-          final price = parseDouble(g['price']);
-          return Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
-              color: AppColors.warningLight.withValues(alpha: 0.3),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Column(children: [
-              Text(karat,
-                  style: const TextStyle(
-                      fontSize: 11, fontWeight: FontWeight.w600)),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: gold.take(2).map((g) {
+        final karat = g['karat']?.toString() ?? '';
+        final price = parseDouble(g['price']);
+        return Padding(
+          padding: const EdgeInsets.symmetric(vertical: 1),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(karat, style: const TextStyle(fontSize: 11)),
               if (price != null)
-                Text('${price.toStringAsFixed(0)} ج.م',
-                    style: const TextStyle(fontSize: 12)),
-            ]),
-          );
-        },
-      ),
+                Text('${price.toStringAsFixed(0)}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+            ],
+          ),
+        );
+      }).toList(),
     );
   }
 
-  Widget _buildCurrencyRates() {
-    final rawRates =
-        _dashboardData?['currency_rates'] ?? _dashboardData?['currencies'] ?? _dashboardData?['rates'];
+  Widget _buildMiniCurrency() {
+    final rawRates = _currencyData?['currency_rates'] ?? _currencyData?['currencies'] ?? _currencyData?['rates'] ?? _currencyData?['items'];
+    if (rawRates == null) return const Text('جاري التحميل...', style: TextStyle(fontSize: 12, color: AppColors.textMuted));
+
     List<Map<String, dynamic>> ratesList = [];
     if (rawRates is List) {
       ratesList = rawRates.map((e) => Map<String, dynamic>.from(e as Map)).toList();
     } else if (rawRates is Map) {
       rawRates.forEach((key, value) {
         if (value is Map) {
-          ratesList.add({
-            'code': key,
-            'buy': value['buy'] ?? value['buy_rate'] ?? value['rate_to_egp'] ?? value['rate'],
-            'sell': value['sell'] ?? value['sell_rate'] ?? value['rate_to_egp'] ?? value['rate'],
-          });
+          ratesList.add({'code': key, 'rate': value['rate'] ?? value['buy'] ?? value['buy_rate']});
         } else {
-          ratesList.add({
-            'code': key,
-            'buy': value,
-            'sell': value,
-          });
+          ratesList.add({'code': key, 'rate': value});
         }
       });
     }
 
-    if (ratesList.isEmpty) return const SizedBox.shrink();
+    if (ratesList.isEmpty) return const Text('لا توجد بيانات', style: TextStyle(fontSize: 12, color: AppColors.textMuted));
 
-    return SizedBox(
-      height: 60,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        itemCount: ratesList.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 8),
-        itemBuilder: (_, i) {
-          final r = ratesList[i];
-          final name = r['code']?.toString() ?? r['currency']?.toString() ?? '';
-          final buy = parseDouble(r['buy'] ?? r['price'] ?? r['buy_rate'] ?? r['rate_to_egp'] ?? r['rate']);
-          final sell = parseDouble(r['sell'] ?? r['sell_rate'] ?? r['rate_to_egp'] ?? r['rate']);
-          return Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: AppColors.surface,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppColors.border),
-            ),
-            child: Row(children: [
-              Text(name,
-                  style: const TextStyle(
-                      fontWeight: FontWeight.w600, fontSize: 12)),
-              const SizedBox(width: 8),
-              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                if (buy != null)
-                  Text('شراء: ${buy.toStringAsFixed(2)}',
-                      style: const TextStyle(
-                          fontSize: 9, color: AppColors.textMuted)),
-                if (sell != null)
-                  Text('بيع: ${sell.toStringAsFixed(2)}',
-                      style: const TextStyle(
-                          fontSize: 9, color: AppColors.textMuted)),
-              ]),
-            ]),
-          );
-        },
-      ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: ratesList.take(2).map((r) {
+        final code = r['code']?.toString() ?? r['currency']?.toString() ?? '';
+        final rate = parseDouble(r['rate'] ?? r['buy'] ?? r['buy_rate'] ?? r['price']);
+        return Padding(
+          padding: const EdgeInsets.symmetric(vertical: 1),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(code, style: const TextStyle(fontSize: 11)),
+              if (rate != null)
+                Text(rate.toStringAsFixed(2), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+            ],
+          ),
+        );
+      }).toList(),
     );
   }
 }

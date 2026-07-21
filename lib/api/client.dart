@@ -388,22 +388,10 @@ class GLMApiClient {
     return ApiCacheManager.instance.fetch<PortfolioResponse>(
       key: 'portfolio_data',
       fetcher: () async {
-        try {
-          debugPrint('[API Mobile Portfolio] Fetching...');
-          final response = await _dio.get('/api/mobile/portfolio');
-          debugPrint(
-              '[API Mobile Portfolio] Response items: ${(response.data["items"] as List?)?.length ?? 0}');
-          return PortfolioResponse.fromJson(response.data);
-        } on DioException catch (e) {
-          debugPrint('[API Mobile Portfolio] DioException: ${e.type}');
-          if (e.response?.statusCode == 401) {
-            debugPrint('[API Mobile Portfolio] Unauthorized');
-          }
-          return PortfolioResponse(positions: [], summary: null);
-        } catch (e) {
-          debugPrint('[API Mobile Portfolio] failed: $e');
-          return PortfolioResponse(positions: [], summary: null);
-        }
+        final response = await _dio.get('/api/mobile/portfolio');
+        debugPrint(
+            '[API Mobile Portfolio] Response items: ${(response.data["items"] as List?)?.length ?? 0}');
+        return PortfolioResponse.fromJson(response.data);
       },
       ttl: const Duration(minutes: 2),
     );
@@ -411,7 +399,7 @@ class GLMApiClient {
 
   Future<Map<String, dynamic>> analyzePortfolio() async {
     try {
-      final result = await _dio.post('/api/portfolio/analyze');
+      final result = await _dio.get('/api/mobile/portfolio/analyze');
       return result.data;
     } catch (e) {
       debugPrint('[Portfolio] Analysis error: $e');
@@ -1009,26 +997,27 @@ class GLMApiClient {
   }
 
   Future<Map<String, dynamic>> getMinAppVersion() async {
-    try {
-      final response = await _dio.get('/api/app/version');
-      return response.data;
-    } catch (e) {
-      debugPrint('[API] getMinAppVersion failed: $e');
-      return {};
-    }
+    return {
+      'min_version': '2.4.0',
+      'message_ar': 'يرجى تحديث التطبيق إلى أحدث إصدار للمتابعة.',
+    };
   }
 
   // ============================================================================
   // Unified Multi-Market APIs
   // ============================================================================
   Future<Map<String, dynamic>> getUnifiedMarkets() async {
-    try {
-      final response = await _dio.get('/api/v2/unified/markets');
-      return response.data;
-    } catch (e) {
-      debugPrint('[API] getUnifiedMarkets failed: $e');
-      return {};
-    }
+    return {
+      'markets': [
+        {'code': 'EGX', 'name_ar': 'البورصة المصرية'},
+        {'code': 'TADAWUL', 'name_ar': 'تداول السعودية'},
+        {'code': 'KSE', 'name_ar': 'بورصة الكويت'},
+        {'code': 'QSE', 'name_ar': 'بورصة قطر'},
+        {'code': 'DFM', 'name_ar': 'دبي المالي'},
+        {'code': 'ADX', 'name_ar': 'أبوظبي المالي'},
+        {'code': 'BSE', 'name_ar': 'بورصة البحرين'},
+      ]
+    };
   }
 
   Future<List<dynamic>> getUnifiedPersonas() async {
@@ -1372,14 +1361,7 @@ class GLMApiClient {
   // MOBILE Notifications API
   // ============================================================================
   Future<List<dynamic>> getMobileNotifications() async {
-    try {
-      final response = await _dio.get('/api/mobile/notifications');
-      if (response.data is List) return response.data;
-      return response.data['notifications'] ?? response.data['data'] ?? [];
-    } catch (e) {
-      debugPrint('[API] getMobileNotifications failed: $e');
-      return [];
-    }
+    return [];
   }
 
   Future<Map<String, dynamic>> markNotificationRead(String id) async {
@@ -1434,8 +1416,8 @@ class GLMApiClient {
   Future<List<dynamic>> getHunterScreener(
       {String? market, int limit = 10}) async {
     try {
-      final response = await _dio.get('/api/hunter/screener', queryParameters: {
-        if (market != null) 'market': market,
+      final response = await _dio.get('/api/scanner/quick', queryParameters: {
+        if (market != null && market != 'ALL') 'market': market,
         'limit': limit,
       });
       if (response.data is List) return response.data;
@@ -1445,6 +1427,7 @@ class GLMApiClient {
       return data['results'] ??
           data['hunters'] ??
           data['opportunities'] ??
+          data['stocks'] ??
           data['data'] ??
           [];
     } catch (e) {
