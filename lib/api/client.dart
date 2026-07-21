@@ -582,6 +582,21 @@ class GLMApiClient {
   Future<List<dynamic>> getMobileRecommendations(
       {String? persona, String? market}) async {
     try {
+      // FIX: /api/mobile/recommendations returns market data not recommendations
+      // Use /api/mobile/predictions as primary source (has real predictions)
+      final preds = await getMobilePredictions(limit: 50);
+      if (preds.isNotEmpty) {
+        // Filter by persona if specified
+        if (persona != null) {
+          final filtered = preds.where((p) {
+            final signal = p is Map ? (p['signal_type'] ?? p['signal'] ?? '') : '';
+            return signal.toString().toLowerCase().contains(persona.toLowerCase());
+          }).toList();
+          if (filtered.isNotEmpty) return filtered;
+        }
+        return preds;
+      }
+      // Fallback to old endpoint
       final queryParams = <String, dynamic>{};
       if (persona != null) queryParams['persona'] = persona;
       if (market != null) queryParams['market'] = market;
@@ -608,12 +623,11 @@ class GLMApiClient {
   Future<List<dynamic>> getMarketRecommendations(
       {required String market, String? persona, int limit = 10}) async {
     try {
+      // FIX: /api/mobile/stocks/EGX/recommendation returns top_buy_signals: 0
+      // Use /api/v2/recommend which has real recommendations
       final queryParams = <String, dynamic>{'limit': limit};
-      if (persona != null) queryParams['persona'] = persona;
-      final response = await _dio.get(
-        '/api/mobile/stocks/$market/recommendation',
-        queryParameters: queryParams,
-      );
+      if (market != 'ALL') queryParams['market'] = market;
+      final response = await _dio.get('/api/v2/recommend', queryParameters: queryParams);
       if (response.data is List) return response.data;
       final data = response.data is Map<String, dynamic>
           ? response.data
@@ -622,12 +636,13 @@ class GLMApiClient {
           data['data'] ??
           data['results'] ??
           data['stocks'] ??
-          (data['recommendation'] is List ? data['recommendation'] : null) ??
+          data['top_buy_signals'] ??
           [];
       return list is List ? list : [];
     } catch (e) {
       debugPrint('[API] getMarketRecommendations($market) failed: $e');
-      return [];
+      // Fallback to predictions
+      return getMobilePredictions(limit: limit);
     }
   }
 
@@ -910,7 +925,17 @@ class GLMApiClient {
       final response = await _aiDio.get('/api/mobile/predictions',
           queryParameters: queryParams);
       if (response.data is List) return response.data;
-      return response.data['predictions'] ?? response.data['data'] ?? [];
+      // FIX: API returns 'activePredictions' and 'closedPredictions', not 'predictions'
+      final data = response.data is Map<String, dynamic>
+          ? response.data
+          : Map<String, dynamic>.from(response.data as Map);
+      final active = data['activePredictions'];
+      final closed = data['closedPredictions'];
+      final predictions = data['predictions'] ?? data['data'];
+      if (active is List && active.isNotEmpty) return active;
+      if (predictions is List) return predictions;
+      if (closed is List && closed.isNotEmpty) return closed;
+      return [];
     } catch (e) {
       debugPrint('[API] getMobilePredictions failed: $e');
       return [];

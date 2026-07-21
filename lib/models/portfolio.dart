@@ -134,8 +134,15 @@ class PortfolioResponse {
     final dataWrapper = rawDataWrapper is Map ? Map<String, dynamic>.from(rawDataWrapper) : null;
     final Map<String, dynamic> actualData = dataWrapper ?? json;
 
+    // FIX: API returns data.portfolio.items, not data.items directly
+    // Check portfolio sub-object first, then fall back to direct keys
+    final portfolioObj = actualData['portfolio'];
+    final Map<String, dynamic> portfolioData = portfolioObj is Map
+        ? Map<String, dynamic>.from(portfolioObj)
+        : actualData;
+
     // Parse positions (stocks only)
-    final rawPositions = actualData['positions'];
+    final rawPositions = portfolioData['positions'] ?? actualData['positions'];
     if (rawPositions is List) {
       positionsList = rawPositions
           .map((e) => e is Map ? PortfolioPosition.fromJson(Map<String, dynamic>.from(e)) : null)
@@ -144,8 +151,8 @@ class PortfolioResponse {
           .toList();
     }
 
-    // Parse items (all assets)
-    final rawItems = actualData['items'];
+    // Parse items (all assets) — check portfolio.items first, then data.items
+    final rawItems = portfolioData['items'] ?? actualData['items'];
     if (rawItems is List) {
       allItemsList = rawItems
           .map((e) => e is Map ? PortfolioPosition.fromJson(Map<String, dynamic>.from(e)) : null)
