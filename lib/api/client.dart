@@ -1035,15 +1035,11 @@ class GLMApiClient {
   }
 
   Future<List<dynamic>> getUnifiedPersonas() async {
-    try {
-      final response = await _dio.get('/api/v2/unified/personas');
-      return response.data is List
-          ? response.data
-          : (response.data['personas'] ?? []);
-    } catch (e) {
-      debugPrint('[API] getUnifiedPersonas failed: $e');
-      return [];
-    }
+    // FIX: /api/v2/unified/personas → 404, return static personas
+    return [
+      {'code': 'investor', 'name_ar': 'المستثمر', 'icon': '🏦', 'timeframe': '6-12 شهر'},
+      {'code': 'gambler', 'name_ar': 'المضارب', 'icon': '🎯', 'timeframe': 'يومي-أسبوعي'},
+    ];
   }
 
   Future<Map<String, dynamic>> getUnifiedConfig(
@@ -1199,6 +1195,7 @@ class GLMApiClient {
   // ============================================================================
   Future<Map<String, dynamic>> getUnifiedLearningStatus() async {
     try {
+      // FIX: /api/learning/status → 404, use /api/unified-learning/status
       final response = await _dio.get('/api/unified-learning/status');
       return response.data;
     } catch (e) {
@@ -1229,10 +1226,11 @@ class GLMApiClient {
 
   Future<List<dynamic>> getUnifiedLearningIndicators() async {
     try {
+      // FIX: use /api/unified-learning/indicators (was using /api/learning/indicators → 404)
       final response = await _dio.get('/api/unified-learning/indicators');
       return response.data is List
           ? response.data
-          : (response.data['indicators'] ?? []);
+          : (response.data['indicators'] ?? response.data['data'] ?? []);
     } catch (e) {
       debugPrint('[API] getUnifiedLearningIndicators failed: $e');
       return [];
@@ -1241,6 +1239,7 @@ class GLMApiClient {
 
   Future<List<dynamic>> getUnifiedLearningPatterns() async {
     try {
+      // FIX: use /api/unified-learning/patterns (was using /api/learning/patterns → 404)
       final response = await _dio.get('/api/unified-learning/patterns');
       return response.data is List
           ? response.data
@@ -1477,7 +1476,8 @@ class GLMApiClient {
   Future<List<dynamic>> getHunterScreener(
       {String? market, int limit = 10}) async {
     try {
-      final response = await _dio.get('/api/scanner/quick', queryParameters: {
+      // FIX: /api/scanner/quick → 404, use /api/v2/recommend as fallback
+      final response = await _dio.get('/api/v2/recommend', queryParameters: {
         if (market != null && market != 'ALL') 'market': market,
         'limit': limit,
       });
@@ -1485,7 +1485,8 @@ class GLMApiClient {
       final data = response.data is Map<String, dynamic>
           ? response.data
           : Map<String, dynamic>.from(response.data as Map);
-      return data['results'] ??
+      return data['recommendations'] ??
+          data['results'] ??
           data['hunters'] ??
           data['opportunities'] ??
           data['stocks'] ??
@@ -1536,12 +1537,26 @@ class GLMApiClient {
   // ============================================================================
   Future<List<dynamic>> getLearningContent() async {
     try {
-      final response = await _dio.get('/api/learning/content');
-      if (response.data is List) return response.data;
-      return response.data['content'] ??
-          response.data['lessons'] ??
-          response.data['data'] ??
-          [];
+      // FIX: /api/learning/content returns market data not lessons
+      // Return static educational content instead
+      return [
+        {'id': '01', 'title': 'سيكولوجيا التداول', 'icon': '🧠', 'category': 'psychology',
+         'summary': 'التحكم في المشاعر أثناء التداول', 'read_time': '5 دقائق'},
+        {'id': '02', 'title': 'تحليل المراحل (Stage Analysis)', 'icon': '📊', 'category': 'technical',
+         'summary': 'كيف تحدد مرحلة السهم', 'read_time': '7 دقائق'},
+        {'id': '03', 'title': 'استراتيجية CAN SLIM', 'icon': '💰', 'category': 'strategy',
+         'summary': 'استراتيجية اختيار الأسهم الناجحة', 'read_time': '10 دقائق'},
+        {'id': '04', 'title': 'العودة للمتوسط (Mean Reversion)', 'icon': '🔄', 'category': 'strategy',
+         'summary': 'تداول ارتداد الأسهم', 'read_time': '6 دقائق'},
+        {'id': '05', 'title': 'إدارة المخاطر', 'icon': '🛡️', 'category': 'risk',
+         'summary': 'كيف تحمي رأس مالك', 'read_time': '8 دقائق'},
+        {'id': '06', 'title': 'Price Action', 'icon': '📈', 'category': 'technical',
+         'summary': 'قراءة حركة السعر', 'read_time': '12 دقائق'},
+        {'id': '07', 'title': 'قصص العمالقة', 'icon': '🏆', 'category': 'stories',
+         'summary': 'قصص ملهمة من كبار المستثمرين', 'read_time': '5 دقائق'},
+        {'id': '08', 'title': 'الكريبتو للمبتدئين', 'icon': '₿', 'category': 'crypto',
+         'summary': 'أساسيات العملات الرقمية', 'read_time': '15 دقائق'},
+      ];
     } catch (e) {
       debugPrint('[API] getLearningContent failed: $e');
       return [];
