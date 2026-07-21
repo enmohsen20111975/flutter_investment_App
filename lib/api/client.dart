@@ -582,9 +582,8 @@ class GLMApiClient {
   Future<List<dynamic>> getMobileRecommendations(
       {String? persona, String? market}) async {
     try {
-      // FIX: /api/mobile/recommendations returns market data not recommendations
-      // Use /api/mobile/predictions as primary source (has real predictions)
-      final preds = await getMobilePredictions(limit: 50);
+      // FIX: Use getTopPredictions for 3-7 highest confidence predictions
+      final preds = await getTopPredictions(count: 7, market: market);
       if (preds.isNotEmpty) {
         // Filter by persona if specified
         if (persona != null) {
@@ -932,12 +931,47 @@ class GLMApiClient {
       final active = data['activePredictions'];
       final closed = data['closedPredictions'];
       final predictions = data['predictions'] ?? data['data'];
-      if (active is List && active.isNotEmpty) return active;
-      if (predictions is List) return predictions;
-      if (closed is List && closed.isNotEmpty) return closed;
-      return [];
+      List<dynamic> result = [];
+      if (active is List && active.isNotEmpty) {
+        result = active;
+      } else if (predictions is List) {
+        result = predictions;
+      } else if (closed is List && closed.isNotEmpty) {
+        result = closed;
+      }
+      // FIX: Sort by confidence DESC and filter to top 7 (user wants 3-7 highest confidence)
+      result.sort((a, b) {
+        final confA = a is Map ? (a['confidence'] ?? a['maestro_score'] ?? 0) : 0;
+        final confB = b is Map ? (b['confidence'] ?? b['maestro_score'] ?? 0) : 0;
+        return (confB as num).compareTo(confA as num);
+      });
+      // Return top 7 by default (or limit if specified)
+      final maxResults = limit ?? 7;
+      return result.take(maxResults).toList();
     } catch (e) {
       debugPrint('[API] getMobilePredictions failed: $e');
+      return [];
+    }
+  }
+
+  /// Get top predictions sorted by confidence (3-7 highest)
+  Future<List<dynamic>> getTopPredictions({int count = 7, String? market}) async {
+    try {
+      final all = await getMobilePredictions(limit: 100);
+      // Filter BUY/STRONG_BUY signals only (highest confidence predictions)
+      final buySignals = all.where((p) {
+        if (p is! Map) return false;
+        final signal = (p['signal'] ?? p['signal_type'] ?? '').toString().toUpperCase();
+        return signal.contains('BUY') || signal.contains('STRONG');
+      }).toList();
+      // If we have enough BUY signals, return top 'count'
+      if (buySignals.length >= count) {
+        return buySignals.take(count).toList();
+      }
+      // Otherwise return top 'count' from all
+      return all.take(count).toList();
+    } catch (e) {
+      debugPrint('[API] getTopPredictions failed: $e');
       return [];
     }
   }

@@ -12,6 +12,7 @@ import '../models/types.dart';
 import '../widgets/state_view.dart';
 import '../services/subscription_service.dart';
 import '../widgets/upgrade_modal.dart';
+import '../widgets/tradingview_chart.dart';
 
 class StockHistoryScreen extends StatefulWidget {
   final String ticker;
@@ -335,6 +336,13 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
             const SizedBox(height: 16),
           ],
           if (historyData.data.isNotEmpty) ...[
+            const SectionHeader(
+                title: 'الشارت التفاعلي - TradingView',
+                icon: Icons.candlestick_chart),
+            const SizedBox(height: 8),
+            // FIX: Use TradingView candlestick chart instead of simple line chart
+            _buildTradingViewChart(historyData.data),
+            const SizedBox(height: 16),
             const SectionHeader(
                 title: 'البيانات التاريخية - آخر 30 يوم',
                 icon: Icons.calendar_today),
@@ -797,6 +805,48 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
     }
 
     return Wrap(spacing: 8, runSpacing: 8, children: items);
+  }
+
+  Widget _buildTradingViewChart(List<StockHistory> data) {
+    // Build candle data for TradingView widget
+    final candleData = data.where((d) => d.open != null && d.high != null && d.low != null && d.close != null).map((d) {
+      return {
+        'time': d.date ?? '',
+        'open': d.open!,
+        'high': d.high!,
+        'low': d.low!,
+        'close': d.close!,
+      };
+    }).toList();
+
+    final volumeData = data.where((d) => d.volume != null).map((d) {
+      return {
+        'time': d.date ?? '',
+        'value': d.volume!,
+        'color': (d.close ?? 0) >= (d.open ?? 0) ? '#22c55e' : '#ef4444',
+      };
+    }).toList();
+
+    if (candleData.isEmpty) return const SizedBox.shrink();
+
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.border),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: TradingViewChart(
+        chartType: ChartType.candle,
+        interval: ChartInterval.oneMonth,
+        candleData: candleData,
+        volumeData: volumeData,
+        upColor: AppColors.success,
+        downColor: AppColors.danger,
+        darkTheme: false,
+        height: 400,
+      ),
+    );
   }
 
   Widget _buildPriceChart(List<StockHistory> data) {
