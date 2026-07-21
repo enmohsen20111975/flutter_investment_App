@@ -32,15 +32,17 @@ class CryptoAsset {
   });
   
   factory CryptoAsset.fromJson(Map<String, dynamic> json) => CryptoAsset(
-        id: json['id'] ?? '',
+        id: json['id'] ?? json['symbol'] ?? '',
         symbol: json['symbol'] ?? '',
         name: json['name'] ?? '',
-        image: json['image'],
-        currentPrice: parseDouble(json['current_price']),
-        marketCapRank: parseInt(json['market_cap_rank']),
-        priceChangePercentage24h: parseDouble(json['price_change_percentage_24h']),
-        priceChangePercentage7d: parseDouble(json['price_change_percentage_7d_in_currency']),
-        totalVolume: parseDouble(json['total_volume']),
+        image: json['image'] ?? json['logo_url'],
+        // FIX: API returns 'price_usd' not 'current_price'
+        currentPrice: parseDouble(json['current_price'] ?? json['price_usd'] ?? json['price']),
+        marketCapRank: parseInt(json['market_cap_rank'] ?? json['rank']),
+        // FIX: API returns 'change_24h' not 'price_change_percentage_24h'
+        priceChangePercentage24h: parseDouble(json['price_change_percentage_24h'] ?? json['change_24h'] ?? json['change_percentage_24h']),
+        priceChangePercentage7d: parseDouble(json['price_change_percentage_7d_in_currency'] ?? json['change_7d'] ?? json['change_percentage_7d']),
+        totalVolume: parseDouble(json['total_volume'] ?? json['volume_24h']),
         marketCap: parseDouble(json['market_cap']),
         sparkline7d: _parseSparkline(json['sparkline_in_7d']),
       );

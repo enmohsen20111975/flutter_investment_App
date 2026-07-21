@@ -29,8 +29,12 @@ class _CryptoScreenState extends State<CryptoScreen> {
   Future<List<CryptoAsset>> _fetchAssets() async {
     final response = await api.getCrypto();
     List<dynamic> cryptoList;
-    if (response['data'] is List) {
-      cryptoList = response['data'] as List;
+    // FIX: API returns data.all_cryptos, not data as List
+    final data = response['data'];
+    if (data is Map && data['all_cryptos'] is List) {
+      cryptoList = data['all_cryptos'] as List;
+    } else if (data is List) {
+      cryptoList = data;
     } else if (response['coins'] is List) {
       cryptoList = response['coins'] as List;
     } else if (response is List) {
@@ -38,7 +42,10 @@ class _CryptoScreenState extends State<CryptoScreen> {
     } else {
       cryptoList = [];
     }
-    return cryptoList.map((e) => CryptoAsset.fromJson(e as Map<String, dynamic>)).toList();
+    return cryptoList
+        .whereType<Map<String, dynamic>>()
+        .map((e) => CryptoAsset.fromJson(e))
+        .toList();
   }
 
   Future<void> _refresh() async {

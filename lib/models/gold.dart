@@ -40,7 +40,20 @@ class GoldResponse {
         fetchedAt: json['fetched_at'],
         lastUpdated: json['last_updated'],
         isLive: parseBool(json['is_live']),
-        prices: json['prices'] != null ? GoldPrices.fromJson(json['prices']) : null,
+        // FIX: API returns prices at top level, not wrapped in data
+        prices: json['prices'] != null
+            ? GoldPrices.fromJson(json['prices'])
+            : (json['gold_prices'] != null
+                ? GoldPrices.fromJson({
+                    'karats': [
+                      {'name': 'عيار 24', 'key': '24', 'price_per_gram': json['gold_prices']['karat_24']},
+                      {'name': 'عيار 22', 'key': '22', 'price_per_gram': json['gold_prices']['karat_22']},
+                      {'name': 'عيار 21', 'key': '21', 'price_per_gram': json['gold_prices']['karat_21']},
+                      {'name': 'عيار 18', 'key': '18', 'price_per_gram': json['gold_prices']['karat_18']},
+                    ],
+                    'silver': {'price_per_gram': json['gold_prices']['silver']},
+                  })
+                : null),
       );
 }
 
