@@ -30,6 +30,7 @@ class TradingViewChart extends StatefulWidget {
   final Color? downColor;
   final bool darkTheme;
   final VoidCallback? onChartReady;
+  final double? height;
 
   const TradingViewChart({
     super.key,
@@ -42,6 +43,7 @@ class TradingViewChart extends StatefulWidget {
     this.downColor,
     this.darkTheme = false,
     this.onChartReady,
+    this.height,
   });
 
   @override
@@ -132,7 +134,7 @@ class TradingViewChartState extends State<TradingViewChart> {
   @override
   Widget build(BuildContext context) {
     if (_controller == null) return const SizedBox.shrink();
-    return Container(
+    final chart = Container(
       decoration: BoxDecoration(
         color: widget.darkTheme ? const Color(0xFF1A1D26) : Colors.white,
         borderRadius: BorderRadius.circular(12),
@@ -141,6 +143,10 @@ class TradingViewChartState extends State<TradingViewChart> {
       clipBehavior: Clip.antiAlias,
       child: WebViewWidget(controller: _controller!),
     );
+    if (widget.height != null) {
+      return SizedBox(height: widget.height, child: chart);
+    }
+    return chart;
   }
 }
 
