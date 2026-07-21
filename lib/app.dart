@@ -27,6 +27,14 @@ import 'screens/hunter_screen.dart';
 import 'screens/notifications_screen.dart';
 import 'screens/alerts_screen.dart';
 import 'screens/news_screen.dart';
+import 'screens/screener_screen.dart';
+import 'screens/trading_chart_screen.dart';
+import 'screens/reports_screen.dart';
+import 'screens/simulation_screen.dart';
+import 'screens/prediction_performance_screen.dart';
+import 'screens/trading_journal_screen.dart';
+import 'screens/smart_confluence_screen.dart';
+import 'screens/live_monitor_screen.dart';
 import 'api/client.dart';
 import 'models/types.dart';
 import 'services/notification_service.dart';
@@ -728,6 +736,34 @@ class _MainNavigatorState extends State<MainNavigator> {
 
             const Divider(),
 
+            // ── Advanced Tools (NEW) ──
+            const Padding(
+              padding: EdgeInsets.fromLTRB(20, 12, 20, 8),
+              child: Text('أدوات متقدمة',
+                  style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textMuted)),
+            ),
+            _buildDrawerItem(Icons.grid_view_rounded, 'المسح المتعدد (Screener)',
+                () => _navigateTo(const ScreenerScreen())),
+            _buildDrawerItem(Icons.candlestick_chart_outlined, 'الشارت التفاعلي',
+                () => _navigateTo(const TradingChartScreen(ticker: 'EGX'))),
+            _buildDrawerItem(Icons.description_outlined, 'التقارير اليومية',
+                () => _navigateTo(const ReportsScreen())),
+            _buildDrawerItem(Icons.science_outlined, 'محاكاة التداول',
+                () => _navigateTo(const SimulationScreen())),
+            _buildDrawerItem(Icons.fact_check_outlined, 'تقييم التوقعات',
+                () => _navigateTo(const PredictionPerformanceScreen())),
+            _buildDrawerItem(Icons.menu_book_outlined, 'يومية التداول',
+                () => _navigateTo(const TradingJournalScreen())),
+            _buildDrawerItem(Icons.hub_outlined, 'التلاقي الذكي',
+                () => _navigateTo(const SmartConfluenceScreen())),
+            _buildDrawerItem(Icons.radar_outlined, 'المراقبة اللحظية',
+                () => _navigateTo(const LiveMonitorScreen())),
+
+            const Divider(),
+
             // ── Account ──
             const Padding(
               padding: EdgeInsets.fromLTRB(20, 12, 20, 8),
@@ -820,8 +856,7 @@ class _MainNavigatorState extends State<MainNavigator> {
 
   Widget _buildDrawerItem(IconData icon, String label, VoidCallback onTap) {
     return ListTile(
-      leading:
-          const Icon(Icons.login, size: 20, color: AppColors.textSecondary),
+      leading: Icon(icon, size: 20, color: AppColors.textSecondary),
       title: Text(label,
           style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
       onTap: onTap,
@@ -885,6 +920,23 @@ class _CommandBarDialogState extends State<_CommandBarDialog> {
         () => const AiAnalysisScreen(), null),
     _CommandAction('التعلم واختبار الاستراتيجيات', Icons.analytics_outlined,
         Icons.analytics, () => const LearningBacktestScreen(), null),
+    // Advanced Tools (NEW)
+    _CommandAction('المسح المتعدد', Icons.grid_view_outlined, Icons.grid_view,
+        () => const ScreenerScreen(), null),
+    _CommandAction('الشارت التفاعلي', Icons.candlestick_chart_outlined,
+        Icons.candlestick_chart, () => const TradingChartScreen(ticker: 'EGX'), null),
+    _CommandAction('التقارير اليومية', Icons.description_outlined,
+        Icons.description, () => const ReportsScreen(), null),
+    _CommandAction('محاكاة التداول', Icons.science_outlined, Icons.science,
+        () => const SimulationScreen(), null),
+    _CommandAction('تقييم التوقعات', Icons.fact_check_outlined,
+        Icons.fact_check, () => const PredictionPerformanceScreen(), null),
+    _CommandAction('يومية التداول', Icons.menu_book_outlined, Icons.menu_book,
+        () => const TradingJournalScreen(), null),
+    _CommandAction('التلاقي الذكي', Icons.hub_outlined, Icons.hub,
+        () => const SmartConfluenceScreen(), null),
+    _CommandAction('المراقبة اللحظية', Icons.radar_outlined, Icons.radar,
+        () => const LiveMonitorScreen(), null),
     // Account
     _CommandAction('المحفظة', Icons.wallet_outlined, Icons.wallet, null, 3),
     _CommandAction('الاشتراكات', Icons.card_membership_outlined,

@@ -2158,6 +2158,68 @@ class GLMApiClient {
       return {};
     }
   }
+
+  // ============================================================================
+  // Trading Chart - Full Analysis API
+  // GET /api/v2/chart/full-analysis?ticker=X&timeframe=MONTH&limit=30
+  // ============================================================================
+  Future<Map<String, dynamic>> getChartFullAnalysis({
+    required String ticker,
+    String timeframe = 'MONTH',
+    int limit = 30,
+  }) async {
+    try {
+      final response = await _chartDio.get(
+        '/api/v2/chart/full-analysis',
+        queryParameters: {
+          'ticker': ticker,
+          'timeframe': timeframe,
+          'limit': limit,
+        },
+      );
+      return response.data is Map<String, dynamic>
+          ? response.data
+          : {'data': response.data};
+    } catch (e) {
+      debugPrint('[API] getChartFullAnalysis($ticker) failed: $e');
+      return {};
+    }
+  }
+
+  // ============================================================================
+  // Portfolio Holdings API
+  // GET /api/portfolio/holdings
+  // ============================================================================
+  Future<Map<String, dynamic>> getPortfolioHoldings() async {
+    try {
+      final response = await _dio.get('/api/portfolio/holdings');
+      return response.data is Map<String, dynamic>
+          ? response.data
+          : {'data': response.data};
+    } catch (e) {
+      debugPrint('[API] getPortfolioHoldings failed: $e');
+      return {};
+    }
+  }
+
+  // ============================================================================
+  // Market Live Data API (alias for getMarketLiveData with explicit market)
+  // GET /api/market/live-data?market=EGX
+  // ============================================================================
+  Future<Map<String, dynamic>> getMarketLiveQuotes({String market = 'EGX'}) async {
+    try {
+      final response = await _dio.get(
+        '/api/market/live-data',
+        queryParameters: {'market': market},
+      );
+      return response.data is Map<String, dynamic>
+          ? response.data
+          : {'data': response.data};
+    } catch (e) {
+      debugPrint('[API] getMarketLiveQuotes($market) failed: $e');
+      return {};
+    }
+  }
 }
 
 // Top-level getter for backward compatibility

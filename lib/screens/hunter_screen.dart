@@ -19,7 +19,10 @@ class HunterScreen extends StatefulWidget {
   State<HunterScreen> createState() => _HunterScreenState();
 }
 
-class _HunterScreenState extends State<HunterScreen> {
+class _HunterScreenState extends State<HunterScreen>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
   String _selectedMarket = 'ALL';
   final List<String> _markets = ['ALL', 'EGX', 'TADAWUL', 'KSE', 'QSE'];
   Future<List<dynamic>>? _opportunitiesFuture;
@@ -147,6 +150,7 @@ class _HunterScreenState extends State<HunterScreen> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(

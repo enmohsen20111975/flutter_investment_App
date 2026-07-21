@@ -17,7 +17,10 @@ class CryptoScreen extends StatefulWidget {
   State<CryptoScreen> createState() => _CryptoScreenState();
 }
 
-class _CryptoScreenState extends State<CryptoScreen> {
+class _CryptoScreenState extends State<CryptoScreen>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
   Future<List<CryptoAsset>>? _assetsFuture;
 
   @override
@@ -55,6 +58,7 @@ class _CryptoScreenState extends State<CryptoScreen> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     return Scaffold(
       backgroundColor: AppColors.background,
       body: RefreshIndicator(

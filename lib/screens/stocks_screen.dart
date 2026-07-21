@@ -18,7 +18,10 @@ class StocksScreen extends StatefulWidget {
   State<StocksScreen> createState() => _StocksScreenState();
 }
 
-class _StocksScreenState extends State<StocksScreen> {
+class _StocksScreenState extends State<StocksScreen>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
   Future<List<Stock>>? _stocksFuture;
   final TextEditingController _searchCtrl = TextEditingController();
   String _query = '';
@@ -210,6 +213,7 @@ class _StocksScreenState extends State<StocksScreen> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
