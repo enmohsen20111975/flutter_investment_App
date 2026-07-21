@@ -346,9 +346,11 @@ class GLMApiClient {
   Future<Map<String, dynamic>> getStockFundamentals(
       {required String ticker}) async {
     try {
-      final response = await _dio
-          .get('/api/stocks/fundamentals', queryParameters: {'ticker': ticker});
-      return response.data;
+      // FIX: /api/stocks/fundamentals returns empty data, use /api/stocks/[ticker] instead
+      final response = await _dio.get('/api/stocks/$ticker');
+      return response.data is Map<String, dynamic>
+          ? response.data
+          : {'data': response.data};
     } catch (e) {
       debugPrint('[API] getStockFundamentals failed: $e');
       return {};
@@ -527,8 +529,17 @@ class GLMApiClient {
   // ============================================================================
   Future<List<dynamic>> getGoldPrices() async {
     try {
-      final response = await _dio.get('/api/metals');
-      return response.data;
+      // FIX: /api/metals → 404, use /api/market/gold instead
+      final response = await _dio.get('/api/market/gold');
+      final data = response.data;
+      if (data is Map<String, dynamic>) {
+        final goldPrices = data['gold_prices'];
+        if (goldPrices is Map) {
+          return [goldPrices];
+        }
+        return [data];
+      }
+      return data is List ? data : [];
     } catch (e) {
       debugPrint('[API] getGoldPrices failed: $e');
       return [];
@@ -875,8 +886,11 @@ class GLMApiClient {
 
   Future<Map<String, dynamic>> getBatchAnalysis() async {
     try {
-      final response = await _dio.get('/api/ai/batch-analysis');
-      return response.data;
+      // FIX: /api/ai/batch-analysis → 404, use /api/v2/live-analysis instead
+      final response = await _dio.get('/api/v2/live-analysis');
+      return response.data is Map<String, dynamic>
+          ? response.data
+          : {'data': response.data};
     } catch (e) {
       debugPrint('[API] getBatchAnalysis failed: $e');
       return {};
@@ -1350,7 +1364,54 @@ class GLMApiClient {
       final response = await _dio.get('/api/mobile/dashboard', queryParameters: {
         if (market != null) 'market': market,
       });
-      return response.data;
+      final data = response.data is Map<String, dynamic>
+          ? response.data
+          : Map<String, dynamic>.from(response.data as Map);
+
+      // FIX: Normalize keys to match what dashboard_screen.dart expects
+      final inner = data['data'] is Map ? data['data'] : data;
+
+      // Map 'gainers' → 'top_gainers', 'losers' → 'top_losers'
+      if (inner['top_gainers'] == null && inner['gainers'] != null) {
+        inner['top_gainers'] = inner['gainers'];
+      }
+      if (inner['top_losers'] == null && inner['losers'] != null) {
+        inner['top_losers'] = inner['losers'];
+      }
+      // Map 'egx30'/'egx70' → 'indices'
+      if (inner['indices'] == null) {
+        final indices = <Map<String, dynamic>>[];
+        for (final key in ['egx30', 'egx70', 'egx100']) {
+          if (inner[key] is Map) {
+            final idx = inner[key] as Map;
+            indices.add({
+              'name': key.toUpperCase(),
+              'value': idx['value'] ?? idx['price'] ?? idx['last'],
+              'change_percent': idx['change_percent'] ?? idx['change'] ?? 0,
+            });
+          }
+        }
+        if (indices.isNotEmpty) inner['indices'] = indices;
+      }
+      // Map 'breadth' → 'market_summary'
+      if (inner['market_summary'] == null && inner['breadth'] is Map) {
+        final b = inner['breadth'] as Map;
+        inner['market_summary'] = {
+          'advances': b['gainers'] ?? 0,
+          'declines': b['losers'] ?? 0,
+          'unchanged': b['unchanged'] ?? 0,
+        };
+      }
+      // Map 'most_active' → 'top_movers.most_active'
+      if (inner['top_movers'] == null && inner['most_active'] != null) {
+        inner['top_movers'] = {
+          'most_active': inner['most_active'],
+          if (inner['top_gainers'] != null) 'gainers': inner['top_gainers'],
+          if (inner['top_losers'] != null) 'losers': inner['top_losers'],
+        };
+      }
+
+      return inner;
     } catch (e) {
       debugPrint('[API] getDashboard failed: $e');
       return {};
