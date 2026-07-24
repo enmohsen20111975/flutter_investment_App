@@ -2167,6 +2167,7 @@ class GLMApiClient {
     required String ticker,
     String timeframe = 'MONTH',
     int limit = 30,
+    String state = 'buyer',
   }) async {
     try {
       final response = await _chartDio.get(
@@ -2175,6 +2176,7 @@ class GLMApiClient {
           'ticker': ticker,
           'timeframe': timeframe,
           'limit': limit,
+          'state': state,
         },
       );
       return response.data is Map<String, dynamic>
@@ -2218,6 +2220,119 @@ class GLMApiClient {
     } catch (e) {
       debugPrint('[API] getMarketLiveQuotes($market) failed: $e');
       return {};
+    }
+  }
+
+  // ============================================================================
+  // PHASE5-053: New Endpoints for Commercial Launch
+  // ============================================================================
+
+  /// GET /api/predictions/league-report?period=monthly
+  /// الدوري الممتاز للسوق — أفضل 10 أسهم/صفقات في الفترة
+  Future<Map<String, dynamic>> getLeagueReport({String period = 'monthly'}) async {
+    try {
+      final response = await _dio.get(
+        '/api/predictions/league-report',
+        queryParameters: {'period': period},
+      );
+      return response.data is Map<String, dynamic>
+          ? response.data
+          : {'data': response.data};
+    } catch (e) {
+      debugPrint('[API] getLeagueReport($period) failed: $e');
+      return {'success': false, 'league': []};
+    }
+  }
+
+  /// GET /api/fomo/missed-opportunities
+  /// FOMO Engine — الأرباح الفائتة للعميل المجاني
+  Future<Map<String, dynamic>> getFomoMissedOpportunities() async {
+    try {
+      final response = await _dio.get('/api/fomo/missed-opportunities');
+      return response.data is Map<String, dynamic>
+          ? response.data
+          : {'data': response.data};
+    } catch (e) {
+      debugPrint('[API] getFomoMissedOpportunities failed: $e');
+      return {'success': false, 'missed_opportunities': []};
+    }
+  }
+
+  /// GET /api/portfolio/watchlists?user_id=U
+  /// قوائم المتابعة الخاصة بالمستخدم
+  Future<Map<String, dynamic>> getWatchlists({String userId = 'default'}) async {
+    try {
+      final response = await _dio.get(
+        '/api/portfolio/watchlists',
+        queryParameters: {'user_id': userId},
+      );
+      return response.data is Map<String, dynamic>
+          ? response.data
+          : {'data': response.data};
+    } catch (e) {
+      debugPrint('[API] getWatchlists failed: $e');
+      return {'success': false, 'watchlists': []};
+    }
+  }
+
+  /// POST /api/portfolio/watchlists (action: create/add/remove)
+  Future<Map<String, dynamic>> manageWatchlist({
+    required String action,
+    int? watchlistId,
+    String? name,
+    String? ticker,
+    String userId = 'default',
+  }) async {
+    try {
+      final body = <String, dynamic>{
+        'action': action,
+        'user_id': userId,
+      };
+      if (watchlistId != null) body['watchlist_id'] = watchlistId;
+      if (name != null) body['name'] = name;
+      if (ticker != null) body['ticker'] = ticker;
+
+      final response = await _dio.post('/api/portfolio/watchlists', data: body);
+      return response.data is Map<String, dynamic>
+          ? response.data
+          : {'data': response.data};
+    } catch (e) {
+      debugPrint('[API] manageWatchlist($action) failed: $e');
+      return {'success': false};
+    }
+  }
+
+  /// GET /api/portfolio/master?user_id=U
+  /// المحفظة الأم (Master) — تجمع كل المحافظ الفرعية
+  Future<Map<String, dynamic>> getPortfolioMaster({String userId = 'default'}) async {
+    try {
+      final response = await _dio.get(
+        '/api/portfolio/master',
+        queryParameters: {'user_id': userId},
+      );
+      return response.data is Map<String, dynamic>
+          ? response.data
+          : {'data': response.data};
+    } catch (e) {
+      debugPrint('[API] getPortfolioMaster failed: $e');
+      return {'success': false, 'aggregated': {}};
+    }
+  }
+
+  /// GET /api/live/scan?limit=10
+  /// فحص لحظي لأعلى الفرص في السوق
+  Future<Map<String, dynamic>> getLiveScan({int limit = 10}) async {
+    try {
+      final response = await _dio.get(
+        '/api/live/scan',
+        queryParameters: {'limit': limit},
+      );
+      return response.data is Map<String, dynamic>
+          ? response.data
+          : {'data': response.data};
+    } catch (e) {
+      debugPrint('[API] getLiveScan failed: $e');
+      return {'success': false, 'opportunities': []};
     }
   }
 }
