@@ -2335,7 +2335,212 @@ class GLMApiClient {
       return {'success': false, 'opportunities': []};
     }
   }
-}
+
+  // ===========================================================================
+  // BRIEF-047/048: Live Monitor & Portfolio Alerts API
+  // ===========================================================================
+
+  /// GET /api/live-monitor/ledger
+  /// BRIEF-047: سجل التوقعات + Win Rate + live_alerts
+  Future<Map<String, dynamic>> getLiveMonitorLedger() async {
+    try {
+      final response = await _dio.get('/api/live-monitor/ledger',
+          options: Options(headers: {'Cache-Control': 'no-cache'}));
+      return response.data is Map<String, dynamic>
+          ? response.data
+          : {'success': false};
+    } catch (e) {
+      debugPrint('[API] getLiveMonitorLedger failed: $e');
+      return {
+        'success': false,
+        'active_predictions': [],
+        'closed_predictions': [],
+        'win_rate': 0,
+        'total_signals': 0,
+        'wins': 0,
+        'losses': 0,
+        'live_alerts': [],
+      };
+    }
+  }
+
+  /// GET /api/chart/{ticker}?period=1w&asset=stock
+  /// BRIEF-049: بيانات intraday للفريمات اللحظية (5m/15m/1h)
+  Future<Map<String, dynamic>> getIntradayChart(String ticker,
+      {String period = '1w'}) async {
+    try {
+      final response = await _chartDio.get(
+        '/api/chart/${ticker.toUpperCase()}',
+        queryParameters: {'period': period, 'asset': 'stock', '_t': DateTime.now().millisecondsSinceEpoch},
+      );
+      return response.data is Map<String, dynamic>
+          ? response.data
+          : {'success': false, 'data': []};
+    } catch (e) {
+      debugPrint('[API] getIntradayChart failed: $e');
+      return {'success': false, 'data': []};
+    }
+  }
+
+  /// GET /api/v2/chart/full-analysis?ticker=X&timeframe=5M
+  /// BRIEF-049: تحليل شامل بفريمات intraday + SMC data
+  Future<Map<String, dynamic>> getChartFullAnalysis(String ticker,
+      {String timeframe = '1W', int limit = 500}) async {
+    try {
+      final response = await _chartDio.get(
+        '/api/v2/chart/full-analysis',
+        queryParameters: {
+          'ticker': ticker.toUpperCase(),
+          'timeframe': timeframe,
+          'limit': limit,
+          'state': 'buyer',
+          '_t': DateTime.now().millisecondsSinceEpoch,
+        },
+      );
+      return response.data is Map<String, dynamic>
+          ? response.data
+          : {'success': false};
+    } catch (e) {
+      debugPrint('[API] getChartFullAnalysis failed: $e');
+      return {'success': false, 'error': e.toString()};
+    }
+  }
+
+  /// BRIEF-048: فحص تنبيهات المحفظة (TP/SL/Trailing)
+  /// بتجيب المحفظة + الأسعار الحالية و تتاكد من:
+  /// 1. Hit Target (TP1/TP2/TP3)
+  /// 2. OB Breach (Stop Loss)
+  /// 3. Trailing Stop suggestion
+  Future<List<Map<String, dynamic>>> checkPortfolioAlerts() async {
+    List<Map<String, dynamic>> alerts = [];
+
+    try {
+      // اجيب المحفظة
+      final portfolio = await getMobilePortfolio();
+      if (portfolio.positions.isEmpty) return alerts;
+
+      for (final pos in portfolio.positions) {
+        final ticker = pos.ticker;
+        final avgPrice = pos.avgPrice;
+        final quantity = pos.quantity;
+        if (avgPrice <= 0 || quantity <= 0) continue;
+
+        // اجيب السعر الحالي
+        double currentPrice = 0;
+        try {
+          final stockRes = await _dio.get('/api/mobile/stocks/$ticker',
+              options: Options(headers: {'Cache-Control': 'no-cache'}));
+          if (stockRes.data is Map) {
+            currentPrice = (stockRes.data['price'] ??
+                    stockRes.data['data']?['price'] ??
+                    stockRes.data['currentPrice'] ??
+                    0)
+                .toDouble();
+          }
+        } catch (_) {
+          continue;
+        }
+        if (currentPrice <= 0) continue;
+
+        final pnlPct = (currentPrice - avgPrice) / avgPrice * 100;
+
+        // 1. Hit Target (TP1/TP2/TP3)
+        final tp1 = pos.targetPrice;
+        final tp2 = pos.target2 ?? 0;
+        final tp3 = pos.target3 ?? 0;
+
+        if (tp1 > 0 && currentPrice >= tp1 && currentPrice < tp1 * 1.02) {
+          alerts.add({
+            'type': 'TARGET_HIT',
+            'severity': 'info',
+            'ticker': ticker,
+            'message': '🎯 $ticker وصل لـ TP1 ($tp1) - ربح ${pnlPct.toStringAsFixed(1)}%',
+            'price': currentPrice,
+            'target': tp1,
+            'pnl_pct': pnlPct,
+          });
+        }
+        if (tp2 > 0 && currentPrice >= tp2 && currentPrice < tp2 * 1.02) {
+          alerts.add({
+            'type': 'TARGET_HIT',
+            'severity': 'info',
+            'ticker': ticker,
+            'message': '🎯 $ticker وصل لـ TP2 ($tp2) - ربح ${pnlPct.toStringAsFixed(1)}%',
+            'price': currentPrice,
+            'target': tp2,
+            'pnl_pct': pnlPct,
+          });
+        }
+        if (tp3 > 0 && currentPrice >= tp3) {
+          alerts.add({
+            'type': 'TARGET_HIT',
+            'severity': 'info',
+            'ticker': ticker,
+            'message': '🎯 $ticker وصل لـ TP3 ($tp3) - ربح ${pnlPct.toStringAsFixed(1)}%',
+            'price': currentPrice,
+            'target': tp3,
+            'pnl_pct': pnlPct,
+          });
+        }
+
+        // 2. OB Breach (Stop Loss)
+        final stopLoss = pos.stopLoss;
+        if (stopLoss > 0 && currentPrice <= stopLoss) {
+          alerts.add({
+            'type': 'OB_BREACH',
+            'severity': 'critical',
+            'ticker': ticker,
+            'message': '🚨 $ticker كسر وقف الخسارة ($stopLoss) - خسارة ${pnlPct.abs().toStringAsFixed(1)}% - خروج طارئ!',
+            'price': currentPrice,
+            'stop_loss': stopLoss,
+            'pnl_pct': pnlPct,
+          });
+        }
+
+        // 3. Trailing Stop (لو ربح > 15%)
+        if (pnlPct > 15 && stopLoss > 0 && currentPrice > stopLoss * 1.15) {
+          final newStop = currentPrice * 0.95;
+          if (newStop > stopLoss) {
+            alerts.add({
+              'type': 'TRAILING_STOP',
+              'severity': 'warning',
+              'ticker': ticker,
+              'message': '📈 $ticker ربح ${pnlPct.toStringAsFixed(1)}% - اقترح تحريك الـ SL لـ ${newStop.toStringAsFixed(2)}',
+              'price': currentPrice,
+              'new_stop': newStop,
+              'pnl_pct': pnlPct,
+            });
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('[API] checkPortfolioAlerts failed: $e');
+    }
+
+    return alerts;
+  }
+
+  /// BRIEF-048: فحص تنبيهات الحيتان (LIVE_WHALE_BUY)
+  Future<List<Map<String, dynamic>>> getWhaleAlerts() async {
+    try {
+      final ledger = await getLiveMonitorLedger();
+      final liveAlerts = ledger['live_alerts'] as List? ?? [];
+      return liveAlerts
+          .where((a) => a['alert_type'] == 'LIVE_WHALE_BUY')
+          .map((a) => {
+                'type': 'LIVE_WHALE_BUY',
+                'severity': 'info',
+                'ticker': a['ticker'] ?? '',
+                'message': a['message'] ?? '🐋 حوت نشط',
+                'timestamp': a['timestamp'] ?? '',
+              })
+          .toList()
+          .cast<Map<String, dynamic>>();
+    } catch (e) {
+      debugPrint('[API] getWhaleAlerts failed: $e');
+      return [];
+    }
+  }
 
 // Top-level getter for backward compatibility
 GLMApiClient get api => GLMApiClient.instance;

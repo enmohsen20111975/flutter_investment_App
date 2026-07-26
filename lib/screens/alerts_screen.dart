@@ -8,6 +8,7 @@ import '../theme/colors.dart';
 import '../api/client.dart';
 import '../widgets/skeleton_loader.dart';
 import '../widgets/state_view.dart';
+import '../widgets/portfolio_alerts_widget.dart';
 
 class AlertsScreen extends StatefulWidget {
   const AlertsScreen({super.key});
@@ -237,7 +238,28 @@ class _AlertsScreenState extends State<AlertsScreen> {
           backgroundColor: AppColors.primary,
           child: const Icon(Icons.add, color: AppColors.white),
         ),
-        body: FutureBuilder<List<dynamic>>(
+        body: CustomScrollView(
+          slivers: [
+            // BRIEF-048: Portfolio Alerts (TP/SL/Trailing/Whale)
+            SliverToBoxAdapter(
+              child: PortfolioAlertsWidget(),
+            ),
+            const SliverToBoxAdapter(
+              child: Padding(
+                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Divider(),
+              ),
+            ),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Text('🔔 تنبيهات الأسعار المخصصة',
+                    style: Theme.of(context).textTheme.titleSmall),
+              ),
+            ),
+            // Existing price alerts
+            SliverFillRemaining(
+              child: FutureBuilder<List<dynamic>>(
           future: _alertsFuture,
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting)
@@ -247,7 +269,7 @@ class _AlertsScreenState extends State<AlertsScreen> {
             final alerts = snapshot.data ?? [];
             if (alerts.isEmpty)
               return const StateView(
-                  empty: true, emptyMessage: 'لا توجد تنبيهات');
+                  empty: true, emptyMessage: 'لا توجد تنبيهات مخصصة');
             return RefreshIndicator(
               color: AppColors.primary,
               onRefresh: _refresh,
@@ -329,6 +351,10 @@ class _AlertsScreenState extends State<AlertsScreen> {
             );
           },
         ),
+      ),     // closes SliverFillRemaining
+            ),       // closes SliverFillRemaining's child
+          ],         // closes slivers list
+        ),           // closes CustomScrollView
       ),
     );
   }

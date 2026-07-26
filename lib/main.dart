@@ -61,6 +61,9 @@ Future<void> main() async {
   unawaited(NotificationService().init());
   unawaited(SubscriptionService.instance.init());
 
+  // BRIEF-048: ابدأ مراقبة المحفظة (TP/SL/Trailing/Whale alerts كل 5 دقايق)
+  unawaited(NotificationService().startPortfolioMonitoring());
+
   runApp(
     ProviderScope(
       overrides: [

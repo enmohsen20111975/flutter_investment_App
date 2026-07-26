@@ -232,3 +232,113 @@ class NotificationService {
     return prefs.getBool('notifications_enabled') ?? true;
   }
 }
+  // ===========================================================================
+  // BRIEF-048: Portfolio Alert Notifications
+  // ===========================================================================
+
+  static const String _portfolioChannel = 'portfolio_alerts';
+  static const String _whaleChannel = 'whale_alerts';
+
+  Future<void> _createPortfolioChannels() async {
+    const AndroidNotificationChannel portfolioCh =
+        AndroidNotificationChannel(
+      _portfolioChannel,
+      'تنبيهات المحفظة',
+      description: 'تنبيهات وقف الخسارة، تحقيق الأهداف، والـ Trailing Stop',
+      importance: Importance.max,
+      playSound: true,
+    );
+
+    const AndroidNotificationChannel whaleCh =
+        AndroidNotificationChannel(
+      _whaleChannel,
+      'تنبيهات الحيتان',
+      description: 'إشارات الحيتان (SMC - Order Blocks + Sweeps)',
+      importance: Importance.high,
+      playSound: true,
+    );
+
+    await _notificationsPlugin
+        .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>()
+        ?.createNotificationChannel(portfolioCh);
+
+    await _notificationsPlugin
+        .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>()
+        ?.createNotificationChannel(whaleCh);
+  }
+
+  /// إظهار تنبيه محفظة (TP/SL/Trailing/Whale)
+  Future<void> showPortfolioAlert({
+    required String title,
+    required String body,
+    required String severity,
+    String? payload,
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    final bool notificationsEnabled =
+        prefs.getBool('notifications_enabled') ?? true;
+    if (!notificationsEnabled) return;
+
+    // تأكد إن الـ channels موجودة
+    await _createPortfolioChannels();
+
+    final String channel = severity == 'critical'
+        ? _portfolioChannel
+        : (title.contains('حوت') ? _whaleChannel : _portfolioChannel);
+
+    final AndroidNotificationDetails androidDetails =
+        AndroidNotificationDetails(
+      channel,
+      channel == _whaleChannel ? 'تنبيهات الحيتان' : 'تنبيهات المحفظة',
+      channelDescription: channel == _whaleChannel
+          ? 'إشارات الحيتان'
+          : 'تنبيهات وقف الخسارة والأهداف',
+      importance: severity == 'critical' ? Importance.max : Importance.high,
+      priority: severity == 'critical' ? Priority.max : Priority.high,
+      ticker: title,
+      icon: '@mipmap/ic_launcher',
+      largeIcon: const DrawableResourceAndroidBitmap('@mipmap/ic_launcher'),
+      styleInformation: BigTextStyleInformation(body),
+      color: severity == 'critical'
+          ? const Color.fromARGB(255, 244, 67, 54)
+          : (title.contains('حوت')
+              ? const Color.fromARGB(255, 156, 39, 176)
+              : const Color.fromARGB(255, 76, 175, 80)),
+    );
+
+    const DarwinNotificationDetails iosDetails = DarwinNotificationDetails(
+      presentAlert: true,
+      presentBadge: true,
+      presentSound: true,
+    );
+
+    final NotificationDetails notificationDetails = NotificationDetails(
+      android: androidDetails,
+      iOS: iosDetails,
+    );
+
+    // ID فريد لكل تنبيه (مبنعملش override)
+    final int notifId = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+
+    try {
+      await _notificationsPlugin.show(
+        notifId,
+        title,
+        body,
+        notificationDetails,
+        payload: payload,
+      );
+      debugPrint('[Notification] Shown: $title - $body');
+    } catch (e) {
+      debugPrint('[Notification] Failed to show: $e');
+    }
+  }
+
+  /// بدء مراقبة المحفظة في الخلفية
+  Future<void> startPortfolioMonitoring() async {
+    await _createPortfolioChannels();
+    // الـ PortfolioAlertService هياخد من هنا
+    debugPrint('[NotificationService] Portfolio monitoring channels ready');
+  }

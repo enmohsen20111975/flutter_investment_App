@@ -1,3 +1,4 @@
+import 'dart:async';
 // ============================================================================
 // مساعد الاستثمار Flutter - Unified Portfolio Screen
 // Multi-asset support: Stocks, Crypto, Gold & Metals
@@ -25,6 +26,7 @@ class _PortfolioScreenState extends State<PortfolioScreen>
   bool get wantKeepAlive => true;
   Future<PortfolioResponse?>? _portfolioFuture;
   Future<Map<String, dynamic>?>? _analysisFuture;
+  Timer? _autoRefreshTimer;  // BRIEF-048: auto-refresh كل 5 دقايق
 
   // Active Category: 'stock', 'crypto', 'gold'
   String _selectedCategory = 'stock';
@@ -34,6 +36,10 @@ class _PortfolioScreenState extends State<PortfolioScreen>
     super.initState();
     _portfolioFuture = _fetchPortfolio();
     _analysisFuture = _fetchAnalysis();
+    // BRIEF-048: تحديث تلقائي كل 5 دقايق (live PnL)
+    _autoRefreshTimer = Timer.periodic(const Duration(minutes: 5), (_) {
+      if (mounted) _refresh();
+    });
   }
 
   Future<PortfolioResponse?> _fetchPortfolio() async {
@@ -303,6 +309,12 @@ class _PortfolioScreenState extends State<PortfolioScreen>
   }
 
   @override
+  @override
+  void dispose() {
+    _autoRefreshTimer?.cancel();
+    super.dispose();
+  }
+
   Widget build(BuildContext context) {
     super.build(context);
     return Directionality(
