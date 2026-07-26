@@ -404,17 +404,25 @@ class _PortfolioScreenState extends State<PortfolioScreen>
                       ...filteredList.map((pos) => _buildPositionCard(pos)),
                     const SizedBox(height: 16),
 
-                    // AI Analysis Section
-                    FutureBuilder<Map<String, dynamic>?>(
-                      future: _analysisFuture,
-                      builder: (context, analysisSnapshot) {
-                        if (analysisSnapshot.hasData &&
-                            analysisSnapshot.data != null) {
-                          return _buildAnalysis(analysisSnapshot.data!, data);
-                        }
-                        return const SizedBox.shrink();
-                      },
-                    ),
+                     // AI Analysis Section
+                     FutureBuilder<Map<String, dynamic>?>(
+                       future: _analysisFuture,
+                       builder: (context, analysisSnapshot) {
+                         if (analysisSnapshot.connectionState == ConnectionState.waiting) {
+                           return const Center(
+                             child: Padding(
+                               padding: EdgeInsets.all(16),
+                               child: CircularProgressIndicator(color: AppColors.primary, strokeWidth: 2),
+                             ),
+                           );
+                         }
+                         if (analysisSnapshot.hasData &&
+                             analysisSnapshot.data != null) {
+                           return _buildAnalysis(analysisSnapshot.data!, data);
+                         }
+                         return const SizedBox.shrink();
+                       },
+                     ),
                     const SizedBox(height: 90),
                   ],
                 ),

@@ -75,21 +75,21 @@ class _StocksScreenState extends State<StocksScreen>
   @override
   void initState() {
     super.initState();
-    _loadActiveMarket().then((_) {
-      _loadStocks(_query);
-      _loadMovement();
-    });
+    _initData();
   }
 
   @override
   void didUpdateWidget(covariant StocksScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.marketVersion != widget.marketVersion) {
-      _loadActiveMarket().then((_) {
-        _loadStocks(_query);
-        _loadMovement();
-      });
+      _initData();
     }
+  }
+
+  Future<void> _initData() async {
+    await _loadActiveMarket();
+    await _loadStocks(_query);
+    await _loadMovement();
   }
 
   @override
@@ -128,23 +128,24 @@ class _StocksScreenState extends State<StocksScreen>
     }
   }
 
-  Future<void> _loadStocks([String? search]) async {
-    _query = search ?? _query;
-    _currentPage = 1;
-    _hasMore = true;
-    _allStocks = <Stock>[];
-    _displayedStocks = <Stock>[];
-    _stocksFuture = _fetchStocks(_query, _activeMarket);
-    _stocksFuture!.then((stocks) {
-      _allStocks = stocks;
-      _displayedStocks = stocks.take(_pageSize).toList();
-      _hasMore = stocks.length > _pageSize;
-      if (mounted) setState(() {});
-    }).catchError((e) {
-      debugPrint('[Stocks] Load failed: $e');
-      if (mounted) setState(() {});
-    });
-  }
+   Future<void> _loadStocks([String? search]) async {
+     _query = search ?? _query;
+     _currentPage = 1;
+     _hasMore = true;
+     _allStocks = <Stock>[];
+     _displayedStocks = <Stock>[];
+     _stocksFuture = _fetchStocks(_query, _activeMarket);
+     try {
+       final stocks = await _stocksFuture!;
+       _allStocks = stocks;
+       _displayedStocks = stocks.take(_pageSize).toList();
+       _hasMore = stocks.length > _pageSize;
+       if (mounted) setState(() {});
+     } catch (e) {
+       debugPrint('[Stocks] Load failed: $e');
+       if (mounted) setState(() {});
+     }
+   }
 
   Future<void> _loadMoreStocks() async {
     if (_isLoadingMore || !_hasMore) return;
@@ -159,17 +160,17 @@ class _StocksScreenState extends State<StocksScreen>
     setState(() => _isLoadingMore = false);
   }
 
-  Future<void> _loadMovement() async {
-    final data = await _fetchMovement(_activeMarket);
-    if (mounted) {
-      if (data != null &&
-          (data['gainers'] is List || data['losers'] is List || data['most_active'] is List)) {
-        setState(() => _movementData = data);
-      } else {
-        _fetchMovementFallback(_activeMarket);
-      }
-    }
-  }
+   Future<void> _loadMovement() async {
+     final data = await _fetchMovement(_activeMarket);
+     if (mounted) {
+       if (data != null &&
+           (data['gainers'] is List || data['losers'] is List || data['most_active'] is List)) {
+         setState(() => _movementData = data);
+       } else {
+         await _fetchMovementFallback(_activeMarket);
+       }
+     }
+   }
 
   Future<void> _fetchMovementFallback(String market) async {
     try {

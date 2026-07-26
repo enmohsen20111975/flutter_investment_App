@@ -98,17 +98,27 @@ class _AppRootState extends State<_AppRoot> with WidgetsBindingObserver {
   bool _checking = true;
   bool _forceUpdate = false;
   dynamic _versionResult;
+  Timer? _splashTimeout;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _checkForcedUpdate();
+    _splashTimeout = Timer(const Duration(seconds: 10), () {
+      if (mounted && _checking) {
+        setState(() {
+          _checking = false;
+          _forceUpdate = false;
+        });
+      }
+    });
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _splashTimeout?.cancel();
     super.dispose();
   }
 
@@ -124,7 +134,9 @@ class _AppRootState extends State<_AppRoot> with WidgetsBindingObserver {
 
   Future<void> _checkForcedUpdate() async {
     try {
-      final result = await VersionService.instance.checkVersion();
+      final result = await VersionService.instance.checkVersion().timeout(
+        const Duration(seconds: 8),
+      );
       if (mounted) {
         setState(() {
           _versionResult = result;
@@ -132,9 +144,16 @@ class _AppRootState extends State<_AppRoot> with WidgetsBindingObserver {
           _checking = false;
         });
       }
+    } on TimeoutException {
+      debugPrint('[AppRoot] Version check timed out — letting user in');
+      if (mounted) {
+        setState(() {
+          _checking = false;
+          _forceUpdate = false;
+        });
+      }
     } catch (e) {
       debugPrint('[AppRoot] Version check error: $e');
-      // On error, do NOT block the user — let them in.
       if (mounted) {
         setState(() {
           _checking = false;

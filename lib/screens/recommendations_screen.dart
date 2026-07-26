@@ -46,109 +46,133 @@ class _RecommendationsScreenState extends State<RecommendationsScreen> {
     'QSE': 'السوق القطري',
   };
 
-  Future<RecommendationsData?> _fetchData() async {
-    try {
-      final market = await _loadActiveMarket();
-      if (mounted) setState(() => _activeMarket = market);
-      final persona = _statusFilter != 'all' ? _statusFilter : null;
+   Future<RecommendationsData?> _fetchData() async {
+     try {
+       final market = await _loadActiveMarket();
+       if (mounted) setState(() => _activeMarket = market);
+       final persona = _statusFilter != 'all' ? _statusFilter : null;
 
-      // 1) Try market-specific recommendations first
-      List<dynamic> rawRecs = <dynamic>[];
-      try {
-        rawRecs = await api.getMarketRecommendations(market: market, persona: persona);
-      } catch (e) {
-        debugPrint('[Recommendations] getMarketRecommendations failed: $e');
-      }
+       // Fetch market recommendations and morning reports in parallel
+       List<dynamic> rawRecs = <dynamic>[];
+       List<Map<String, dynamic>> reports = <Map<String, dynamic>>[];
 
-      // 2) Fallback to all-markets mobile endpoint (with market hint)
-      if (rawRecs.isEmpty) {
-        try {
-          rawRecs = await api.getMobileRecommendations(persona: persona, market: market);
-        } catch (e) {
-          debugPrint('[Recommendations] getMobileRecommendations failed: $e');
-        }
-      }
+       final recResult = await _fetchRecommendations(market, persona);
+       rawRecs = recResult;
 
-      List<ExpertRecommendation> recs = <ExpertRecommendation>[];
-      for (final e in rawRecs) {
-        if (e is Map) {
-          recs.add(ExpertRecommendation.fromJson(Map<String, dynamic>.from(e)));
-        }
-      }
+       // Fetch morning reports in parallel with recommendations fallback
+       try {
+         final reportsResponse = await api.getMorningReports();
+         final dynamic reportsRaw = reportsResponse['reports'] ?? reportsResponse['data'];
+         if (reportsRaw is List) {
+           for (final e in reportsRaw) {
+             if (e is Map) {
+               reports.add(Map<String, dynamic>.from(e));
+             }
+           }
+         }
+       } catch (e) {
+         debugPrint('[Recommendations] getMorningReports failed: $e');
+       }
 
-      List<ExpertStats> stats = <ExpertStats>[];
-      List<Map<String, dynamic>> reports = <Map<String, dynamic>>[];
+       // If market-specific returned empty, try mobile recommendations
+       if (rawRecs.isEmpty) {
+         rawRecs = await _fetchMobileRecommendations(market, persona);
+       }
 
-      // Fallback to expert recommendations if empty
-      if (recs.isEmpty) {
-        Map<String, dynamic> response = {};
-        try {
-          response = await api.getExpertRecommendations(
-              status: _statusFilter != 'all' ? _statusFilter : null);
-        } catch (e) {
-          debugPrint('[Recommendations] getExpertRecommendations failed: $e');
-        }
+       // If still empty, try expert recommendations
+       List<ExpertRecommendation> recs = <ExpertRecommendation>[];
+       List<ExpertStats> stats = <ExpertStats>[];
+       if (rawRecs.isEmpty) {
+         final expertResult = await _fetchExpertRecommendations(persona);
+         recs = expertResult.$1;
+         stats = expertResult.$2;
+       } else {
+         for (final e in rawRecs) {
+           if (e is Map) {
+             recs.add(ExpertRecommendation.fromJson(Map<String, dynamic>.from(e)));
+           }
+         }
+       }
 
-        final dynamic recsRaw = response['recommendations'] ?? response['data'];
-        if (recsRaw is List) {
-          for (final e in recsRaw) {
-            if (e is Map) {
-              recs.add(ExpertRecommendation.fromJson(Map<String, dynamic>.from(e)));
-            }
-          }
-        }
+       // Filter recommendations locally by active market
+       List<ExpertRecommendation> filteredRecs = <ExpertRecommendation>[];
+       for (final rec in recs) {
+         final symbol = rec.stockSymbol ?? '';
+         final isNumeric4 = RegExp(r'^\d{4}$').hasMatch(symbol.trim());
+         if (market == 'TADAWUL') {
+           if (isNumeric4) filteredRecs.add(rec);
+         } else if (market == 'EGX') {
+           if (!isNumeric4) filteredRecs.add(rec);
+         } else {
+           filteredRecs.add(rec);
+         }
+       }
+       recs = filteredRecs;
 
-        final dynamic statsRaw = response['expertStats'] ?? response['stats'];
-        if (statsRaw is List) {
-          for (final e in statsRaw) {
-            if (e is Map) {
-              stats.add(ExpertStats.fromJson(Map<String, dynamic>.from(e)));
-            }
-          }
-        }
-      }
+       return RecommendationsData(
+         recommendations: recs,
+         expertStats: stats,
+         aiInsights: null,
+         morningReports: reports,
+       );
+     } catch (e, stack) {
+       debugPrint('[Recommendations] _fetchData outer exception: $e\n$stack');
+       return null;
+     }
+   }
 
-      // Fetch morning reports safely
-      try {
-        final reportsResponse = await api.getMorningReports();
-        final dynamic reportsRaw = reportsResponse['reports'] ?? reportsResponse['data'];
-        if (reportsRaw is List) {
-          for (final e in reportsRaw) {
-            if (e is Map) {
-              reports.add(Map<String, dynamic>.from(e));
-            }
-          }
-        }
-      } catch (e) {
-        debugPrint('[Recommendations] getMorningReports failed: $e');
-      }
+   Future<List<dynamic>> _fetchRecommendations(String market, String? persona) async {
+     try {
+       return await api.getMarketRecommendations(market: market, persona: persona);
+     } catch (e) {
+       debugPrint('[Recommendations] getMarketRecommendations failed: $e');
+       return <dynamic>[];
+     }
+   }
 
-      // Filter recommendations locally by active market
-      List<ExpertRecommendation> filteredRecs = <ExpertRecommendation>[];
-      for (final rec in recs) {
-        final symbol = rec.stockSymbol ?? '';
-        final isNumeric4 = RegExp(r'^\d{4}$').hasMatch(symbol.trim());
-        if (market == 'TADAWUL') {
-          if (isNumeric4) filteredRecs.add(rec);
-        } else if (market == 'EGX') {
-          if (!isNumeric4) filteredRecs.add(rec);
-        } else {
-          filteredRecs.add(rec);
-        }
-      }
-      recs = filteredRecs;
+   Future<List<dynamic>> _fetchMobileRecommendations(String market, String? persona) async {
+     try {
+       return await api.getMobileRecommendations(persona: persona, market: market);
+     } catch (e) {
+       debugPrint('[Recommendations] getMobileRecommendations failed: $e');
+       return <dynamic>[];
+     }
+   }
 
-      return RecommendationsData(
-        recommendations: recs,
-        expertStats: stats,
-        aiInsights: null, // Removed AI Insights as requested
-        morningReports: reports,
-      );
-    } catch (e, stack) {
-      debugPrint('[Recommendations] _fetchData outer exception: $e\n$stack');
-      return null;
-    }
-  }
+   Future<(List<ExpertRecommendation>, List<ExpertStats>)> _fetchExpertRecommendations(String? persona) async {
+     List<ExpertRecommendation> recs = <ExpertRecommendation>[];
+     List<ExpertStats> stats = <ExpertStats>[];
+     try {
+       Map<String, dynamic> response = {};
+       try {
+         response = await api.getExpertRecommendations(
+             status: persona != null && persona != 'all' ? persona : null);
+       } catch (e) {
+         debugPrint('[Recommendations] getExpertRecommendations failed: $e');
+       }
+
+       final dynamic recsRaw = response['recommendations'] ?? response['data'];
+       if (recsRaw is List) {
+         for (final e in recsRaw) {
+           if (e is Map) {
+             recs.add(ExpertRecommendation.fromJson(Map<String, dynamic>.from(e)));
+           }
+         }
+       }
+
+       final dynamic statsRaw = response['expertStats'] ?? response['stats'];
+       if (statsRaw is List) {
+         for (final e in statsRaw) {
+           if (e is Map) {
+             stats.add(ExpertStats.fromJson(Map<String, dynamic>.from(e)));
+           }
+         }
+       }
+     } catch (e) {
+       debugPrint('[Recommendations] _fetchExpertRecommendations failed: $e');
+     }
+     return (recs, stats);
+   }
 
   Future<void> _refresh() async {
     _dataFuture = _fetchData();

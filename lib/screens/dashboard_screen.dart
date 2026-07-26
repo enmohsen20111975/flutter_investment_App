@@ -72,98 +72,123 @@ class _DashboardScreenState extends State<DashboardScreen>
     pollingService.startDashboardPolling();
   }
 
-  Future<Map<String, dynamic>> _fetchDashboard() async {
-    try {
-      SharedPreferences? prefs;
-      try {
-        prefs = await SharedPreferences.getInstance();
-      } catch (_) {}
-      final market = prefs?.getString('active_market') ?? 'EGX';
+   static Map<String, dynamic>? _safeAsMap(dynamic value) {
+     if (value is Map<String, dynamic>) return value;
+     if (value is Map) return Map<String, dynamic>.from(value);
+     return null;
+   }
 
-      // 1) Try the unified mobile dashboard endpoint first
-      try {
-        final data = await mobileApi.getDashboard(market: market);
-        if (data.isNotEmpty &&
-            (data['indices'] != null ||
-                data['market_indices'] != null ||
-                data['market_summary'] != null ||
-                data['top_movers'] != null ||
-                data['top_gainers'] != null)) {
-          _dashboardData = data;
-          return data;
-        }
-        debugPrint('[Dashboard] Primary endpoint returned empty/unusable data');
-      } catch (e) {
-        debugPrint('[Dashboard] Primary endpoint failed: $e');
-      }
+   Future<Map<String, dynamic>> _fetchDashboard() async {
+     try {
+       SharedPreferences? prefs;
+       try {
+         prefs = await SharedPreferences.getInstance();
+       } catch (_) {}
+       final market = prefs?.getString('active_market') ?? 'EGX';
 
-      // 2) Fallback: stitch dashboard from individual working endpoints
-      debugPrint('[Dashboard] Falling back to individual endpoints...');
-      final results = await Future.wait([
-        api.getMarketOverview(market),
-        api.getMarketLiveData(market),
-      ]);
+       // Fetch gold and currency data in parallel with dashboard
+       final goldFuture = api.getGold();
+       final currencyFuture = api.getCurrencyList();
 
-      final overview = results[0] as MarketOverview;
-      final liveData = results[1] as Map<String, dynamic>;
+       // 1) Try the unified mobile dashboard endpoint first
+       try {
+         final data = await mobileApi.getDashboard(market: market);
+         if (data.isNotEmpty &&
+             (data['indices'] != null ||
+                 data['market_indices'] != null ||
+                 data['market_summary'] != null ||
+                 data['top_movers'] != null ||
+                 data['top_gainers'] != null)) {
+           _dashboardData = data;
+           return data;
+         }
+         debugPrint('[Dashboard] Primary endpoint returned empty/unusable data');
+       } catch (e) {
+         debugPrint('[Dashboard] Primary endpoint failed: $e');
+       }
 
-      final indices = (overview.indices ?? <MarketIndex>[])
-          .map((i) => <String, dynamic>{
-                'name': i.name ?? i.nameAr ?? i.symbol,
-                'value': i.value,
-                'change_percent': i.changePercent,
-              })
-          .toList();
+       // 2) Fallback: stitch dashboard from individual working endpoints
+       debugPrint('[Dashboard] Falling back to individual endpoints...');
+       final results = await Future.wait([
+         api.getMarketOverview(market),
+         api.getMarketLiveData(market),
+       ]);
 
-      final summary = overview.summary;
-      final marketSummary = summary != null
-          ? <String, dynamic>{
-              'advances': summary.gainers ?? 0,
-              'declines': summary.losers ?? 0,
-              'unchanged': summary.unchanged ?? 0,
-            }
-          : null;
+       final overview = results[0] as MarketOverview;
+       final liveData = results[1] as Map<String, dynamic>;
 
-      final topMovers = <String, dynamic>{
-        'gainers': (overview.topGainers ?? <MarketStock>[])
-            .map((s) => <String, dynamic>{
-                  'ticker': s.ticker,
-                  'price': s.currentPrice,
-                  'change_percent': s.changePercent,
-                })
-            .toList(),
-        'losers': (overview.topLosers ?? <MarketStock>[])
-            .map((s) => <String, dynamic>{
-                  'ticker': s.ticker,
-                  'price': s.currentPrice,
-                  'change_percent': s.changePercent,
-                })
-            .toList(),
-        'most_active': (overview.mostActive ?? <MarketStock>[])
-            .map((s) => <String, dynamic>{
-                  'ticker': s.ticker,
-                  'price': s.currentPrice,
-                  'change_percent': s.changePercent,
-                })
-            .toList(),
-      };
+       final indices = (overview.indices ?? <MarketIndex>[])
+           .map((i) => <String, dynamic>{
+                 'name': i.name ?? i.nameAr ?? i.symbol,
+                 'value': i.value,
+                 'change_percent': i.changePercent,
+               })
+           .toList();
 
-      final combined = <String, dynamic>{
-        if (indices.isNotEmpty) 'indices': indices,
-        if (marketSummary != null) 'market_summary': marketSummary,
-        if ((topMovers['gainers'] as List).isNotEmpty ||
-            (topMovers['losers'] as List).isNotEmpty) 'top_movers': topMovers,
-        if (liveData['gold_prices'] != null) 'gold_prices': liveData['gold_prices'],
-        if (liveData['currency_rates'] != null) 'currency_rates': liveData['currency_rates'],
-      };
+       final summary = overview.summary;
+       final marketSummary = summary != null
+           ? <String, dynamic>{
+               'advances': summary.gainers ?? 0,
+               'declines': summary.losers ?? 0,
+               'unchanged': summary.unchanged ?? 0,
+             }
+           : null;
 
-      _dashboardData = combined;
-      return combined;
-    } catch (e) {
-      debugPrint('[Dashboard] Fetch failed: $e');
-      return {};
-    }
-  }
+       final topMovers = <String, dynamic>{
+         'gainers': (overview.topGainers ?? <MarketStock>[])
+             .map((s) => <String, dynamic>{
+                   'ticker': s.ticker,
+                   'price': s.currentPrice,
+                   'change_percent': s.changePercent,
+                 })
+             .toList(),
+         'losers': (overview.topLosers ?? <MarketStock>[])
+             .map((s) => <String, dynamic>{
+                   'ticker': s.ticker,
+                   'price': s.currentPrice,
+                   'change_percent': s.changePercent,
+                 })
+             .toList(),
+         'most_active': (overview.mostActive ?? <MarketStock>[])
+             .map((s) => <String, dynamic>{
+                   'ticker': s.ticker,
+                   'price': s.currentPrice,
+                   'change_percent': s.changePercent,
+                 })
+             .toList(),
+       };
+
+       // Now await gold and currency data (already started in parallel)
+       final goldResult = await goldFuture;
+       final currencyResult = await currencyFuture;
+
+        _goldData = _safeAsMap(goldResult) ??
+            (goldResult is List && goldResult.isNotEmpty
+                ? {'gold_prices': goldResult}
+                : null);
+        _currencyData = _safeAsMap(currencyResult) ??
+            (currencyResult is List && currencyResult.isNotEmpty
+                ? {'currency_rates': currencyResult}
+                : null);
+
+       final combined = <String, dynamic>{
+         if (indices.isNotEmpty) 'indices': indices,
+         if (marketSummary != null) 'market_summary': marketSummary,
+         if ((topMovers['gainers'] as List).isNotEmpty ||
+             (topMovers['losers'] as List).isNotEmpty) 'top_movers': topMovers,
+         if (liveData['gold_prices'] != null) 'gold_prices': liveData['gold_prices'],
+         if (liveData['currency_rates'] != null) 'currency_rates': liveData['currency_rates'],
+         if (_goldData != null) 'gold_data': _goldData,
+         if (_currencyData != null) 'currency_data': _currencyData,
+       };
+
+       _dashboardData = combined;
+       return combined;
+     } catch (e) {
+       debugPrint('[Dashboard] Fetch failed: $e');
+       return {};
+     }
+   }
 
   Future<void> _refresh() async {
     await mobileApi.clearDashboardCache();

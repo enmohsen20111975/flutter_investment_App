@@ -87,12 +87,34 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
         debugPrint('Error getting stock news: $e');
         return <Map<String, dynamic>>[];
       }),
+      api.getStockRecommendation(widget.ticker).then((dynamic response) {
+          if (response is Map) {
+            final dataMap = response['data'] ?? response;
+            return Map<String, dynamic>.from(dataMap);
+          }
+          return <String, dynamic>{};
+        }).catchError((e) {
+          debugPrint('Error getting stock recommendation: $e');
+          return <String, dynamic>{};
+        }),
+      api.getStockProfessionalAnalysis(widget.ticker).then((dynamic response) {
+          if (response is Map) {
+            final dataMap = response['data'] ?? response;
+            return Map<String, dynamic>.from(dataMap);
+          }
+          return <String, dynamic>{};
+        }).catchError((e) {
+          debugPrint('Error getting stock analysis: $e');
+          return <String, dynamic>{};
+        }),
     ]);
 
     final historyResponse = results[0] as StockHistoryResponse?;
     final stockDetail = results[1] as Stock?;
     final fundamentals = results[2] as Map<String, dynamic>?;
     final news = results[3] as List<Map<String, dynamic>>?;
+    final recommendation = results[4] as Map<String, dynamic>?;
+    final analysis = results[5] as Map<String, dynamic>?;
 
     final recAccess = FeatureAccessResult(
       feature: 'recommendations',
@@ -105,35 +127,13 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
       tier: 'free',
     );
 
-    final recommendation = await api.getStockRecommendation(widget.ticker).then((dynamic response) {
-        if (response is Map) {
-          final dataMap = response['data'] ?? response;
-          return Map<String, dynamic>.from(dataMap);
-        }
-        return <String, dynamic>{};
-      }).catchError((e) {
-        debugPrint('Error getting stock recommendation: $e');
-        return <String, dynamic>{};
-      });
-
-    final analysis = await api.getStockProfessionalAnalysis(widget.ticker).then((dynamic response) {
-        if (response is Map) {
-          final dataMap = response['data'] ?? response;
-          return Map<String, dynamic>.from(dataMap);
-        }
-        return <String, dynamic>{};
-      }).catchError((e) {
-        debugPrint('Error getting stock analysis: $e');
-        return <String, dynamic>{};
-      });
-
     return {
       'history': historyResponse,
       'stock': stockDetail,
       'fundamentals': fundamentals,
       'news': news ?? <Map<String, dynamic>>[],
-      'recommendation': recommendation,
-      'analysis': analysis,
+      'recommendation': recommendation ?? <String, dynamic>{},
+      'analysis': analysis ?? <String, dynamic>{},
       'recAccess': recAccess,
       'anaAccess': anaAccess,
     };
