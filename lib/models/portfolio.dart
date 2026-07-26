@@ -21,6 +21,10 @@ class PortfolioPosition {
   final String? statusAr;
   final String? notes;
   final String? addedAt;
+  final double? targetPrice;
+  final double? target2;
+  final double? target3;
+  final double? stopLoss;
 
   PortfolioPosition({
     required this.id,
@@ -39,7 +43,15 @@ class PortfolioPosition {
     this.statusAr,
     this.notes,
     this.addedAt,
+    this.targetPrice,
+    this.target2,
+    this.target3,
+    this.stopLoss,
   });
+
+  String get ticker => stockSymbol;
+  double get avgPrice => avgCost;
+  int get quantity => shares;
 
   factory PortfolioPosition.fromJson(Map<String, dynamic> json) {
     // Handle both old and new API response formats
@@ -65,6 +77,10 @@ class PortfolioPosition {
       statusAr: json['status_ar'],
       notes: json['notes'],
       addedAt: json['added_at'],
+      targetPrice: parseDouble(json['target_price']),
+      target2: parseDouble(json['target2']),
+      target3: parseDouble(json['target3']),
+      stopLoss: parseDouble(json['stop_loss']),
     );
   }
 }

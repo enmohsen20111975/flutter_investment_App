@@ -3,6 +3,7 @@
 // BRIEF-048: عرض تنبيهات المحفظة (TP/SL/Trailing) + الحيتان + Win Rate
 // ============================================================================
 
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../api/client.dart';
 import '../services/portfolio_alert_service.dart';
@@ -251,7 +252,7 @@ class _PortfolioAlertsWidgetState extends State<PortfolioAlertsWidget>
         cardColor = type == 'LIVE_WHALE_BUY'
             ? Colors.purple.shade50
             : Colors.green.shade50;
-        icon = type == 'LIVE_WHALE_BUY' ? Icons.whales : Icons.flag;
+        icon = type == 'LIVE_WHALE_BUY' ? Icons.water_drop : Icons.flag;
     }
 
     return Card(

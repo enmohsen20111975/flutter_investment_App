@@ -352,7 +352,6 @@ class _AlertsScreenState extends State<AlertsScreen> {
           },
         ),
       ),     // closes SliverFillRemaining
-            ),       // closes SliverFillRemaining's child
           ],         // closes slivers list
         ),           // closes CustomScrollView
       ),

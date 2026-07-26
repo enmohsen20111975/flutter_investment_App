@@ -231,7 +231,7 @@ class NotificationService {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getBool('notifications_enabled') ?? true;
   }
-}
+
   // ===========================================================================
   // BRIEF-048: Portfolio Alert Notifications
   // ===========================================================================
@@ -324,10 +324,10 @@ class NotificationService {
 
     try {
       await _notificationsPlugin.show(
-        notifId,
-        title,
-        body,
-        notificationDetails,
+        id: notifId,
+        title: title,
+        body: body,
+        notificationDetails: notificationDetails,
         payload: payload,
       );
       debugPrint('[Notification] Shown: $title - $body');
@@ -342,3 +342,4 @@ class NotificationService {
     // الـ PortfolioAlertService هياخد من هنا
     debugPrint('[NotificationService] Portfolio monitoring channels ready');
   }
+}

@@ -2382,30 +2382,6 @@ class GLMApiClient {
     }
   }
 
-  /// GET /api/v2/chart/full-analysis?ticker=X&timeframe=5M
-  /// BRIEF-049: تحليل شامل بفريمات intraday + SMC data
-  Future<Map<String, dynamic>> getChartFullAnalysis(String ticker,
-      {String timeframe = '1W', int limit = 500}) async {
-    try {
-      final response = await _chartDio.get(
-        '/api/v2/chart/full-analysis',
-        queryParameters: {
-          'ticker': ticker.toUpperCase(),
-          'timeframe': timeframe,
-          'limit': limit,
-          'state': 'buyer',
-          '_t': DateTime.now().millisecondsSinceEpoch,
-        },
-      );
-      return response.data is Map<String, dynamic>
-          ? response.data
-          : {'success': false};
-    } catch (e) {
-      debugPrint('[API] getChartFullAnalysis failed: $e');
-      return {'success': false, 'error': e.toString()};
-    }
-  }
-
   /// BRIEF-048: فحص تنبيهات المحفظة (TP/SL/Trailing)
   /// بتجيب المحفظة + الأسعار الحالية و تتاكد من:
   /// 1. Hit Target (TP1/TP2/TP3)
@@ -2445,7 +2421,7 @@ class GLMApiClient {
         final pnlPct = (currentPrice - avgPrice) / avgPrice * 100;
 
         // 1. Hit Target (TP1/TP2/TP3)
-        final tp1 = pos.targetPrice;
+        final tp1 = pos.targetPrice ?? 0;
         final tp2 = pos.target2 ?? 0;
         final tp3 = pos.target3 ?? 0;
 
@@ -2484,7 +2460,7 @@ class GLMApiClient {
         }
 
         // 2. OB Breach (Stop Loss)
-        final stopLoss = pos.stopLoss;
+        final stopLoss = pos.stopLoss ?? 0;
         if (stopLoss > 0 && currentPrice <= stopLoss) {
           alerts.add({
             'type': 'OB_BREACH',
@@ -2541,6 +2517,7 @@ class GLMApiClient {
       return [];
     }
   }
+}
 
 // Top-level getter for backward compatibility
 GLMApiClient get api => GLMApiClient.instance;
