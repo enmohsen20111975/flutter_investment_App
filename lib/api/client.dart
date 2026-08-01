@@ -1987,7 +1987,10 @@ class GLMApiClient {
   Future<List<dynamic>> getScannerQuick(
       {String? market, int limit = 20}) async {
     try {
-      final response = await _dio.get('/api/scanner/quick', queryParameters: {
+      // FIX: /api/scanner/quick doesn't exist — use /api/v2/recommend instead
+      // (same pattern as the fix at line 1575 for getScannerRecommendations)
+      final response =
+          await _dio.get('/api/v2/recommend', queryParameters: {
         if (market != null) 'market': market,
         'limit': limit,
       });
@@ -1995,7 +1998,10 @@ class GLMApiClient {
       final data = response.data is Map<String, dynamic>
           ? response.data
           : Map<String, dynamic>.from(response.data as Map);
-      return data['results'] ?? data['scanner'] ?? data['data'] ?? [];
+      return data['recommendations'] ??
+          data['results'] ??
+          data['data'] ??
+          [];
     } catch (e) {
       debugPrint('[API] getScannerQuick failed: $e');
       return [];
@@ -2045,7 +2051,9 @@ class GLMApiClient {
       final queryParams = <String, dynamic>{};
       if (coinId != null) queryParams['coin_id'] = coinId;
       if (days != null) queryParams['days'] = days;
-      final response = await _dio.get('/api/crypto/backtesting',
+      // FIX: endpoint is /api/crypto-backtesting (top-level hyphenated),
+      // NOT /api/crypto/backtesting (nested)
+      final response = await _dio.get('/api/crypto-backtesting',
           queryParameters: queryParams);
       return response.data;
     } catch (e) {
@@ -2312,7 +2320,13 @@ class GLMApiClient {
     }
   }
 
-  /// POST /api/portfolio/watchlists (action: create/add/remove)
+  /// Manage user watchlist — uses the real /api/watchlist endpoints.
+  ///
+  /// FIX: previously called POST /api/portfolio/watchlists which only had a
+  /// GET handler returning mock data. Now routes to the proper endpoints:
+  ///   - action 'add'    → POST   /api/watchlist        (body: {ticker, ...})
+  ///   - action 'remove' → DELETE /api/watchlist/{id}
+  ///   - action 'create' → POST   /api/watchlist        (creates entry with name as ticker)
   Future<Map<String, dynamic>> manageWatchlist({
     required String action,
     int? watchlistId,
@@ -2321,18 +2335,27 @@ class GLMApiClient {
     String userId = 'default',
   }) async {
     try {
-      final body = <String, dynamic>{
-        'action': action,
-        'user_id': userId,
-      };
-      if (watchlistId != null) body['watchlist_id'] = watchlistId;
-      if (name != null) body['name'] = name;
-      if (ticker != null) body['ticker'] = ticker;
+      if (action == 'remove' && watchlistId != null) {
+        final response = await _dio.delete('/api/watchlist/$watchlistId');
+        return response.data is Map<String, dynamic>
+            ? response.data
+            : {'success': true, 'data': response.data};
+      }
 
-      final response = await _dio.post('/api/portfolio/watchlists', data: body);
+      // 'add' and 'create' both POST to /api/watchlist
+      final body = <String, dynamic>{};
+      if (ticker != null) {
+        body['ticker'] = ticker;
+      } else if (name != null) {
+        body['ticker'] = name; // fallback: use name as ticker
+      } else {
+        return {'success': false, 'error': 'ticker or name required'};
+      }
+
+      final response = await _dio.post('/api/watchlist', data: body);
       return response.data is Map<String, dynamic>
           ? response.data
-          : {'data': response.data};
+          : {'success': true, 'data': response.data};
     } catch (e) {
       debugPrint('[API] manageWatchlist($action) failed: $e');
       return {'success': false};
