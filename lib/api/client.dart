@@ -1094,10 +1094,47 @@ class GLMApiClient {
   }
 
   Future<List<dynamic>> getUnifiedPersonas() async {
-    // FIX: /api/v2/unified/personas → 404, return static personas
+    // P39 FIX: return the platform's actual 3-persona config (conservative /
+    // balanced / gambler) matching src/lib/v2/persona-config.ts on the web.
+    // The old /api/v2/unified/personas endpoint never existed (404), so we
+    // return the canonical persona list directly.
     return [
-      {'code': 'investor', 'name_ar': 'المستثمر', 'icon': '🏦', 'timeframe': '6-12 شهر'},
-      {'code': 'gambler', 'name_ar': 'المضارب', 'icon': '🎯', 'timeframe': 'يومي-أسبوعي'},
+      {
+        'code': 'conservative',
+        'name_ar': 'المحافظ',
+        'icon': '🛡️',
+        'timeframe': '3-12 شهر',
+        'description': 'حماية رأس المال أولاً — وقف خسارة ضيق (0.8×ATR) وحد مخاطفة 1%',
+        'stop_factor': 0.8,
+        'target_factor': 1.2,
+        'max_risk_percent': 1.0,
+        'crypto_allowed': false,
+        'color': '#3b82f6',
+      },
+      {
+        'code': 'balanced',
+        'name_ar': 'المتوازن',
+        'icon': '⚖️',
+        'timeframe': '1-6 شهر',
+        'description': 'توازن بين العائد والمخاطر — معاملات قياسية (1.0×ATR) وحد مخاطفة 2%',
+        'stop_factor': 1.0,
+        'target_factor': 1.0,
+        'max_risk_percent': 2.0,
+        'crypto_allowed': true,
+        'color': '#eab308',
+      },
+      {
+        'code': 'gambler',
+        'name_ar': 'المغامر',
+        'icon': '🔥',
+        'timeframe': 'يومي-أسبوعي',
+        'description': 'مخاطر عالية جداً مع وعي — وقف واسع (1.5×ATR) وحد مخاطفة 4.5%',
+        'stop_factor': 1.5,
+        'target_factor': 1.8,
+        'max_risk_percent': 4.5,
+        'crypto_allowed': true,
+        'color': '#ef4444',
+      },
     ];
   }
 
@@ -2516,6 +2553,173 @@ class GLMApiClient {
       debugPrint('[API] getWhaleAlerts failed: $e');
       return [];
     }
+  }
+
+  // ===========================================================================
+  // P40 ACADEMY: Live Paper Trading V2 — /api/paper-trading-v2/
+  // ===========================================================================
+
+  /// Get or create the user's paper trading account (auto-creates with
+  /// 100,000 EGP virtual balance on first call).
+  Future<Map<String, dynamic>> getPaperTradingAccount() async {
+    try {
+      final response = await _dio.get('/api/paper-trading-v2/account');
+      if (response.statusCode == 200) {
+        final data = response.data as Map<String, dynamic>;
+        if (data['success'] == true) {
+          return data['account'] as Map<String, dynamic>;
+        }
+      }
+      return {};
+    } catch (e) {
+      debugPrint('[API] getPaperTradingAccount failed: $e');
+      return {};
+    }
+  }
+
+  /// Place a new paper trading order (BUY or SELL with optional SL/TP).
+  /// Returns the created order or throws with the error message.
+  Future<Map<String, dynamic>> placePaperOrder({
+    required String ticker,
+    required String assetType,
+    required String orderType,
+    required double shares,
+    required double entryPrice,
+    double? stopLoss,
+    double? takeProfit,
+    String? notes,
+  }) async {
+    final response = await _dio.post('/api/paper-trading-v2/order', data: {
+      'ticker': ticker.toUpperCase(),
+      'asset_type': assetType,
+      'order_type': orderType,
+      'shares': shares,
+      'entry_price': entryPrice,
+      if (stopLoss != null) 'stop_loss': stopLoss,
+      if (takeProfit != null) 'take_profit': takeProfit,
+      if (notes != null) 'notes': notes,
+    });
+    final data = response.data as Map<String, dynamic>;
+    if (data['success'] == true) {
+      return data['order'] as Map<String, dynamic>;
+    }
+    throw Exception(data['error'] ?? 'فشل تنفيذ الأمر');
+  }
+
+  /// Get open positions enriched with live prices + unrealized P&L.
+  Future<Map<String, dynamic>> getPaperPositions() async {
+    try {
+      final response = await _dio.get('/api/paper-trading-v2/positions');
+      if (response.statusCode == 200) {
+        final data = response.data as Map<String, dynamic>;
+        if (data['success'] == true) {
+          return data;
+        }
+      }
+      return {'account': {}, 'positions': [], 'autoClosed': [], 'livePrices': {}};
+    } catch (e) {
+      debugPrint('[API] getPaperPositions failed: $e');
+      return {'account': {}, 'positions': [], 'autoClosed': [], 'livePrices': {}};
+    }
+  }
+
+  /// Close an open order at the given current price.
+  Future<Map<String, dynamic>> closePaperOrder({
+    required int orderId,
+    required double currentPrice,
+    String reason = 'MANUAL',
+  }) async {
+    final response = await _dio.post(
+      '/api/paper-trading-v2/orders/$orderId/close',
+      data: {'current_price': currentPrice, 'reason': reason},
+    );
+    final data = response.data as Map<String, dynamic>;
+    if (data['success'] == true) return data;
+    throw Exception(data['error'] ?? 'فشل إغلاق الصفقة');
+  }
+
+  /// List orders (open / closed / all).
+  Future<List<Map<String, dynamic>>> getPaperOrders(
+      {String status = 'all'}) async {
+    try {
+      final response = await _dio.get(
+        '/api/paper-trading-v2/orders',
+        queryParameters: {'status': status},
+      );
+      final data = response.data as Map<String, dynamic>;
+      if (data['success'] == true) {
+        return (data['orders'] as List)
+            .map((e) => e as Map<String, dynamic>)
+            .toList();
+      }
+      return [];
+    } catch (e) {
+      debugPrint('[API] getPaperOrders failed: $e');
+      return [];
+    }
+  }
+
+  /// Reset the paper trading account to 100,000 EGP.
+  Future<Map<String, dynamic>> resetPaperAccount() async {
+    try {
+      final response = await _dio.post('/api/paper-trading-v2/reset');
+      final data = response.data as Map<String, dynamic>;
+      if (data['success'] == true) {
+        return data['account'] as Map<String, dynamic>;
+      }
+      return {};
+    } catch (e) {
+      debugPrint('[API] resetPaperAccount failed: $e');
+      return {};
+    }
+  }
+
+  // ===========================================================================
+  // P39 PERSONA: Dynamic Risk Profiler — client-side score, no API needed
+  // ===========================================================================
+
+  /// Map a risk tolerance score (1..100) to a persona id.
+  String scoreToPersona(int score) {
+    if (score <= 35) return 'conservative';
+    if (score <= 65) return 'balanced';
+    return 'gambler';
+  }
+
+  /// Get the persona config (stop factor, target factor, max risk %, etc.)
+  Map<String, dynamic> getPersonaVector(String persona) {
+    const vectors = {
+      'conservative': {
+        'stop_factor': 0.8,
+        'target_factor': 1.2,
+        'max_risk_percent': 1.0,
+        'cut_loss_threshold_pct': 8.0,
+        'average_down_max_pct': 5.0,
+        'hold_patience_days': 30,
+        'debt_paydown_ratio': 0.5,
+        'asset_ceilings': {'egx': 65, 'crypto': 0, 'gold': 25, 'cash': 10},
+      },
+      'balanced': {
+        'stop_factor': 1.0,
+        'target_factor': 1.0,
+        'max_risk_percent': 2.0,
+        'cut_loss_threshold_pct': 15.0,
+        'average_down_max_pct': 10.0,
+        'hold_patience_days': 60,
+        'debt_paydown_ratio': 0.3,
+        'asset_ceilings': {'egx': 55, 'crypto': 15, 'gold': 20, 'cash': 10},
+      },
+      'gambler': {
+        'stop_factor': 1.5,
+        'target_factor': 1.8,
+        'max_risk_percent': 4.5,
+        'cut_loss_threshold_pct': 25.0,
+        'average_down_max_pct': 20.0,
+        'hold_patience_days': 90,
+        'debt_paydown_ratio': 0.1,
+        'asset_ceilings': {'egx': 30, 'crypto': 60, 'gold': 5, 'cash': 5},
+      },
+    };
+    return vectors[persona] ?? vectors['balanced']!;
   }
 }
 

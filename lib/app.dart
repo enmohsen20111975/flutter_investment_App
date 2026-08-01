@@ -35,6 +35,8 @@ import 'screens/prediction_performance_screen.dart';
 import 'screens/trading_journal_screen.dart';
 import 'screens/smart_confluence_screen.dart';
 import 'screens/live_monitor_screen.dart';
+import 'screens/academy_screen.dart';
+import 'screens/risk_profiler_screen.dart';
 import 'api/client.dart';
 import 'models/types.dart';
 import 'services/notification_service.dart';
@@ -733,6 +735,10 @@ class _MainNavigatorState extends State<MainNavigator> {
                 () => _navigateTo(const ZakatScreen())),
             _buildDrawerItem(Icons.analytics_outlined, 'التعلم والاستراتيجيات',
                 () => _navigateTo(const LearningBacktestScreen())),
+            _buildDrawerItem(Icons.school_outlined, 'أكاديمية M2y التعليمية',
+                () => _navigateTo(const AcademyScreen())),
+            _buildDrawerItem(Icons.psychology_outlined, 'استبيان تحمّل المخاطر',
+                () => _navigateTo(const RiskProfilerScreen())),
 
             const Divider(),
 
