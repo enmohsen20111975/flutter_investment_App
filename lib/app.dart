@@ -37,6 +37,7 @@ import 'screens/smart_confluence_screen.dart';
 import 'screens/live_monitor_screen.dart';
 import 'screens/academy_screen.dart';
 import 'screens/risk_profiler_screen.dart';
+import 'screens/persona_screen.dart';
 import 'api/client.dart';
 import 'models/types.dart';
 import 'services/notification_service.dart';
@@ -731,6 +732,8 @@ class _MainNavigatorState extends State<MainNavigator> {
                 () => _navigateTo(const NewsScreen())),
             _buildDrawerItem(Icons.lightbulb_outline, 'التوقعات',
                 () => _navigateTo(const RecommendationsScreen())),
+            _buildDrawerItem(Icons.person_outline, 'الشخصيات الاستثمارية',
+                () => _navigateTo(const PersonaScreen())),
             _buildDrawerItem(Icons.calculate_outlined, 'حاسبة الزكاة',
                 () => _navigateTo(const ZakatScreen())),
             _buildDrawerItem(Icons.analytics_outlined, 'التعلم والاستراتيجيات',

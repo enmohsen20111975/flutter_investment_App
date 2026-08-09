@@ -87,25 +87,60 @@ class PersonaRepository {
     }
   }
 
+  /// Hardcoded fallback for the 3-persona system. Mirrors
+  /// `GLMApiClient.getUnifiedPersonas()` (lib/api/client.dart:1096) and the
+  /// website's `src/lib/v2/persona-config.ts`. Persona IDs MUST be lowercase
+  /// `gambler` / `balanced` / `conservative` to match the backend scoring
+  /// engine — never `investor` / `trader`.
   List<Map<String, dynamic>> _defaultPersonas() {
     return [
       {
-        'id': 'investor',
-        'name': 'Investor',
-        'name_ar': 'مستثمر',
-        'description': 'Long-term value investor',
-        'description_ar': 'مستثمر طويل الأمد يركز على القيمة',
-        'min_gates': 3,
-        'color': '#8B5CF6',
+        'code': 'gambler',
+        'id': 'gambler',
+        'name': 'Gambler',
+        'name_ar': 'المضارب',
+        'icon': '🔥',
+        'timeframe': 'يومي-أسبوعي',
+        'description': 'مخاطر عالية جداً — زخم يومي/أسبوعي وفرص انفجارية',
+        'description_ar': 'مضارب قصير الأمد يركز على الزخم',
+        'stop_factor': 1.5,
+        'target_factor': 1.8,
+        'max_risk_percent': 4.5,
+        'crypto_allowed': true,
+        'color': '#ef4444',
+        'min_gates': 2,
       },
       {
-        'id': 'trader',
-        'name': 'Trader',
-        'name_ar': 'مضارب',
-        'description': 'Short-term momentum trader',
-        'description_ar': 'مضارب قصير الأمد يركز على الزخم',
-        'min_gates': 2,
-        'color': '#F97316',
+        'code': 'balanced',
+        'id': 'balanced',
+        'name': 'Balanced',
+        'name_ar': 'المتوازن',
+        'icon': '⚖️',
+        'timeframe': '1-6 شهر',
+        'description': 'توازن بين العائد والمخاطر — استثمار متوسط المدى',
+        'description_ar': 'متوازن بين العائد والمخاطر',
+        'stop_factor': 1.0,
+        'target_factor': 1.0,
+        'max_risk_percent': 2.0,
+        'crypto_allowed': true,
+        'color': '#eab308',
+        'min_gates': 3,
+      },
+      {
+        'code': 'conservative',
+        'id': 'conservative',
+        'name': 'Conservative',
+        'name_ar': 'المحافظ',
+        'icon': '🛡️',
+        'timeframe': '3-12 شهر',
+        'description': 'حماية رأس المال أولاً — فرص آمنة طويلة الأمد',
+        'description_ar': 'مستثمر محافظ طويل الأمد',
+        'stop_factor': 0.8,
+        'target_factor': 1.2,
+        'max_risk_percent': 1.0,
+        'crypto_allowed': false,
+        'color': '#3b82f6',
+        'min_gates': 3,
       },
     ];
   }

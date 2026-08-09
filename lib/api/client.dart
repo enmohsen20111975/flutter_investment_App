@@ -991,6 +991,39 @@ class GLMApiClient {
     }
   }
 
+  /// Calls the website's freshness-bearing endpoint
+  /// `GET /api/predictions/performance-dashboard`.
+  ///
+  /// Returns a map with the following top-level keys (per
+  /// `vps-service/api/performance_dashboard_routes.py`):
+  ///   - `overall`: { win_rate, profit_factor, total, avg_return, ... }
+  ///   - `by_signal`: { BUY: {...}, SELL: {...}, HOLD: {...} }
+  ///   - `by_score_range`: { "0-9": {...}, "10-19": {...}, ... }
+  ///   - `comparison`: {...}
+  ///   - `freshness_info`: {
+  ///       latest_prediction_date, predictions_today, predictions_last_7d,
+  ///       freshness_seconds, freshness_label, is_stale
+  ///     }
+  ///   - `generated_at`, `period_days`
+  ///
+  /// Errors throw — callers MUST wrap in try/catch and show an Arabic
+  /// error message (no silent mock fallback).
+  Future<Map<String, dynamic>> getPerformanceDashboard({
+    int days = 30,
+    String? market,
+  }) async {
+    final queryParams = <String, dynamic>{'days': days};
+    if (market != null && market != 'ALL') queryParams['market'] = market;
+    final response = await _aiDio.get(
+      '/api/predictions/performance-dashboard',
+      queryParameters: queryParams,
+    );
+    if (response.data is Map) {
+      return Map<String, dynamic>.from(response.data as Map);
+    }
+    return <String, dynamic>{};
+  }
+
   Future<Map<String, dynamic>> getGlobalPredictions() async {
     try {
       final response = await _aiDio.get('/api/global-predictions');
@@ -1592,6 +1625,65 @@ class GLMApiClient {
       debugPrint('[API] getHunterScreener failed: $e');
       return [];
     }
+  }
+
+  /// Calls the new explosive-opportunities hunter endpoint
+  /// `GET /api/explosive/hunt` (NEW P0-v13 backend endpoint — runs
+  /// `vps-service/scripts/explosive_opportunity_hunter.py` and returns
+  /// summary + top_candidates with persona coverage).
+  /// NOTE: we use /hunt (not /top) because /top returns the old
+  /// ExplosiveScanner format that the website depends on. /hunt is
+  /// additive (safe for the website) and returns the hunter's full JSON.
+  ///
+  /// Returns the full hunter payload:
+  ///   {
+  ///     "summary": {
+  ///       "scanned": int,
+  ///       "total_explosive_candidates": int,
+  ///       "coverage_new_thresholds": { gambler_buys, balanced_buys, conservative_buys },
+  ///       "coverage_old_thresholds": { ... }
+  ///     },
+  ///     "top_candidates": [
+  ///       {
+  ///         "ticker": "PHAR",
+  ///         "explosive_score": 89,
+  ///         "maestro_score_proxy": 62,
+  ///         "persona_predictions": {
+  ///           "gambler": { "recommendation": "BUY", "would_buy": true },
+  ///           "balanced": { ... },
+  ///           "conservative": { ... }
+  ///         },
+  ///         "reasons": "5d momentum +16.89% (surge) | volume 4.94× ...",
+  ///         "current_price": 25.50,
+  ///         "momentum_5d": 16.89,        // optional, may be absent
+  ///         "momentum_20d": ...           // optional
+  ///       }, ...
+  ///     ]
+  ///   }
+  ///
+  /// Errors throw — the caller (hunter_screen) must catch and show an Arabic
+  /// error UI with retry. No silent mock fallback.
+  Future<Map<String, dynamic>> getExplosiveOpportunities({
+    int limit = 20,
+    String? market,
+  }) async {
+    final queryParams = <String, dynamic>{'top': limit};
+    if (market != null && market != 'ALL') queryParams['market'] = market;
+    final response = await _dio.get(
+      '/api/explosive/hunt',
+      queryParameters: queryParams,
+    );
+    if (response.data is Map) {
+      return Map<String, dynamic>.from(response.data as Map);
+    }
+    // Defensive: some servers return a bare list under `top_candidates`.
+    if (response.data is List) {
+      return <String, dynamic>{
+        'summary': <String, dynamic>{},
+        'top_candidates': response.data,
+      };
+    }
+    return <String, dynamic>{};
   }
 
   // ============================================================================

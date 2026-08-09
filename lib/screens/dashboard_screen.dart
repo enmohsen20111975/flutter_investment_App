@@ -16,6 +16,7 @@ import '../widgets/skeleton_loader.dart';
 import '../widgets/app_card.dart';
 import '../services/polling_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'hunter_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   final int marketVersion;
@@ -37,11 +38,17 @@ class _DashboardScreenState extends State<DashboardScreen>
   late TabController _topMoversTabController;
   StreamSubscription<Map<String, dynamic>>? _pollingSubscription;
 
+  // Explosive-opportunities preview (GAP 5).
+  Future<List<Map<String, dynamic>>>? _explosiveFuture;
+  // 3-persona quick-switch (GAP 5).
+  String _selectedPersona = 'balanced';
+
   @override
   void initState() {
     super.initState();
     _topMoversTabController = TabController(length: 3, vsync: this);
     _dashboardFuture = _fetchDashboard();
+    _explosiveFuture = _fetchExplosivePreview();
     _startPolling();
   }
 
@@ -194,7 +201,32 @@ class _DashboardScreenState extends State<DashboardScreen>
     await mobileApi.clearDashboardCache();
     setState(() {
       _dashboardFuture = _fetchDashboard();
+      _explosiveFuture = _fetchExplosivePreview();
     });
+  }
+
+  /// Fetch top explosive opportunities for the dashboard preview card (GAP 5).
+  /// Failures are swallowed — the preview card simply hides on error.
+  Future<List<Map<String, dynamic>>> _fetchExplosivePreview() async {
+    try {
+      final payload = await api.getExplosiveOpportunities(limit: 5);
+      final raw = payload['top_candidates'];
+      if (raw is! List) return <Map<String, dynamic>>[];
+      final out = <Map<String, dynamic>>[];
+      for (final e in raw) {
+        if (e is Map) {
+          final m = Map<String, dynamic>.from(e);
+          // Defensive bad-data filter (mirror hunter_screen).
+          final m5 = _toDouble(m['momentum_5d']);
+          if (m5 != null && m5.abs() > 200) continue;
+          out.add(m);
+        }
+      }
+      return out;
+    } catch (e) {
+      debugPrint('[Dashboard] _fetchExplosivePreview failed: $e');
+      return <Map<String, dynamic>>[];
+    }
   }
 
   @override
@@ -319,6 +351,9 @@ class _DashboardScreenState extends State<DashboardScreen>
                           ],
                         ),
                       ),
+                      const SizedBox(height: 16),
+                      // ── GAP 5: Explosive opportunities preview ──
+                      _buildExplosivePreview(),
                     ],
                   ),
                 ),
@@ -336,6 +371,217 @@ class _DashboardScreenState extends State<DashboardScreen>
       const SizedBox(width: 8),
       Text(title, style: AppTypography.titleSmall),
     ]);
+  }
+
+  /// GAP 5: Explosive opportunities preview card.
+  /// Shows top-3 explosive tickers (ticker + score + 3 persona dots) and a
+  /// 3-persona quick-switch row (gambler/balanced/conservative). Tapping
+  /// the card navigates to HunterScreen.
+  Widget _buildExplosivePreview() {
+    return AppCard(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(children: [
+            const Icon(Icons.bolt_rounded, size: 20, color: AppColors.warning),
+            const SizedBox(width: 8),
+            const Expanded(
+              child: Text('أبرز الفرص الانفجارية',
+                  style: AppTypography.titleSmall),
+            ),
+            GestureDetector(
+              onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (_) => const HunterScreen())),
+              child: const Text('عرض الكل',
+                  style: TextStyle(
+                      fontSize: 11,
+                      color: AppColors.primary,
+                      fontWeight: FontWeight.w600)),
+            ),
+          ]),
+          const SizedBox(height: 12),
+          // 3-persona quick-switch (display-only filter that highlights which
+          // persona's BUY signal the user cares about; navigation passes the
+          // persona context implicitly via HunterScreen's market dropdown).
+          _buildPersonaQuickSwitch(),
+          const SizedBox(height: 12),
+          FutureBuilder<List<Map<String, dynamic>>>(
+            future: _explosiveFuture,
+            builder: (context, snap) {
+              if (snap.connectionState == ConnectionState.waiting) {
+                return const SizedBox(
+                  height: 80,
+                  child: Center(
+                    child: SizedBox(
+                      width: 22,
+                      height: 22,
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2, color: AppColors.primary),
+                    ),
+                  ),
+                );
+              }
+              final list = snap.data ?? <Map<String, dynamic>>[];
+              if (list.isEmpty) {
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  child: Text(
+                    'لا توجد فرص انفجارية حالياً',
+                    style: TextStyle(
+                        fontSize: 12, color: AppColors.textMuted),
+                  ),
+                );
+              }
+              return Column(
+                children: list.take(3).map((c) => _explosiveRow(c)).toList(),
+              );
+            },
+          ),
+          const SizedBox(height: 8),
+          GestureDetector(
+            onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                    builder: (_) => const HunterScreen())),
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 10),
+              decoration: BoxDecoration(
+                color: AppColors.primaryMuted,
+                borderRadius: BorderRadius.circular(AppRadius.md),
+              ),
+              alignment: Alignment.center,
+              child: const Text(
+                'افتح الصياد لمزيد من التفاصيل',
+                style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.primary),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPersonaQuickSwitch() {
+    final options = <_PersonaPill>[
+      _PersonaPill('gambler', '🔥 المضارب', AppColors.danger),
+      _PersonaPill('balanced', '⚖️ المتوازن', AppColors.warning),
+      _PersonaPill('conservative', '🛡️ المحافظ', AppColors.info),
+    ];
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceMuted,
+        borderRadius: BorderRadius.circular(AppRadius.md),
+      ),
+      child: Row(
+        children: options.map((opt) {
+          final selected = _selectedPersona == opt.id;
+          return Expanded(
+            child: GestureDetector(
+              onTap: () => setState(() => _selectedPersona = opt.id),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                padding: const EdgeInsets.symmetric(vertical: 6),
+                decoration: BoxDecoration(
+                  color: selected
+                      ? opt.color.withValues(alpha: 0.18)
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(AppRadius.sm),
+                ),
+                child: Text(
+                  opt.label,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: selected ? opt.color : AppColors.textMuted,
+                  ),
+                ),
+              ),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  Widget _explosiveRow(Map<String, dynamic> c) {
+    final ticker = c['ticker']?.toString() ?? '—';
+    final score = _toDouble(c['explosive_score']) ?? 0;
+    final personaMap = c['persona_predictions'] is Map
+        ? Map<String, dynamic>.from(c['persona_predictions'] as Map)
+        : <String, dynamic>{};
+    final scoreColor = score >= 85
+        ? const Color(0xFFFFD700)
+        : score >= 70
+            ? AppColors.success
+            : score >= 55
+                ? AppColors.primary
+                : AppColors.warning;
+    return GestureDetector(
+      onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(
+              builder: (_) => const HunterScreen())),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(AppRadius.md),
+          border: Border.all(color: AppColors.border),
+        ),
+        child: Row(children: [
+          Expanded(
+            child: Text(ticker,
+                style: const TextStyle(
+                    fontSize: 13, fontWeight: FontWeight.w700)),
+          ),
+          // 3 persona dots
+          _personaDot('gambler', personaMap['gambler']),
+          const SizedBox(width: 6),
+          _personaDot('balanced', personaMap['balanced']),
+          const SizedBox(width: 6),
+          _personaDot('conservative', personaMap['conservative']),
+          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+            decoration: BoxDecoration(
+              color: scoreColor.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(AppRadius.full),
+            ),
+            child: Text('${score.toInt()}',
+                style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                    color: scoreColor)),
+          ),
+        ]),
+      ),
+    );
+  }
+
+  Widget _personaDot(String id, dynamic pred) {
+    bool wouldBuy = false;
+    if (pred is Map) {
+      wouldBuy = pred['would_buy'] == true || pred['would_buy'] == 1;
+    }
+    final color = wouldBuy ? AppColors.success : AppColors.textMuted;
+    return Tooltip(
+      message: id,
+      child: Container(
+        width: 10,
+        height: 10,
+        decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+      ),
+    );
   }
 
   Widget _buildTopMovers() {
@@ -564,4 +810,21 @@ class _DashboardScreenState extends State<DashboardScreen>
       }).toList(),
     );
   }
+}
+
+/// Helper DTO for the 3-persona quick-switch pill row.
+class _PersonaPill {
+  final String id;
+  final String label;
+  final Color color;
+  const _PersonaPill(this.id, this.label, this.color);
+}
+
+double? _toDouble(dynamic v) {
+  if (v == null) return null;
+  if (v is double) return v;
+  if (v is int) return v.toDouble();
+  if (v is num) return v.toDouble();
+  if (v is String) return double.tryParse(v);
+  return null;
 }
