@@ -35,14 +35,17 @@ class LocalDatabase {
       readOnly: false,
       onCreate: (db, version) async {
         await _createStockHistoryTable(db);
+        await _createAlertsTable(db);
       },
       onUpgrade: (db, oldVersion, newVersion) async {
         if (oldVersion < 2) {
           await _createStockHistoryTable(db);
         }
+        await _createAlertsTable(db);
       },
       onOpen: (db) async {
         await _ensureStockHistoryTable(db);
+        await _createAlertsTable(db);
       },
     );
   }
@@ -199,6 +202,36 @@ class LocalDatabase {
     final db = await database;
     await db.delete('stock_history');
     debugPrint('[DB] Cleared all stock history');
+  }
+
+  Future<void> _createAlertsTable(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS local_alerts (
+        id TEXT PRIMARY KEY,
+        symbol TEXT NOT NULL,
+        company_name TEXT NOT NULL,
+        target_price REAL NOT NULL,
+        condition TEXT NOT NULL,
+        is_active INTEGER NOT NULL DEFAULT 1,
+        created_at TEXT NOT NULL,
+        note TEXT
+      )
+    ''');
+  }
+
+  Future<List<Map<String, dynamic>>> getLocalAlerts() async {
+    final db = await database;
+    return db.query('local_alerts', orderBy: 'created_at DESC');
+  }
+
+  Future<void> insertLocalAlert(Map<String, dynamic> alert) async {
+    final db = await database;
+    await db.insert('local_alerts', alert, conflictAlgorithm: ConflictAlgorithm.replace);
+  }
+
+  Future<void> deleteLocalAlert(String id) async {
+    final db = await database;
+    await db.delete('local_alerts', where: 'id = ?', whereArgs: [id]);
   }
 
   Future<bool> shouldSyncHistory(String ticker, {int maxAgeHours = 4}) async {

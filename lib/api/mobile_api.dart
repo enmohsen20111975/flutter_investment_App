@@ -229,7 +229,7 @@ class MobileApiService {
     );
   }
 
-  Future<Map<String, dynamic>> deleteAlert(String id) {
+  Future<bool> deleteAlert(String id) {
     return _withRetry(
       () => _api.deleteAlert(id),
       label: 'deleteAlert',

@@ -96,6 +96,17 @@ class AppColors {
   static const Color overlayLight = Color(0x66000000);
 
   // ============================================================================
+  // QUANTUM LUXURY FINTECH DARK THEME
+  // ============================================================================
+  static const Color quantumBg = Color(0xFF0B0E14);
+  static const Color quantumSurface = Color(0xFF10131A);
+  static const Color quantumGlass = Color(0xFF1E293B);
+  static const Color quantumGlassBorder = Color(0xFF334155);
+  static const Color quantumEmerald = Color(0xFF10B981);
+  static const Color quantumGold = Color(0xFFF59E0B);
+  static const Color quantumCrimson = Color(0xFFEF4444);
+
+  // ============================================================================
   // FUN GRADIENTS
   // ============================================================================
   static const LinearGradient gradientNeon = LinearGradient(

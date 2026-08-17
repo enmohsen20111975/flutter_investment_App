@@ -16,6 +16,9 @@ export 'watchlist.dart';
 export 'user.dart';
 export 'recommendation.dart';
 export 'zakat.dart';
+export 'orderbook.dart';
+export 'disclosure.dart';
+export 'alert_model.dart';
 
 // API Error
 class ApiError {

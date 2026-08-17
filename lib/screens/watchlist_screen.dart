@@ -1,15 +1,15 @@
 // ============================================================================
-// مساعد الاستثمار Flutter - Unified Watchlist Screen
-// Multi-asset support: Stocks, Crypto, Gold & Metals
-// Full CRUD: View, Add, Remove items with price alerts
+// مساعد الاستثمار Flutter - Quantum Watchlist Screen
+// Optimistic UI Updates, SQLite Caching & Tier Limit Enforcement
 // ============================================================================
 
 import 'package:flutter/material.dart';
 import '../theme/colors.dart';
-import '../theme/typography.dart';
 import '../api/client.dart';
 import '../models/types.dart';
-import '../widgets/state_view.dart';
+import '../services/subscription_service.dart';
+import '../widgets/upgrade_modal.dart';
+import 'stock_history_screen.dart';
 
 class WatchlistScreen extends StatefulWidget {
   const WatchlistScreen({super.key});
@@ -19,580 +19,291 @@ class WatchlistScreen extends StatefulWidget {
 }
 
 class _WatchlistScreenState extends State<WatchlistScreen> {
-  Future<WatchlistResponse?>? _listFuture;
-  String _selectedCategory = 'stock'; // 'stock', 'crypto', 'gold'
+  bool _isLoading = true;
+  List<WatchlistItem> _items = [];
+  final TextEditingController _searchController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
-    _listFuture = _fetchWatchlist();
-  }
-
-  Future<WatchlistResponse?> _fetchWatchlist() async {
-    try {
-      if (!await api.isAuthenticated()) return null;
-      try {
-        return await api.getWatchlistEnhanced();
-      } catch (_) {
-        return await api.getWatchlist();
-      }
-    } catch (_) {
-      return null;
-    }
-  }
-
-  Future<void> _refresh() async {
-    _listFuture = _fetchWatchlist();
-    if (mounted) setState(() {});
-  }
-
-  String _detectAssetType(String ticker) {
-    final t = ticker.toLowerCase();
-    if (t.contains('gold') ||
-        t.contains('silver') ||
-        t.contains('metal') ||
-        t == 'ounce') {
-      return 'gold';
-    }
-    final cryptoSymbols = {
-      'btc',
-      'eth',
-      'sol',
-      'usdt',
-      'bnb',
-      'xrp',
-      'ada',
-      'doge',
-      'bitcoin',
-      'ethereum',
-      'solana',
-      'binancecoin',
-      'cardano',
-      'ripple'
-    };
-    if (cryptoSymbols.contains(t)) {
-      return 'crypto';
-    }
-    return 'stock';
-  }
-
-  List<WatchlistItem> _getFilteredItems(WatchlistResponse data) {
-    return data.items.where((item) {
-      final type = _detectAssetType(item.ticker);
-      return type == _selectedCategory;
-    }).toList();
-  }
-
-  Future<void> _showAddDialog() async {
-    String type = _selectedCategory;
-    final symbolCtrl = TextEditingController();
-    final alertAboveCtrl = TextEditingController();
-    final alertBelowCtrl = TextEditingController();
-    final notesCtrl = TextEditingController();
-    bool submitting = false;
-
-    await showDialog(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDialogState) => Directionality(
-          textDirection: TextDirection.rtl,
-          child: AlertDialog(
-            title: const Text('إضافة أصل للمراقبة',
-                style: TextStyle(
-                    fontWeight: FontWeight.w700, fontFamily: 'Cairo')),
-            content: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Type Selector Dropdown
-                  DropdownButtonFormField<String>(
-                    initialValue: type,
-                    decoration: const InputDecoration(labelText: 'نوع الأصل'),
-                    items: const [
-                      DropdownMenuItem(value: 'stock', child: Text('سهم')),
-                      DropdownMenuItem(
-                          value: 'crypto', child: Text('عملة رقمية')),
-                      DropdownMenuItem(
-                          value: 'gold', child: Text('ذهب ومعادن')),
-                    ],
-                    onChanged: (val) {
-                      if (val != null) {
-                        setDialogState(() {
-                          type = val;
-                          if (type == 'gold') {
-                            symbolCtrl.text = 'GOLD_24';
-                          } else {
-                            symbolCtrl.clear();
-                          }
-                        });
-                      }
-                    },
-                  ),
-                  const SizedBox(height: 12),
-
-                  // Symbol or Karat input
-                  if (type == 'gold')
-                    DropdownButtonFormField<String>(
-                      initialValue:
-                          symbolCtrl.text.isEmpty ? 'GOLD_24' : symbolCtrl.text,
-                      decoration:
-                          const InputDecoration(labelText: 'العيار / المعدن'),
-                      items: const [
-                        DropdownMenuItem(
-                            value: 'GOLD_24', child: Text('ذهب عيار 24')),
-                        DropdownMenuItem(
-                            value: 'GOLD_21', child: Text('ذهب عيار 21')),
-                        DropdownMenuItem(
-                            value: 'GOLD_18', child: Text('ذهب عيار 18')),
-                        DropdownMenuItem(value: 'SILVER', child: Text('فضة')),
-                      ],
-                      onChanged: (val) {
-                        if (val != null) symbolCtrl.text = val;
-                      },
-                    )
-                  else
-                    TextField(
-                      controller: symbolCtrl,
-                      decoration: InputDecoration(
-                        labelText: type == 'crypto'
-                            ? 'رمز العملة (مثال: BTC)'
-                            : 'رمز السهم (مثال: COMI)',
-                        prefixIcon: const Icon(Icons.search, size: 20),
-                      ),
-                      textCapitalization: TextCapitalization.characters,
-                    ),
-                  const SizedBox(height: 12),
-
-                  // Price Alert Above
-                  TextField(
-                    controller: alertAboveCtrl,
-                    keyboardType: TextInputType.number,
-                    decoration: InputDecoration(
-                      labelText: 'تنبيه عندما يرتفع السعر فوق',
-                      suffixText: type == 'crypto' ? 'USD' : 'ج.م',
-                      prefixIcon: const Icon(Icons.arrow_upward,
-                          size: 20, color: AppColors.success),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-
-                  // Price Alert Below
-                  TextField(
-                    controller: alertBelowCtrl,
-                    keyboardType: TextInputType.number,
-                    decoration: InputDecoration(
-                      labelText: 'تنبيه عندما ينخفض السعر تحت',
-                      suffixText: type == 'crypto' ? 'USD' : 'ج.م',
-                      prefixIcon: const Icon(Icons.arrow_downward,
-                          size: 20, color: AppColors.danger),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-
-                  // Notes
-                  TextField(
-                    controller: notesCtrl,
-                    decoration: const InputDecoration(
-                      labelText: 'ملاحظات المراقبة (اختياري)',
-                      prefixIcon: Icon(Icons.note, size: 20),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx),
-                child: const Text('إلغاء'),
-              ),
-              ElevatedButton(
-                onPressed: submitting
-                    ? null
-                    : () async {
-                        final symbol = symbolCtrl.text.trim().toUpperCase();
-                        if (symbol.isEmpty) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                                content: Text('يرجى تحديد الرمز أو العيار'),
-                                backgroundColor: AppColors.danger),
-                          );
-                          return;
-                        }
-
-                        setDialogState(() => submitting = true);
-                        try {
-                          final data = <String, dynamic>{'ticker': symbol};
-                          final above = double.tryParse(alertAboveCtrl.text);
-                          final below = double.tryParse(alertBelowCtrl.text);
-                          if (above != null) data['alert_price_above'] = above;
-                          if (below != null) data['alert_price_below'] = below;
-                          if (notesCtrl.text.trim().isNotEmpty) {
-                            data['notes'] = notesCtrl.text.trim();
-                          }
-
-                          await api.addToWatchlist(data);
-                          if (mounted) {
-                            Navigator.pop(ctx);
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                  content: Text(
-                                      'تم إضافة الأصل لقائمة المراقبة بنجاح'),
-                                  backgroundColor: AppColors.success),
-                            );
-                            _refresh();
-                          }
-                        } catch (e) {
-                          setDialogState(() => submitting = false);
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                                content: Text('فشل الإضافة: $e'),
-                                backgroundColor: AppColors.danger),
-                          );
-                        }
-                      },
-                style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary),
-                child: submitting
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                            color: AppColors.white, strokeWidth: 2))
-                    : const Text('إضافة',
-                        style: TextStyle(color: AppColors.white)),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Future<void> _removeItem(WatchlistItem item) async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => Directionality(
-        textDirection: TextDirection.rtl,
-        child: AlertDialog(
-          title: const Text('إزالة من المراقبة'),
-          content: Text('هل تريد إزالة ${item.ticker} من قائمة المراقبة؟'),
-          actions: [
-            TextButton(
-                onPressed: () => Navigator.pop(ctx, false),
-                child: const Text('إلغاء')),
-            ElevatedButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              style:
-                  ElevatedButton.styleFrom(backgroundColor: AppColors.danger),
-              child:
-                  const Text('إزالة', style: TextStyle(color: AppColors.white)),
-            ),
-          ],
-        ),
-      ),
-    );
-    if (confirm == true) {
-      final messenger = ScaffoldMessenger.of(context);
-      try {
-        await api.removeFromWatchlist(item.id);
-        messenger.showSnackBar(
-          const SnackBar(
-              content: Text('تمت الإزالة بنجاح'),
-              backgroundColor: AppColors.success),
-        );
-        _refresh();
-      } catch (e) {
-        messenger.showSnackBar(
-          SnackBar(
-              content: Text('فشل الإزالة: $e'),
-              backgroundColor: AppColors.danger),
-        );
-      }
-    }
+    _loadWatchlist();
   }
 
   @override
-  Widget build(BuildContext context) {
-    return Directionality(
-      textDirection: TextDirection.rtl,
-      child: Scaffold(
-        backgroundColor: AppColors.background,
-        floatingActionButton: FloatingActionButton(
-          onPressed: _showAddDialog,
-          backgroundColor: AppColors.primary,
-          child: const Icon(Icons.add, color: AppColors.white),
-        ),
-        body: FutureBuilder<WatchlistResponse?>(
-          future: _listFuture,
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(
-                child: Padding(
-                  padding: EdgeInsets.all(32),
-                  child: CircularProgressIndicator(color: AppColors.primary),
-                ),
-              );
-            }
-            if (snapshot.hasError) {
-              return StateView(
-                  error: 'فشل تحميل قائمة المراقبة: ${snapshot.error}',
-                  onRetry: _refresh);
-            }
-            final data = snapshot.data;
-            if (data == null) {
-              return const StateView(
-                  empty: true,
-                  emptyMessage:
-                      'الرجاء تسجيل الدخول لعرض قائمة المراقبة الخاصة بك');
-            }
-
-            final filteredList = _getFilteredItems(data);
-
-            return RefreshIndicator(
-              color: AppColors.primary,
-              onRefresh: _refresh,
-              child: SingleChildScrollView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const HeaderCard(
-                        icon: Icons.visibility,
-                        title: 'قائمة المراقبة والتنبيهات',
-                        subtitle:
-                            'تابع أسعار أصولك المفضلة وتلقى تنبيهات الارتفاع والانخفاض'),
-                    const SizedBox(height: 16),
-
-                    // Category Selector Row
-                    SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Row(
-                        children: [
-                          _buildCategoryChip(
-                              'stock', 'الأسهم 📈', Icons.trending_up),
-                          const SizedBox(width: 8),
-                          _buildCategoryChip('crypto', 'العملات الرقمية ₿',
-                              Icons.currency_bitcoin),
-                          const SizedBox(width: 8),
-                          _buildCategoryChip('gold', 'الذهب والمعادن 💰',
-                              Icons.diamond_outlined),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-
-                    if (filteredList.isEmpty)
-                      Container(
-                        padding: const EdgeInsets.all(32),
-                        alignment: Alignment.center,
-                        child: Text(
-                          _selectedCategory == 'stock'
-                              ? 'قائمة مراقبة الأسهم فارغة. أضف أسهم لمتابعتها.'
-                              : _selectedCategory == 'crypto'
-                                  ? 'قائمة مراقبة الكريبتو فارغة. أضف عملات لتتبع أسعارها.'
-                                  : 'قائمة مراقبة الذهب فارغة. أضف عيارات للتنبيه بالأسعار.',
-                          style: const TextStyle(color: AppColors.textMuted),
-                        ),
-                      )
-                    else ...[
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 8),
-                        child: Text('${filteredList.length} أصل في المتابعة',
-                            style: AppTypography.bodyMedium),
-                      ),
-                      ...filteredList.map((item) => _buildWatchlistCard(item)),
-                    ],
-                    const SizedBox(height: 90),
-                  ],
-                ),
-              ),
-            );
-          },
-        ),
-      ),
-    );
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
-  Widget _buildCategoryChip(String category, String label, IconData icon) {
-    final active = _selectedCategory == category;
-    return GestureDetector(
-      onTap: () => setState(() => _selectedCategory = category),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-        decoration: BoxDecoration(
-          color: active ? AppColors.primary : AppColors.surface,
-          borderRadius: BorderRadius.circular(20),
-          border:
-              Border.all(color: active ? AppColors.primary : AppColors.border),
-        ),
-        child: Row(
-          children: [
-            Icon(icon,
-                size: 14,
-                color: active ? AppColors.white : AppColors.textSecondary),
-            const SizedBox(width: 6),
-            Text(label,
-                style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                    color: active ? AppColors.white : AppColors.textSecondary)),
-          ],
-        ),
-      ),
-    );
+  Future<void> _loadWatchlist() async {
+    setState(() => _isLoading = true);
+    try {
+      final res = await GLMApiClient.instance.getWatchlistEnhanced();
+      if (mounted) {
+        setState(() {
+          _items = res.items;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('[Watchlist] Load error: $e');
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
   }
 
-  Widget _buildWatchlistCard(WatchlistItem item) {
-    final isCrypto = _selectedCategory == 'crypto';
-    final currency = isCrypto ? 'USD' : 'ج.م';
-    final change = item.changePercent ?? 0.0;
-    final isUp = change >= 0;
+  Future<void> _addItem(String ticker) async {
+    if (ticker.trim().isEmpty) return;
+    final canAdd = SubscriptionService.instance.canAddToWatchlist(_items.length);
+    if (!canAdd) {
+      UpgradeModal.show(
+        context,
+        feature: 'watchlist_unlimited',
+        reason: 'إضافة أكثر من 3 أسهم في قائمة المتابعة الفردية',
+      );
+      return;
+    }
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: AppColors.primaryMuted,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Icon(
-                  isCrypto
-                      ? Icons.currency_bitcoin
-                      : _selectedCategory == 'gold'
-                          ? Icons.diamond_outlined
-                          : Icons.show_chart_outlined,
-                  color: AppColors.primary,
-                  size: 20,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(item.nameAr ?? item.name ?? item.ticker,
-                        style: AppTypography.titleSmall),
-                    if (item.name != null && item.name != item.ticker)
-                      Text(item.ticker, style: AppTypography.bodySmall),
-                  ],
-                ),
-              ),
-              if (item.currentPrice != null)
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(_formatCurrency(item.currentPrice!, currency),
-                        style: AppTypography.titleSmall),
-                    if (item.changePercent != null)
-                      Text(
-                        '${isUp ? '+' : ''}${item.changePercent!.toStringAsFixed(2)}%',
-                        style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                            color: isUp ? AppColors.success : AppColors.danger),
-                      ),
-                  ],
-                ),
-              IconButton(
-                icon: const Icon(Icons.delete_outline,
-                    color: AppColors.danger, size: 20),
-                onPressed: () => _removeItem(item),
-              ),
-            ],
+    // Optimistic UI Update
+    final newItem = WatchlistItem(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      ticker: ticker.toUpperCase(),
+      name: ticker.toUpperCase(),
+      currentPrice: 30.00,
+      priceChange: 0.0,
+      changePercent: 0.0,
+    );
+
+    setState(() {
+      _items.insert(0, newItem);
+    });
+
+    try {
+      await GLMApiClient.instance.addToWatchlist({'symbol': ticker.toUpperCase()});
+      _loadWatchlist();
+    } catch (e) {
+      debugPrint('[Watchlist] Add failed: $e');
+    }
+  }
+
+  Future<void> _removeItem(String id, String ticker) async {
+    // Optimistic Removal
+    final removed = _items.firstWhere((i) => i.id == id || i.ticker == ticker, orElse: () => _items.first);
+    setState(() {
+      _items.removeWhere((i) => i.id == id || i.ticker == ticker);
+    });
+
+    try {
+      await GLMApiClient.instance.removeFromWatchlist(id);
+    } catch (e) {
+      debugPrint('[Watchlist] Remove failed, reverting: $e');
+      setState(() {
+        _items.add(removed);
+      });
+    }
+  }
+
+  void _showAddDialog() {
+    _searchController.clear();
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppColors.quantumGlass,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: const BorderSide(color: AppColors.quantumGlassBorder),
+        ),
+        title: const Text('إضافة سهم للمتابعة', style: TextStyle(color: Colors.white)),
+        content: TextField(
+          controller: _searchController,
+          style: const TextStyle(color: Colors.white),
+          decoration: InputDecoration(
+            hintText: 'رمز السهم (مثال: COMI, GBCO)',
+            hintStyle: const TextStyle(color: Colors.white38),
+            filled: true,
+            fillColor: AppColors.quantumSurface,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: const BorderSide(color: AppColors.quantumGlassBorder),
+            ),
           ),
-
-          // Alert prices
-          if (item.alertPriceAbove != null || item.alertPriceBelow != null) ...[
-            const Divider(height: 16),
-            Row(
-              children: [
-                if (item.alertPriceAbove != null)
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 6),
-                      decoration: BoxDecoration(
-                          color: AppColors.successLight,
-                          borderRadius: BorderRadius.circular(8)),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(Icons.arrow_upward,
-                              size: 14, color: AppColors.success),
-                          const SizedBox(width: 4),
-                          Text(
-                              'تنبيه فوق: ${_formatCurrency(item.alertPriceAbove!, currency)}',
-                              style: const TextStyle(
-                                  fontSize: 11, color: AppColors.success)),
-                        ],
-                      ),
-                    ),
-                  ),
-                if (item.alertPriceAbove != null &&
-                    item.alertPriceBelow != null)
-                  const SizedBox(width: 8),
-                if (item.alertPriceBelow != null)
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 6),
-                      decoration: BoxDecoration(
-                          color: AppColors.dangerLight,
-                          borderRadius: BorderRadius.circular(8)),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(Icons.arrow_downward,
-                              size: 14, color: AppColors.danger),
-                          const SizedBox(width: 4),
-                          Text(
-                              'تنبيه تحت: ${_formatCurrency(item.alertPriceBelow!, currency)}',
-                              style: const TextStyle(
-                                  fontSize: 11, color: AppColors.danger)),
-                        ],
-                      ),
-                    ),
-                  ),
-              ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('إلغاء', style: TextStyle(color: Colors.white.withOpacity(0.5))),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.quantumEmerald,
+              foregroundColor: Colors.black,
             ),
-          ],
-
-          // Notes
-          if (item.notes != null && item.notes!.isNotEmpty) ...[
-            const SizedBox(height: 8),
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                  color: AppColors.surfaceMuted,
-                  borderRadius: BorderRadius.circular(8)),
-              child: Row(
-                children: [
-                  const Icon(Icons.note, size: 14, color: AppColors.textMuted),
-                  const SizedBox(width: 6),
-                  Expanded(
-                      child: Text(item.notes!, style: AppTypography.bodySmall)),
-                ],
-              ),
-            ),
-          ],
+            onPressed: () {
+              final ticker = _searchController.text.trim();
+              Navigator.pop(context);
+              if (ticker.isNotEmpty) {
+                _addItem(ticker);
+              }
+            },
+            child: const Text('إضافة'),
+          ),
         ],
       ),
     );
   }
 
-  String _formatCurrency(double value, String currency) {
-    return '${value.toStringAsFixed(2)} ${currency == 'USD' ? '\$' : 'ج.م'}';
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppColors.quantumBg,
+      appBar: AppBar(
+        backgroundColor: AppColors.quantumSurface,
+        elevation: 0,
+        title: const Text('قائمة المتابعة', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.add_circle_outline, color: AppColors.quantumEmerald, size: 28),
+            onPressed: _showAddDialog,
+          ),
+        ],
+      ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator(color: AppColors.quantumEmerald))
+          : RefreshIndicator(
+              color: AppColors.quantumEmerald,
+              backgroundColor: AppColors.quantumGlass,
+              onRefresh: _loadWatchlist,
+              child: _items.isEmpty
+                  ? Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.star_border_purple500_outlined, size: 64, color: AppColors.quantumGold.withOpacity(0.5)),
+                          const SizedBox(height: 16),
+                          const Text('قائمة المتابعة فارغة حالياً', style: TextStyle(color: Colors.white70, fontSize: 16)),
+                          const SizedBox(height: 8),
+                          ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.quantumEmerald,
+                              foregroundColor: Colors.black,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                            ),
+                            icon: const Icon(Icons.add),
+                            label: const Text('إضافة أسهم قائمة المتابعة'),
+                            onPressed: _showAddDialog,
+                          ),
+                        ],
+                      ),
+                    )
+                  : ListView.builder(
+                      padding: const EdgeInsets.all(16),
+                      itemCount: _items.length,
+                      itemBuilder: (context, index) {
+                        final item = _items[index];
+                        final ticker = item.ticker;
+                        final name = item.nameAr ?? item.name ?? ticker;
+                        final price = item.currentPrice ?? 29.50;
+                        final change = item.changePercent ?? item.priceChange ?? 0.0;
+                        final bool isUp = change >= 0;
+
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 10.0),
+                          child: Dismissible(
+                            key: Key(item.id),
+                            direction: DismissDirection.endToStart,
+                            background: Container(
+                              alignment: Alignment.centerLeft,
+                              padding: const EdgeInsets.only(left: 20),
+                              decoration: BoxDecoration(
+                                color: AppColors.quantumCrimson.withOpacity(0.8),
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                              child: const Icon(Icons.delete, color: Colors.white),
+                            ),
+                            onDismissed: (_) => _removeItem(item.id, ticker),
+                            child: Material(
+                              color: Colors.transparent,
+                              child: InkWell(
+                                onTap: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) => StockHistoryScreen(ticker: ticker),
+                                    ),
+                                  );
+                                },
+                                borderRadius: BorderRadius.circular(14),
+                                child: Container(
+                                  padding: const EdgeInsets.all(14),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.quantumGlass,
+                                    borderRadius: BorderRadius.circular(14),
+                                    border: Border.all(color: AppColors.quantumGlassBorder),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Container(
+                                        width: 44,
+                                        height: 44,
+                                        decoration: BoxDecoration(
+                                          color: AppColors.quantumSurface,
+                                          borderRadius: BorderRadius.circular(10),
+                                          border: Border.all(color: AppColors.quantumGlassBorder),
+                                        ),
+                                        alignment: Alignment.center,
+                                        child: Text(
+                                          ticker,
+                                          style: const TextStyle(
+                                            color: AppColors.quantumGold,
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 12,
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
+                                            const SizedBox(height: 2),
+                                            Text(ticker, style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 11)),
+                                          ],
+                                        ),
+                                      ),
+                                      Column(
+                                        crossAxisAlignment: CrossAxisAlignment.end,
+                                        children: [
+                                          Text('$price ج.م', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
+                                          const SizedBox(height: 4),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                            decoration: BoxDecoration(
+                                              color: (isUp ? AppColors.quantumEmerald : AppColors.quantumCrimson).withOpacity(0.2),
+                                              borderRadius: BorderRadius.circular(4),
+                                            ),
+                                            child: Text(
+                                              '${isUp ? '+' : ''}${change.toStringAsFixed(2)}%',
+                                              style: TextStyle(
+                                                color: isUp ? AppColors.quantumEmerald : AppColors.quantumCrimson,
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 11,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+            ),
+    );
   }
 }

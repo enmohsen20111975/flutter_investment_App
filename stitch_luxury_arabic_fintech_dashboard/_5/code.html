@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+
+<html class="dark" dir="rtl" lang="ar"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>تقارير السوق وتحليلات الخبراء</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "tertiary": "#ffb3ad",
+                      "market-down": "#ef4444",
+                      "on-surface-variant": "#bbcabf",
+                      "surface-container": "#1d2026",
+                      "surface-container-high": "#272a31",
+                      "background": "#10131a",
+                      "market-up": "#10b981",
+                      "on-primary": "#003824",
+                      "secondary-fixed": "#ffddb8",
+                      "secondary-container": "#ee9800",
+                      "on-background": "#e1e2eb",
+                      "surface-variant": "#32353c",
+                      "gold-accent": "#f59e0b",
+                      "inverse-primary": "#006c49",
+                      "secondary": "#ffb95f",
+                      "primary-container": "#10b981",
+                      "primary-fixed": "#6ffbbe",
+                      "on-secondary": "#472a00",
+                      "primary": "#4edea3",
+                      "error-container": "#93000a",
+                      "surface-glass": "#1e293b",
+                      "on-primary-fixed-variant": "#005236",
+                      "surface-bright": "#363940",
+                      "border-glass": "#334155",
+                      "primary-fixed-dim": "#4edea3",
+                      "inverse-on-surface": "#2e3037",
+                      "outline": "#86948a",
+                      "on-surface": "#e1e2eb",
+                      "on-tertiary-container": "#79000e",
+                      "secondary-fixed-dim": "#ffb95f",
+                      "outline-variant": "#3c4a42",
+                      "on-error-container": "#ffdad6",
+                      "tertiary-fixed": "#ffdad7",
+                      "on-primary-fixed": "#002113",
+                      "inverse-surface": "#e1e2eb",
+                      "on-tertiary": "#68000a",
+                      "on-secondary-fixed-variant": "#653e00",
+                      "on-primary-container": "#00422b",
+                      "tertiary-container": "#ff7a73",
+                      "surface-container-low": "#191c22",
+                      "surface-tint": "#4edea3",
+                      "on-tertiary-fixed-variant": "#930013",
+                      "surface": "#10131a",
+                      "on-error": "#690005",
+                      "surface-container-lowest": "#0b0e14",
+                      "on-secondary-container": "#5b3800",
+                      "surface-dim": "#10131a",
+                      "on-tertiary-fixed": "#410004",
+                      "surface-container-highest": "#32353c",
+                      "on-secondary-fixed": "#2a1700",
+                      "error": "#ffb4ab",
+                      "tertiary-fixed-dim": "#ffb3ad"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.25rem",
+                      "lg": "0.5rem",
+                      "xl": "0.75rem",
+                      "full": "9999px"
+              },
+              "spacing": {
+                      "stack-gap": "16px",
+                      "container-padding": "20px",
+                      "section-margin": "32px",
+                      "inner-padding": "12px",
+                      "unit": "4px"
+              },
+              "fontFamily": {
+                      "display-lg-mobile": [
+                              "IBM Plex Sans Arabic"
+                      ],
+                      "headline-sm": [
+                              "IBM Plex Sans Arabic"
+                      ],
+                      "headline-md": [
+                              "IBM Plex Sans Arabic"
+                      ],
+                      "body-sm": [
+                              "IBM Plex Sans Arabic"
+                      ],
+                      "body-lg": [
+                              "IBM Plex Sans Arabic"
+                      ],
+                      "label-md": [
+                              "IBM Plex Sans Arabic"
+                      ],
+                      "display-lg": [
+                              "IBM Plex Sans Arabic"
+                      ],
+                      "body-md": [
+                              "IBM Plex Sans Arabic"
+                      ]
+              },
+              "fontSize": {
+                      "display-lg-mobile": [
+                              "28px",
+                              {
+                                      "lineHeight": "36px",
+                                      "fontWeight": "700"
+                              }
+                      ],
+                      "headline-sm": [
+                              "20px",
+                              {
+                                      "lineHeight": "28px",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "headline-md": [
+                              "24px",
+                              {
+                                      "lineHeight": "32px",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "body-sm": [
+                              "14px",
+                              {
+                                      "lineHeight": "20px",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "body-lg": [
+                              "18px",
+                              {
+                                      "lineHeight": "28px",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "label-md": [
+                              "12px",
+                              {
+                                      "lineHeight": "16px",
+                                      "letterSpacing": "0.05em",
+                                      "fontWeight": "500"
+                              }
+                      ],
+                      "display-lg": [
+                              "32px",
+                              {
+                                      "lineHeight": "40px",
+                                      "fontWeight": "700"
+                              }
+                      ],
+                      "body-md": [
+                              "16px",
+                              {
+                                      "lineHeight": "24px",
+                                      "fontWeight": "400"
+                              }
+                      ]
+              }
+      },
+          },
+        }
+      </script>
+<style>
+        body {
+            background-color: theme('colors.background');
+            color: theme('colors.on-background');
+        }
+      </style>
+</head>
+<body class="antialiased min-h-screen pb-24">
+<!-- TopAppBar -->
+<header class="sticky top-0 z-40 bg-background dark:bg-background flat no shadows">
+<div class="flex flex-row-reverse justify-between items-center w-full px-container-padding py-inner-padding h-16">
+<button class="text-primary dark:text-primary hover:bg-surface-container dark:hover:bg-surface-container transition-colors p-2 rounded-full active:scale-95 duration-100">
+<span class="material-symbols-outlined">share</span>
+</button>
+<h1 class="font-display-lg-mobile text-display-lg-mobile font-bold text-secondary dark:text-secondary truncate px-4">تقارير السوق وتحليلات الخبراء</h1>
+<button class="text-primary dark:text-primary hover:bg-surface-container dark:hover:bg-surface-container transition-colors p-2 rounded-full active:scale-95 duration-100">
+<span class="material-symbols-outlined">arrow_back</span>
+</button>
+</div>
+</header>
+<main class="max-w-7xl mx-auto px-container-padding mt-stack-gap">
+<!-- Tabs -->
+<div class="flex space-x-reverse space-x-2 mb-section-margin overflow-x-auto pb-2 scrollbar-hide">
+<button class="bg-primary-container text-on-primary-container px-4 py-2 rounded-full font-label-md text-label-md whitespace-nowrap">تقرير اليوم</button>
+<button class="border border-outline-variant text-on-surface-variant px-4 py-2 rounded-full font-label-md text-label-md whitespace-nowrap hover:bg-surface-container transition-colors">أداء القطاعات</button>
+<button class="border border-outline-variant text-on-surface-variant px-4 py-2 rounded-full font-label-md text-label-md whitespace-nowrap hover:bg-surface-container transition-colors">دوري الأسهم</button>
+</div>
+<!-- Hero Card -->
+<div class="bg-surface-glass border border-border-glass rounded-xl p-6 relative overflow-hidden mb-section-margin">
+<!-- Subtle gradient glow -->
+<div class="absolute -top-10 -right-10 w-40 h-40 bg-primary/10 rounded-full blur-3xl pointer-events-none"></div>
+<div class="flex justify-between items-start mb-4 relative z-10">
+<h2 class="font-headline-md text-headline-md text-on-surface">التقرير التنفيذي لجلسة اليوم</h2>
+<span class="text-on-surface-variant font-body-sm text-body-sm">15 أكتوبر 2023</span>
+</div>
+<ul class="space-y-3 mb-6 relative z-10">
+<li class="flex items-center text-on-surface font-body-md text-body-md">
+<span class="material-symbols-outlined text-market-up ml-2" style="font-variation-settings: 'FILL' 1;">arrow_upward</span>
+                    ارتفاع سيولة القطاع العقاري بنسبة +3.8%
+                </li>
+<li class="flex items-center text-on-surface font-body-md text-body-md">
+<span class="material-symbols-outlined text-market-up ml-2" style="font-variation-settings: 'FILL' 1;">trending_up</span>
+                    مؤشر EGX30 يخترق مستوى 31,800 نقطة
+                </li>
+<li class="flex items-center text-on-surface font-body-md text-body-md">
+<span class="material-symbols-outlined text-secondary ml-2" style="font-variation-settings: 'FILL' 1;">shopping_cart</span>
+                    تسجيل 15 صفقة شراء مؤسسية ضخمة
+                </li>
+</ul>
+<button class="w-full bg-primary-container text-on-primary-container font-label-md text-label-md py-3 rounded-full flex justify-center items-center hover:bg-primary transition-colors relative z-10">
+                تحميل تقرير PDF
+                <span class="material-symbols-outlined mr-2">download</span>
+</button>
+</div>
+<!-- Sector Heat List -->
+<h3 class="font-headline-sm text-headline-sm text-on-surface mb-stack-gap">أداء القطاعات</h3>
+<div class="flex overflow-x-auto space-x-reverse space-x-4 pb-4 scrollbar-hide">
+<!-- Real Estate -->
+<div class="min-w-[200px] bg-surface-glass border border-border-glass rounded-lg p-4 flex-shrink-0">
+<div class="flex justify-between items-center mb-2">
+<span class="font-body-md text-body-md text-on-surface">العقارات</span>
+<span class="text-market-up font-label-md text-label-md flex items-center">
+<span class="material-symbols-outlined text-[16px] ml-1" style="font-variation-settings: 'FILL' 1;">local_fire_department</span>
+                        +4.2%
+                    </span>
+</div>
+<div class="w-full bg-surface-variant rounded-full h-1.5 mt-2 overflow-hidden">
+<div class="bg-market-up h-1.5 rounded-full" style="width: 80%"></div>
+</div>
+</div>
+<!-- Banks -->
+<div class="min-w-[200px] bg-surface-glass border border-border-glass rounded-lg p-4 flex-shrink-0">
+<div class="flex justify-between items-center mb-2">
+<span class="font-body-md text-body-md text-on-surface">البنوك</span>
+<span class="text-market-up font-label-md text-label-md flex items-center">
+<span class="material-symbols-outlined text-[16px] ml-1" style="font-variation-settings: 'FILL' 1;">radio_button_checked</span>
+                        +1.8%
+                    </span>
+</div>
+<div class="w-full bg-surface-variant rounded-full h-1.5 mt-2 overflow-hidden">
+<div class="bg-market-up h-1.5 rounded-full" style="width: 55%"></div>
+</div>
+</div>
+<!-- Tech -->
+<div class="min-w-[200px] bg-surface-glass border border-border-glass rounded-lg p-4 flex-shrink-0">
+<div class="flex justify-between items-center mb-2">
+<span class="font-body-md text-body-md text-on-surface">التكنولوجيا</span>
+<span class="text-market-down font-label-md text-label-md flex items-center">
+<span class="material-symbols-outlined text-[16px] ml-1" style="font-variation-settings: 'FILL' 1;">ac_unit</span>
+                        -0.5%
+                    </span>
+</div>
+<div class="w-full bg-surface-variant rounded-full h-1.5 mt-2 overflow-hidden">
+<div class="bg-market-down h-1.5 rounded-full" style="width: 30%"></div>
+</div>
+</div>
+</div>
+</main>
+<!-- BottomNavBar -->
+<nav class="fixed bottom-0 left-0 w-full z-50 flex flex-row-reverse justify-around items-center h-20 px-container-padding pb-4 bg-surface-container/80 dark:bg-surface-container/80 docked full-width bottom-0 rounded-t-xl backdrop-blur-xl border-t border-outline-variant shadow-lg md:hidden">
+<a class="flex flex-col items-center justify-center text-on-surface-variant dark:text-on-surface-variant opacity-60 hover:text-primary transition-all group" href="#">
+<span class="material-symbols-outlined mb-1 group-active:scale-110 duration-200 ease-out">dashboard</span>
+<span class="font-label-md text-label-md">الرئيسية</span>
+</a>
+<a class="flex flex-col items-center justify-center text-secondary dark:text-secondary-fixed-dim hover:text-primary transition-all group active:scale-110 duration-200 ease-out" href="#">
+<span class="material-symbols-outlined mb-1 group-active:scale-110 duration-200 ease-out" style="font-variation-settings: 'FILL' 1;">insights</span>
+<span class="font-label-md text-label-md">التوصيات</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant dark:text-on-surface-variant opacity-60 hover:text-primary transition-all group" href="#">
+<span class="material-symbols-outlined mb-1 group-active:scale-110 duration-200 ease-out">account_balance_wallet</span>
+<span class="font-label-md text-label-md">المحفظة</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant dark:text-on-surface-variant opacity-60 hover:text-primary transition-all group" href="#">
+<span class="material-symbols-outlined mb-1 group-active:scale-110 duration-200 ease-out">more_horiz</span>
+<span class="font-label-md text-label-md">المزيد</span>
+</a>
+</nav>
+</body></html>

@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+
+<html class="dark" dir="rtl" lang="ar"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>مركز التنبيهات والإعدادات</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        body {
+            font-family: 'IBM Plex Sans Arabic', sans-serif;
+            background-color: #10131a; /* background */
+            color: #e1e2eb; /* on-background */
+        }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "tertiary": "#ffb3ad",
+                        "market-down": "#ef4444",
+                        "on-surface-variant": "#bbcabf",
+                        "surface-container": "#1d2026",
+                        "surface-container-high": "#272a31",
+                        "background": "#10131a",
+                        "market-up": "#10b981",
+                        "on-primary": "#003824",
+                        "secondary-fixed": "#ffddb8",
+                        "secondary-container": "#ee9800",
+                        "on-background": "#e1e2eb",
+                        "surface-variant": "#32353c",
+                        "gold-accent": "#f59e0b",
+                        "inverse-primary": "#006c49",
+                        "secondary": "#ffb95f",
+                        "primary-container": "#10b981",
+                        "primary-fixed": "#6ffbbe",
+                        "on-secondary": "#472a00",
+                        "primary": "#4edea3",
+                        "error-container": "#93000a",
+                        "surface-glass": "#1e293b",
+                        "on-primary-fixed-variant": "#005236",
+                        "surface-bright": "#363940",
+                        "border-glass": "#334155",
+                        "primary-fixed-dim": "#4edea3",
+                        "inverse-on-surface": "#2e3037",
+                        "outline": "#86948a",
+                        "on-surface": "#e1e2eb",
+                        "on-tertiary-container": "#79000e",
+                        "secondary-fixed-dim": "#ffb95f",
+                        "outline-variant": "#3c4a42",
+                        "on-error-container": "#ffdad6",
+                        "tertiary-fixed": "#ffdad7",
+                        "on-primary-fixed": "#002113",
+                        "inverse-surface": "#e1e2eb",
+                        "on-tertiary": "#68000a",
+                        "on-secondary-fixed-variant": "#653e00",
+                        "on-primary-container": "#00422b",
+                        "tertiary-container": "#ff7a73",
+                        "surface-container-low": "#191c22",
+                        "surface-tint": "#4edea3",
+                        "on-tertiary-fixed-variant": "#930013",
+                        "surface": "#10131a",
+                        "on-error": "#690005",
+                        "surface-container-lowest": "#0b0e14",
+                        "on-secondary-container": "#5b3800",
+                        "surface-dim": "#10131a",
+                        "on-tertiary-fixed": "#410004",
+                        "surface-container-highest": "#32353c",
+                        "on-secondary-fixed": "#2a1700",
+                        "error": "#ffb4ab",
+                        "tertiary-fixed-dim": "#ffb3ad"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "stack-gap": "16px",
+                        "container-padding": "20px",
+                        "section-margin": "32px",
+                        "inner-padding": "12px",
+                        "unit": "4px"
+                    },
+                    "fontFamily": {
+                        "display-lg-mobile": ["IBM Plex Sans Arabic"],
+                        "headline-sm": ["IBM Plex Sans Arabic"],
+                        "headline-md": ["IBM Plex Sans Arabic"],
+                        "body-sm": ["IBM Plex Sans Arabic"],
+                        "body-lg": ["IBM Plex Sans Arabic"],
+                        "label-md": ["IBM Plex Sans Arabic"],
+                        "display-lg": ["IBM Plex Sans Arabic"],
+                        "body-md": ["IBM Plex Sans Arabic"]
+                    },
+                    "fontSize": {
+                        "display-lg-mobile": ["28px", { "lineHeight": "36px", "fontWeight": "700" }],
+                        "headline-sm": ["20px", { "lineHeight": "28px", "fontWeight": "600" }],
+                        "headline-md": ["24px", { "lineHeight": "32px", "fontWeight": "600" }],
+                        "body-sm": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
+                        "body-lg": ["18px", { "lineHeight": "28px", "fontWeight": "400" }],
+                        "label-md": ["12px", { "lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "500" }],
+                        "display-lg": ["32px", { "lineHeight": "40px", "fontWeight": "700" }],
+                        "body-md": ["16px", { "lineHeight": "24px", "fontWeight": "400" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-background min-h-screen flex flex-col antialiased">
+<!-- Top App Bar (Custom Contextual) -->
+<header class="flex flex-row justify-between items-center w-full px-container-padding py-inner-padding h-16 bg-background sticky top-0 z-40 border-b border-surface-variant">
+<button class="text-on-surface-variant hover:text-primary transition-colors flex items-center justify-center w-10 h-10 rounded-full hover:bg-surface-container">
+<span class="material-symbols-outlined" data-icon="arrow_forward">arrow_forward</span>
+</button>
+<h1 class="font-headline-md text-headline-md text-on-background flex-1 text-center">مركز التنبيهات والإعدادات</h1>
+<button class="text-on-surface-variant hover:text-primary transition-colors flex items-center justify-center w-10 h-10 rounded-full hover:bg-surface-container" title="Mark all read">
+<span class="material-symbols-outlined" data-icon="done_all">done_all</span>
+</button>
+</header>
+<!-- Main Content Canvas -->
+<main class="flex-1 w-full max-w-7xl mx-auto px-container-padding py-section-margin flex flex-col lg:flex-row gap-section-margin">
+<!-- Alerts Column -->
+<section class="flex-1 flex flex-col gap-stack-gap">
+<h2 class="font-headline-sm text-headline-sm text-secondary mb-2">أحدث التنبيهات</h2>
+<!-- Alert Card 1 -->
+<div class="bg-surface-glass border border-border-glass rounded-xl p-4 flex gap-4 items-start relative overflow-hidden group hover:border-primary/50 transition-colors">
+<div class="absolute inset-0 bg-gradient-to-r from-primary/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
+<div class="w-10 h-10 rounded-full bg-primary/20 text-primary flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined" data-icon="track_changes" style="font-variation-settings: 'FILL' 1;">track_changes</span>
+</div>
+<div class="flex-1 flex flex-col gap-1">
+<div class="flex justify-between items-start">
+<span class="font-body-md text-body-md font-semibold text-on-background">تحقق الهدف الأول</span>
+<span class="font-label-md text-label-md text-on-surface-variant">الآن</span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant">COMI reached <span class="text-on-background font-mono">28.50</span> <span class="text-market-up">(+14%)</span></p>
+</div>
+</div>
+<!-- Alert Card 2 -->
+<div class="bg-surface-glass border border-border-glass rounded-xl p-4 flex gap-4 items-start relative overflow-hidden group hover:border-purple-500/50 transition-colors">
+<div class="absolute inset-0 bg-gradient-to-r from-purple-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
+<div class="w-10 h-10 rounded-full bg-purple-500/20 text-purple-400 flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined" data-icon="radar" style="font-variation-settings: 'FILL' 1;">radar</span>
+</div>
+<div class="flex-1 flex flex-col gap-1">
+<div class="flex justify-between items-start">
+<span class="font-body-md text-body-md font-semibold text-on-background">رادار الزخم</span>
+<span class="font-label-md text-label-md text-on-surface-variant">منذ 15 دقيقة</span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Unusual volume in TMGH <span class="text-secondary font-mono">(2.5x)</span></p>
+</div>
+</div>
+<!-- Alert Card 3 -->
+<div class="bg-surface-glass border border-border-glass rounded-xl p-4 flex gap-4 items-start relative overflow-hidden group hover:border-market-down/50 transition-colors opacity-75">
+<div class="w-10 h-10 rounded-full bg-market-down/20 text-market-down flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined" data-icon="warning" style="font-variation-settings: 'FILL' 1;">warning</span>
+</div>
+<div class="flex-1 flex flex-col gap-1">
+<div class="flex justify-between items-start">
+<span class="font-body-md text-body-md font-semibold text-on-background">تنبيه إيقاف الخسارة</span>
+<span class="font-label-md text-label-md text-on-surface-variant">منذ ساعتين</span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant">EGX30 dropped below support level.</p>
+</div>
+</div>
+</section>
+<!-- Settings Column -->
+<section class="flex-1 flex flex-col gap-stack-gap">
+<h2 class="font-headline-sm text-headline-sm text-secondary mb-2">الإعدادات المفضلة</h2>
+<div class="bg-surface-glass border border-border-glass rounded-xl flex flex-col overflow-hidden">
+<!-- Toggle: Live Signals -->
+<label class="flex justify-between items-center p-4 border-b border-surface-variant hover:bg-surface-container/50 cursor-pointer transition-colors">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-surface-variant flex items-center justify-center text-on-surface-variant">
+<span class="material-symbols-outlined text-[20px]" data-icon="online_prediction">online_prediction</span>
+</div>
+<div class="flex flex-col">
+<span class="font-body-md text-body-md text-on-background">إشارات حية</span>
+<span class="font-label-md text-label-md text-on-surface-variant">تنبيهات فورية لفرص التداول</span>
+</div>
+</div>
+<div class="relative inline-block w-12 mr-2 align-middle select-none transition duration-200 ease-in">
+<input checked="" class="toggle-checkbox absolute block w-6 h-6 rounded-full bg-background border-4 border-primary appearance-none cursor-pointer translate-x-6 right-0 transition-transform duration-200 ease-in-out" id="toggle_live" name="toggle" type="checkbox"/>
+<label class="toggle-label block overflow-hidden h-6 rounded-full bg-primary cursor-pointer transition-colors duration-200 ease-in-out" for="toggle_live"></label>
+</div>
+</label>
+<!-- Toggle: Stop Loss -->
+<label class="flex justify-between items-center p-4 border-b border-surface-variant hover:bg-surface-container/50 cursor-pointer transition-colors">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-surface-variant flex items-center justify-center text-on-surface-variant">
+<span class="material-symbols-outlined text-[20px]" data-icon="gpp_maybe">gpp_maybe</span>
+</div>
+<div class="flex flex-col">
+<span class="font-body-md text-body-md text-on-background">تنبيهات إيقاف الخسارة</span>
+<span class="font-label-md text-label-md text-on-surface-variant">حماية المحفظة تلقائياً</span>
+</div>
+</div>
+<div class="relative inline-block w-12 mr-2 align-middle select-none transition duration-200 ease-in">
+<input checked="" class="toggle-checkbox absolute block w-6 h-6 rounded-full bg-background border-4 border-primary appearance-none cursor-pointer translate-x-6 right-0 transition-transform duration-200 ease-in-out" id="toggle_stop" name="toggle" type="checkbox"/>
+<label class="toggle-label block overflow-hidden h-6 rounded-full bg-primary cursor-pointer transition-colors duration-200 ease-in-out" for="toggle_stop"></label>
+</div>
+</label>
+<!-- Select: Currency -->
+<div class="flex flex-col p-4 border-b border-surface-variant gap-2 hover:bg-surface-container/50 transition-colors">
+<div class="flex items-center gap-3 mb-2">
+<div class="w-8 h-8 rounded-full bg-surface-variant flex items-center justify-center text-on-surface-variant">
+<span class="material-symbols-outlined text-[20px]" data-icon="payments">payments</span>
+</div>
+<span class="font-body-md text-body-md text-on-background">العملة الافتراضية</span>
+</div>
+<div class="flex gap-2">
+<label class="flex-1 cursor-pointer">
+<input class="peer sr-only" name="currency" type="radio" value="EGP"/>
+<div class="text-center font-label-md text-label-md p-2 rounded-lg border border-surface-variant text-on-surface-variant peer-checked:bg-primary/20 peer-checked:border-primary peer-checked:text-primary transition-all">EGP</div>
+</label>
+<label class="flex-1 cursor-pointer">
+<input class="peer sr-only" name="currency" type="radio" value="SAR"/>
+<div class="text-center font-label-md text-label-md p-2 rounded-lg border border-surface-variant text-on-surface-variant peer-checked:bg-primary/20 peer-checked:border-primary peer-checked:text-primary transition-all">SAR</div>
+</label>
+<label class="flex-1 cursor-pointer">
+<input checked="" class="peer sr-only" name="currency" type="radio" value="USDT"/>
+<div class="text-center font-label-md text-label-md p-2 rounded-lg border border-surface-variant text-on-surface-variant peer-checked:bg-primary/20 peer-checked:border-primary peer-checked:text-primary transition-all">USDT</div>
+</label>
+</div>
+</div>
+<!-- Toggle: Dark Mode -->
+<label class="flex justify-between items-center p-4 hover:bg-surface-container/50 cursor-pointer transition-colors">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-surface-variant flex items-center justify-center text-on-surface-variant">
+<span class="material-symbols-outlined text-[20px]" data-icon="dark_mode">dark_mode</span>
+</div>
+<div class="flex flex-col">
+<span class="font-body-md text-body-md text-on-background">الوضع الداكن</span>
+<span class="font-label-md text-label-md text-on-surface-variant">مريح للعين في الجلسات الطويلة</span>
+</div>
+</div>
+<div class="relative inline-block w-12 mr-2 align-middle select-none transition duration-200 ease-in">
+<input checked="" class="toggle-checkbox absolute block w-6 h-6 rounded-full bg-background border-4 border-primary appearance-none cursor-pointer translate-x-6 right-0 transition-transform duration-200 ease-in-out" id="toggle_dark" name="toggle" type="checkbox"/>
+<label class="toggle-label block overflow-hidden h-6 rounded-full bg-primary cursor-pointer transition-colors duration-200 ease-in-out" for="toggle_dark"></label>
+</div>
+</label>
+</div>
+</section>
+</main>
+<style>
+        /* Custom Toggle Logic for RTL */
+        .toggle-checkbox:checked {
+            right: 0;
+            border-color: #4edea3; /* primary */
+            transform: translateX(0);
+        }
+        .toggle-checkbox:not(:checked) {
+            border-color: #86948a; /* outline */
+            transform: translateX(1.5rem); /* 24px */
+        }
+        .toggle-checkbox:checked + .toggle-label {
+            background-color: #4edea3; /* primary */
+        }
+        .toggle-checkbox:not(:checked) + .toggle-label {
+            background-color: #32353c; /* surface-variant */
+        }
+    </style>
+</body></html>

@@ -344,43 +344,16 @@ class GLMApiClient {
   }
 
   Future<Map<String, dynamic>> getStockFundamentals(
-      [String? ticker, Map<String, dynamic>? opts]) async {
-    final symbol = ticker ?? opts?['ticker'] ?? 'EGX';
+      {required String ticker}) async {
     try {
-      final response = await _dio.get('/api/stocks/$symbol');
+      // FIX: /api/stocks/fundamentals returns empty data, use /api/stocks/[ticker] instead
+      final response = await _dio.get('/api/stocks/$ticker');
       return response.data is Map<String, dynamic>
           ? response.data
           : {'data': response.data};
     } catch (e) {
       debugPrint('[API] getStockFundamentals failed: $e');
       return {};
-    }
-  }
-
-  Future<Map<String, dynamic>> getMarketSummary([String? market]) async {
-    try {
-      final response = await _dio.get('/api/market/summary', queryParameters: {
-        if (market != null) 'market': market,
-      });
-      return response.data is Map<String, dynamic>
-          ? response.data
-          : Map<String, dynamic>.from(response.data as Map);
-    } catch (e) {
-      debugPrint('[API] getMarketSummary failed: $e');
-      return {};
-    }
-  }
-
-  Future<List<dynamic>> getMarketIndices([String? market]) async {
-    try {
-      final response = await _dio.get('/api/market/indices', queryParameters: {
-        if (market != null) 'market': market,
-      });
-      final raw = response.data;
-      return raw is List ? raw : (raw['indices'] as List? ?? []);
-    } catch (e) {
-      debugPrint('[API] getMarketIndices failed: $e');
-      return [];
     }
   }
 
@@ -548,125 +521,6 @@ class GLMApiClient {
     } catch (e) {
       debugPrint('[API] removeFromWatchlist failed: $e');
       rethrow;
-    }
-  }
-
-  // ============================================================================
-  // Orderbook, Disclosures & Price Alerts API
-  // ============================================================================
-  Future<OrderBook> getStockOrderBook(String symbol) async {
-    try {
-      final response = await _dio.get('/api/stocks/$symbol/orderbook');
-      final data = response.data is Map<String, dynamic>
-          ? response.data
-          : Map<String, dynamic>.from(response.data as Map);
-      return OrderBook.fromJson(data);
-    } catch (e) {
-      debugPrint('[API] getStockOrderBook failed: $e');
-      // Dummy / Fallback OrderBook for Offline or 404
-      return OrderBook(
-        symbol: symbol,
-        bids: [
-          OrderBookEntry(price: 29.50, volume: 15000, ordersCount: 5),
-          OrderBookEntry(price: 29.45, volume: 12000, ordersCount: 3),
-          OrderBookEntry(price: 29.40, volume: 25000, ordersCount: 8),
-        ],
-        asks: [
-          OrderBookEntry(price: 29.55, volume: 18000, ordersCount: 4),
-          OrderBookEntry(price: 29.60, volume: 22000, ordersCount: 6),
-          OrderBookEntry(price: 29.65, volume: 30000, ordersCount: 9),
-        ],
-      );
-    }
-  }
-
-  Future<List<CompanyDisclosure>> getCompanyDisclosures(String symbol) async {
-    try {
-      final response = await _dio.get('/api/disclosures/company/$symbol');
-      final raw = response.data;
-      final list = raw is List ? raw : (raw['disclosures'] as List? ?? []);
-      return list.map((item) => CompanyDisclosure.fromJson(item as Map<String, dynamic>)).toList();
-    } catch (e) {
-      debugPrint('[API] getCompanyDisclosures failed: $e');
-      return [
-        CompanyDisclosure(
-          id: '1',
-          symbol: symbol,
-          companyName: symbol,
-          title: 'قرارات مجلس الإدارة واعتماد القوائم المالية',
-          category: 'قوائم مالية',
-          date: DateTime.now().subtract(const Duration(days: 2)),
-          summary: 'تم اعتماد القوائم المالية المجمعة عن الفترة المنتهية وتوزيعات الأرباح.',
-        ),
-      ];
-    }
-  }
-
-  Future<List<PriceAlert>> getAlerts() async {
-    try {
-      final response = await _dio.get('/api/alerts');
-      final raw = response.data;
-      final list = raw is List ? raw : (raw['alerts'] as List? ?? []);
-      return list.map((item) => PriceAlert.fromJson(item as Map<String, dynamic>)).toList();
-    } catch (e) {
-      debugPrint('[API] getAlerts failed: $e');
-      // Fetch local offline alerts as fallback
-      final local = await LocalDatabase.instance.getLocalAlerts();
-      return local.map((item) => PriceAlert.fromJson(item)).toList();
-    }
-  }
-
-  Future<Map<String, dynamic>> createAlert(Map<String, dynamic> alertData) async {
-    try {
-      // Save locally first (Optimistic)
-      await LocalDatabase.instance.insertLocalAlert({
-        'id': alertData['id'] ?? DateTime.now().millisecondsSinceEpoch.toString(),
-        'symbol': alertData['symbol'] ?? alertData['ticker'] ?? '',
-        'company_name': alertData['company_name'] ?? alertData['companyName'] ?? alertData['symbol'] ?? '',
-        'target_price': (alertData['target_price'] ?? alertData['price'] as num?)?.toDouble() ?? 0.0,
-        'condition': alertData['condition'] ?? 'ABOVE',
-        'is_active': 1,
-        'created_at': DateTime.now().toIso8601String(),
-        'note': alertData['note'],
-      });
-      final response = await _dio.post('/api/alerts/create', data: alertData);
-      return response.data;
-    } catch (e) {
-      debugPrint('[API] createAlert failed, saved locally: $e');
-      return {'success': true, 'offline': true};
-    }
-  }
-
-  Future<bool> deleteAlert(String id) async {
-    try {
-      await LocalDatabase.instance.deleteLocalAlert(id);
-      await _dio.delete('/api/alerts/$id');
-      return true;
-    } catch (e) {
-      debugPrint('[API] deleteAlert remote failed: $e');
-      return true; // Deleted locally
-    }
-  }
-
-  Future<List<dynamic>> getLatestNews() async {
-    try {
-      final response = await _dio.get('/api/news/latest');
-      final raw = response.data;
-      return raw is List ? raw : (raw['news'] as List? ?? []);
-    } catch (e) {
-      debugPrint('[API] getLatestNews failed: $e');
-      return [
-        {
-          'title': 'البنك المركزي المصري يبقي أسعار الفائدة دون تغيير في اجتماعه الأخير',
-          'source': 'الاقتصاد المصري',
-          'published_at': 'منذ ساعة واحدة',
-        },
-        {
-          'title': 'مؤشر EGX30 يحقق أرباحاً قياسية مدعوماً بمشتريات المؤسسات المالية',
-          'source': 'البورصة المصرية',
-          'published_at': 'منذ 3 ساعات',
-        },
-      ];
     }
   }
 
@@ -1686,6 +1540,28 @@ class GLMApiClient {
       return response.data;
     } catch (e) {
       debugPrint('[API] getAlertSettings failed: $e');
+      return {};
+    }
+  }
+
+  Future<Map<String, dynamic>> createAlert(Map<String, dynamic> data) async {
+    try {
+      final response =
+          await _dio.post('/api/mobile/alerts/settings', data: data);
+      return response.data;
+    } catch (e) {
+      debugPrint('[API] createAlert failed: $e');
+      return {};
+    }
+  }
+
+  Future<Map<String, dynamic>> deleteAlert(String id) async {
+    try {
+      final response = await _dio
+          .delete('/api/mobile/alerts/settings', queryParameters: {'id': id});
+      return response.data;
+    } catch (e) {
+      debugPrint('[API] deleteAlert failed: $e');
       return {};
     }
   }

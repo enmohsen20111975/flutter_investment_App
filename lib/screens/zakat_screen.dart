@@ -1,135 +1,258 @@
 // ============================================================================
-// مساعد الاستثمار Flutter - Zakat Calculator Screen
+// مساعد الاستثمار Flutter - Quantum Investment & Zakat Calculator Screen
+// Offline Purchase Cost, Commission, Dividend Yield & Zakat Calculations
 // ============================================================================
 
 import 'package:flutter/material.dart';
 import '../theme/colors.dart';
-import '../theme/typography.dart';
-import '../api/client.dart';
-import '../models/types.dart';
-import '../widgets/state_view.dart';
 
 class ZakatScreen extends StatefulWidget {
   const ZakatScreen({super.key});
+
   @override
   State<ZakatScreen> createState() => _ZakatScreenState();
 }
 
-class _ZakatScreenState extends State<ZakatScreen> {
-  final _cashCtrl = TextEditingController();
-  final _goldCtrl = TextEditingController();
-  final _stocksCtrl = TextEditingController();
-  final _receivablesCtrl = TextEditingController();
-  final _otherCtrl = TextEditingController();
-  final _debtsCtrl = TextEditingController();
+class _ZakatScreenState extends State<ZakatScreen> with SingleTickerProviderStateMixin {
+  late TabController _tabController;
 
-  ZakatCalculation? _result;
-  bool _loading = false;
-  String? _error;
+  // Investment Calculator Controllers
+  final TextEditingController _sharesCtrl = TextEditingController(text: '1000');
+  final TextEditingController _priceCtrl = TextEditingController(text: '25.50');
+  final TextEditingController _commissionCtrl = TextEditingController(text: '0.00155'); // EGX standard ~0.155%
+  final TextEditingController _divCtrl = TextEditingController(text: '1.50');
 
-  Future<void> _calculate() async {
-    setState(() { _loading = true; _error = null; });
-    try {
-      final data = {
-        'cash': double.tryParse(_cashCtrl.text) ?? 0,
-        'gold_silver': double.tryParse(_goldCtrl.text) ?? 0,
-        'stocks': double.tryParse(_stocksCtrl.text) ?? 0,
-        'receivables': double.tryParse(_receivablesCtrl.text) ?? 0,
-        'other_assets': double.tryParse(_otherCtrl.text) ?? 0,
-        'debts': double.tryParse(_debtsCtrl.text) ?? 0,
-      };
-      final dynamic result = await api.calculateZakat(data);
-      final zakatResult = ZakatCalculation.fromJson(result);
-      setState(() { _result = zakatResult; _loading = false; });
-    } catch (e) {
-      setState(() { _error = e.toString(); _loading = false; });
-    }
+  // Zakat Calculator Controllers
+  final TextEditingController _cashCtrl = TextEditingController(text: '50000');
+  final TextEditingController _stocksValueCtrl = TextEditingController(text: '100000');
+  final TextEditingController _goldValueCtrl = TextEditingController(text: '30000');
+
+  // Results
+  double _totalBuyCost = 0.0;
+  double _commissionFee = 0.0;
+  double _totalAnnualDividend = 0.0;
+  double _dividendYieldPercent = 0.0;
+
+  double _totalZakatBase = 0.0;
+  double _totalZakatDue = 0.0;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 2, vsync: this);
+    _calculateInvestment();
+    _calculateZakat();
   }
 
-  void _reset() {
-    _cashCtrl.clear(); _goldCtrl.clear(); _stocksCtrl.clear();
-    _receivablesCtrl.clear(); _otherCtrl.clear(); _debtsCtrl.clear();
-    setState(() { _result = null; _error = null; });
+  @override
+  void dispose() {
+    _tabController.dispose();
+    _sharesCtrl.dispose();
+    _priceCtrl.dispose();
+    _commissionCtrl.dispose();
+    _divCtrl.dispose();
+    _cashCtrl.dispose();
+    _stocksValueCtrl.dispose();
+    _goldValueCtrl.dispose();
+    super.dispose();
+  }
+
+  void _calculateInvestment() {
+    final shares = double.tryParse(_sharesCtrl.text) ?? 0.0;
+    final price = double.tryParse(_priceCtrl.text) ?? 0.0;
+    final commissionRate = double.tryParse(_commissionCtrl.text) ?? 0.00155;
+    final divPerShare = double.tryParse(_divCtrl.text) ?? 0.0;
+
+    final rawCost = shares * price;
+    final fee = rawCost * commissionRate;
+    final totalCost = rawCost + fee;
+
+    final totalDiv = shares * divPerShare;
+    final divYield = totalCost > 0 ? (totalDiv / totalCost) * 100 : 0.0;
+
+    setState(() {
+      _totalBuyCost = totalCost;
+      _commissionFee = fee;
+      _totalAnnualDividend = totalDiv;
+      _dividendYieldPercent = divYield;
+    });
+  }
+
+  void _calculateZakat() {
+    final cash = double.tryParse(_cashCtrl.text) ?? 0.0;
+    final stocks = double.tryParse(_stocksValueCtrl.text) ?? 0.0;
+    final gold = double.tryParse(_goldValueCtrl.text) ?? 0.0;
+
+    final totalBase = cash + stocks + gold;
+    final zakatDue = totalBase * 0.025; // 2.5% Hijri year Zakat rate
+
+    setState(() {
+      _totalZakatBase = totalBase;
+      _totalZakatDue = zakatDue;
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    return Directionality(
-      textDirection: TextDirection.rtl,
-      child: Scaffold(
-        backgroundColor: AppColors.background,
-        body: SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
-          child: Column(children: [
-            const HeaderCard(icon: Icons.calculate, title: 'حاسبة الزكاة', subtitle: 'احسب زكاة أموالك بسهولة'),
-            const SizedBox(height: 16),
-            _buildInputField(_cashCtrl, 'النقود والمدخرات', Icons.money),
-            const SizedBox(height: 10),
-            _buildInputField(_goldCtrl, 'الذهب والفضة', Icons.diamond),
-            const SizedBox(height: 10),
-            _buildInputField(_stocksCtrl, 'الأسهم والاستثمارات', Icons.trending_up),
-            const SizedBox(height: 10),
-            _buildInputField(_receivablesCtrl, 'المستحقات', Icons.receipt),
-            const SizedBox(height: 10),
-            _buildInputField(_otherCtrl, 'أصول أخرى', Icons.inventory),
-            const SizedBox(height: 10),
-            _buildInputField(_debtsCtrl, 'الديون', Icons.account_balance),
-            const SizedBox(height: 20),
-            Row(children: [
-              Expanded(child: ActionButton(title: _loading ? 'جاري الحساب...' : 'احسب الزكاة', onPress: _loading ? null : _calculate, loading: _loading, fullWidth: true)),
-              const SizedBox(width: 12),
-              ActionButton(title: 'مسح', onPress: _reset, variant: 'outline'),
-            ]),
-            if (_error != null) ...[
-              const SizedBox(height: 16),
-              Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: AppColors.dangerLight, borderRadius: BorderRadius.circular(8)), child: Text(_error!, style: const TextStyle(color: AppColors.danger))),
-            ],
-            if (_result != null) ...[
-              const SizedBox(height: 20),
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(gradient: const LinearGradient(colors: [AppColors.primaryDark, AppColors.primary]), borderRadius: BorderRadius.circular(16)),
-                child: Column(children: [
-                  const Text('زكاتك المستحقة', style: TextStyle(color: AppColors.white, fontSize: 14)),
-                  const SizedBox(height: 8),
-                  Text('${_result!.zakatDue.toStringAsFixed(2)} ج.م', style: const TextStyle(color: AppColors.white, fontSize: 32, fontWeight: FontWeight.w800)),
-                  const SizedBox(height: 16),
-                  Row(children: [
-                    Expanded(child: _buildResultItem('إجمالي الأصول', _result!.totalAssets)),
-                    Expanded(child: _buildResultItem('صافي الزكاة', _result!.netZakatable)),
-                  ]),
-                  const SizedBox(height: 8),
-                  Row(children: [
-                    Expanded(child: _buildResultItem('النصاب', _result!.nisab)),
-                    Expanded(child: _buildResultItem('نسبة الزكاة', _result!.zakatRate * 100, suffix: '%')),
-                  ]),
-                ]),
-              ),
-            ],
-            const SizedBox(height: 90),
-          ]),
+    return Scaffold(
+      backgroundColor: AppColors.quantumBg,
+      appBar: AppBar(
+        backgroundColor: AppColors.quantumSurface,
+        elevation: 0,
+        title: const Text('الحاسبة الاستثمارية والزكاة', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        bottom: TabBar(
+          controller: _tabController,
+          indicatorColor: AppColors.quantumEmerald,
+          labelColor: AppColors.quantumEmerald,
+          unselectedLabelColor: Colors.white60,
+          labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+          tabs: const [
+            Tab(text: 'حاسبة التكاليف والأرباح 📊'),
+            Tab(text: 'حاسبة زكاة المال والأسهم 🌙'),
+          ],
         ),
       ),
-    );
-  }
-
-  Widget _buildInputField(TextEditingController controller, String label, IconData icon) {
-    return TextField(
-      controller: controller,
-      keyboardType: TextInputType.number,
-      decoration: InputDecoration(
-        labelText: label,
-        prefixIcon: Icon(icon, color: AppColors.primary, size: 20),
-        suffixText: 'ج.م',
+      body: TabBarView(
+        controller: _tabController,
+        children: [
+          _buildInvestmentCalcTab(),
+          _buildZakatCalcTab(),
+        ],
       ),
     );
   }
 
-  Widget _buildResultItem(String label, double value, {String suffix = ' ج.م'}) {
-    return Column(children: [
-      Text(label, style: const TextStyle(color: AppColors.white, fontSize: 11)),
-      const SizedBox(height: 4),
-      Text('${value.toStringAsFixed(2)}$suffix', style: const TextStyle(color: AppColors.white, fontSize: 14, fontWeight: FontWeight.w600)),
-    ]);
+  Widget _buildInvestmentCalcTab() {
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        const Text('بيانات الصفقة والتكلفة', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+        const SizedBox(height: 12),
+        _buildInputRow(_sharesCtrl, 'عدد الأسهم', 'أدخل عدد الأسهم', _calculateInvestment),
+        const SizedBox(height: 10),
+        _buildInputRow(_priceCtrl, 'سعر الشراء للسهم (ج.م)', 'أدخل سعر السهم', _calculateInvestment),
+        const SizedBox(height: 10),
+        _buildInputRow(_commissionCtrl, 'نسبة عمولة السمسرة (0.00155 للمصرية)', 'عمولة البورصة والسمسرة', _calculateInvestment),
+        const SizedBox(height: 10),
+        _buildInputRow(_divCtrl, 'التوزيع السنوي المتوقع/السهم (ج.م)', 'توزيعات الأرباح', _calculateInvestment),
+        const SizedBox(height: 20),
+
+        // Result Card
+        Container(
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            color: AppColors.quantumGlass,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: AppColors.quantumEmerald.withOpacity(0.5)),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.quantumEmerald.withOpacity(0.05),
+                blurRadius: 15,
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('ملخص التكاليف والعائد المتوقع', style: TextStyle(color: AppColors.quantumEmerald, fontWeight: FontWeight.bold, fontSize: 15)),
+              const Divider(color: AppColors.quantumGlassBorder, height: 24),
+              _buildResultRow('إجمالي تكلفة الشراء المباشر', '${(_sharesCtrl.text.isEmpty ? 0 : double.parse(_sharesCtrl.text) * double.parse(_priceCtrl.text)).toStringAsFixed(2)} ج.م'),
+              _buildResultRow('عمولة الشراء والسمسرة', '${_commissionFee.toStringAsFixed(2)} ج.م'),
+              _buildResultRow('التكلفة الكلية للصفقة', '${_totalBuyCost.toStringAsFixed(2)} ج.م', isBold: true),
+              const Divider(color: AppColors.quantumGlassBorder, height: 24),
+              _buildResultRow('إجمالي التوزيعات النقديّة السنوية', '${_totalAnnualDividend.toStringAsFixed(2)} ج.م', color: AppColors.quantumGold),
+              _buildResultRow('عائد التوزيعات السنوي (Dividend Yield)', '${_dividendYieldPercent.toStringAsFixed(2)}%', color: AppColors.quantumEmerald, isBold: true),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildZakatCalcTab() {
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        const Text('أوعية الزكاة (السيولة والأسهم والذهب)', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+        const SizedBox(height: 12),
+        _buildInputRow(_cashCtrl, 'النقدية والسيولة بالبنوك (ج.م)', 'السيولة المتاحة', _calculateZakat),
+        const SizedBox(height: 10),
+        _buildInputRow(_stocksValueCtrl, 'القيمة السوقية للأسهم المملوكة (ج.م)', 'محفظة الأسهم', _calculateZakat),
+        const SizedBox(height: 10),
+        _buildInputRow(_goldValueCtrl, 'قيمة الذهب والمعادن (ج.م)', 'الذهب للادخار والاستثمار', _calculateZakat),
+        const SizedBox(height: 20),
+
+        // Zakat Output Card
+        Container(
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            color: AppColors.quantumGlass,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: AppColors.quantumGold.withOpacity(0.5)),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.quantumGold.withOpacity(0.05),
+                blurRadius: 15,
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text('حساب زكاة المال الشريعة (2.5%)', style: TextStyle(color: AppColors.quantumGold, fontWeight: FontWeight.bold, fontSize: 15)),
+                  Icon(Icons.nights_stay_outlined, color: AppColors.quantumGold, size: 20),
+                ],
+              ),
+              const Divider(color: AppColors.quantumGlassBorder, height: 24),
+              _buildResultRow('إجمالي الوعاء الزكوي الخاضع', '${_totalZakatBase.toStringAsFixed(2)} ج.م'),
+              const SizedBox(height: 8),
+              _buildResultRow('مقدار الزكاة الواجب إخراجها شرعاً', '${_totalZakatDue.toStringAsFixed(2)} ج.م', color: AppColors.quantumGold, isBold: true),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildInputRow(TextEditingController controller, String label, String hint, VoidCallback onChanged) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: const TextStyle(color: Colors.white70, fontSize: 13)),
+        const SizedBox(height: 6),
+        TextField(
+          controller: controller,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          onChanged: (_) => onChanged(),
+          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+          decoration: InputDecoration(
+            hintText: hint,
+            hintStyle: const TextStyle(color: Colors.white38),
+            filled: true,
+            fillColor: AppColors.quantumSurface,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: const BorderSide(color: AppColors.quantumGlassBorder),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildResultRow(String title, String value, {Color? color, bool isBold = false}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(title, style: TextStyle(color: Colors.white70, fontSize: 13, fontWeight: isBold ? FontWeight.bold : FontWeight.normal)),
+          Text(value, style: TextStyle(color: color ?? Colors.white, fontSize: 14, fontWeight: isBold ? FontWeight.bold : FontWeight.normal)),
+        ],
+      ),
+    );
   }
 }

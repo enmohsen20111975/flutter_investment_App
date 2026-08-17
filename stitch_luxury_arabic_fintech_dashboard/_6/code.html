@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+
+<html class="dark" dir="rtl" lang="ar"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>محفظة التداول الافتراضية - Quantum Finance</title>
+<!-- Tailwind CSS with specific plugins -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Google Fonts -->
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<!-- Material Symbols Outlined -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Custom Theme Configuration -->
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "tertiary": "#ffb3ad",
+                    "market-down": "#ef4444",
+                    "on-surface-variant": "#bbcabf",
+                    "surface-container": "#1d2026",
+                    "surface-container-high": "#272a31",
+                    "background": "#10131a",
+                    "market-up": "#10b981",
+                    "on-primary": "#003824",
+                    "secondary-fixed": "#ffddb8",
+                    "secondary-container": "#ee9800",
+                    "on-background": "#e1e2eb",
+                    "surface-variant": "#32353c",
+                    "gold-accent": "#f59e0b",
+                    "inverse-primary": "#006c49",
+                    "secondary": "#ffb95f",
+                    "primary-container": "#10b981",
+                    "primary-fixed": "#6ffbbe",
+                    "on-secondary": "#472a00",
+                    "primary": "#4edea3",
+                    "error-container": "#93000a",
+                    "surface-glass": "#1e293b",
+                    "on-primary-fixed-variant": "#005236",
+                    "surface-bright": "#363940",
+                    "border-glass": "#334155",
+                    "primary-fixed-dim": "#4edea3",
+                    "inverse-on-surface": "#2e3037",
+                    "outline": "#86948a",
+                    "on-surface": "#e1e2eb",
+                    "on-tertiary-container": "#79000e",
+                    "secondary-fixed-dim": "#ffb95f",
+                    "outline-variant": "#3c4a42",
+                    "on-error-container": "#ffdad6",
+                    "tertiary-fixed": "#ffdad7",
+                    "on-primary-fixed": "#002113",
+                    "inverse-surface": "#e1e2eb",
+                    "on-tertiary": "#68000a",
+                    "on-secondary-fixed-variant": "#653e00",
+                    "on-primary-container": "#00422b",
+                    "tertiary-container": "#ff7a73",
+                    "surface-container-low": "#191c22",
+                    "surface-tint": "#4edea3",
+                    "on-tertiary-fixed-variant": "#930013",
+                    "surface": "#10131a",
+                    "on-error": "#690005",
+                    "surface-container-lowest": "#0b0e14",
+                    "on-secondary-container": "#5b3800",
+                    "surface-dim": "#10131a",
+                    "on-tertiary-fixed": "#410004",
+                    "surface-container-highest": "#32353c",
+                    "on-secondary-fixed": "#2a1700",
+                    "error": "#ffb4ab",
+                    "tertiary-fixed-dim": "#ffb3ad"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "stack-gap": "16px",
+                    "container-padding": "20px",
+                    "section-margin": "32px",
+                    "inner-padding": "12px",
+                    "unit": "4px"
+            },
+            "fontFamily": {
+                    "display-lg-mobile": ["IBM Plex Sans Arabic"],
+                    "headline-sm": ["IBM Plex Sans Arabic"],
+                    "headline-md": ["IBM Plex Sans Arabic"],
+                    "body-sm": ["IBM Plex Sans Arabic"],
+                    "body-lg": ["IBM Plex Sans Arabic"],
+                    "label-md": ["IBM Plex Sans Arabic"],
+                    "display-lg": ["IBM Plex Sans Arabic"],
+                    "body-md": ["IBM Plex Sans Arabic"]
+            },
+            "fontSize": {
+                    "display-lg-mobile": ["28px", {"lineHeight": "36px", "fontWeight": "700"}],
+                    "headline-sm": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                    "headline-md": ["24px", {"lineHeight": "32px", "fontWeight": "600"}],
+                    "body-sm": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                    "body-lg": ["18px", {"lineHeight": "28px", "fontWeight": "400"}],
+                    "label-md": ["12px", {"lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "500"}],
+                    "display-lg": ["32px", {"lineHeight": "40px", "fontWeight": "700"}],
+                    "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}]
+            }
+          }
+        }
+      }
+    </script>
+<style>
+        /* Hide scrollbar for tabs */
+        .scrollbar-hide::-webkit-scrollbar {
+            display: none;
+        }
+        .scrollbar-hide {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+</head>
+<body class="bg-background text-on-background font-body-md text-body-md antialiased min-h-screen">
+<!-- Sub-page Custom Top Bar (Nav Shell Suppressed per Rules) -->
+<header class="sticky top-0 z-40 bg-background/80 backdrop-blur-xl border-b border-border-glass h-16 flex items-center justify-between px-container-padding">
+<button aria-label="العودة" class="p-2 rounded-full hover:bg-surface-container transition-colors text-on-surface-variant hover:text-on-background">
+<span class="material-symbols-outlined">arrow_forward</span>
+</button>
+<h1 class="font-headline-sm text-headline-sm font-bold text-center flex-1">محفظة التداول الافتراضية</h1>
+<button aria-label="إعادة تعيين المحفظة" class="p-2 rounded-full hover:bg-surface-container transition-colors text-on-surface-variant hover:text-secondary">
+<span class="material-symbols-outlined">restart_alt</span>
+</button>
+</header>
+<main class="max-w-3xl mx-auto p-container-padding space-y-section-margin">
+<!-- Header Card: Portfolio Summary (Glassmorphism + Primary Accent) -->
+<section class="bg-surface-glass border border-primary/30 rounded-xl p-6 relative overflow-hidden shadow-lg shadow-primary/5">
+<!-- Subtle glow background -->
+<div class="absolute -top-12 -left-12 w-32 h-32 bg-primary/20 rounded-full blur-3xl pointer-events-none"></div>
+<div class="absolute -bottom-12 -right-12 w-32 h-32 bg-secondary/10 rounded-full blur-3xl pointer-events-none"></div>
+<div class="relative z-10 space-y-5">
+<div>
+<p class="font-label-md text-label-md text-on-surface-variant mb-1">رأس المال الافتراضي</p>
+<h2 class="font-display-lg text-display-lg font-bold text-on-background">1,000,000 ج.م</h2>
+</div>
+<div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+<p class="font-label-md text-label-md text-on-surface-variant">صافي الربح/الخسارة</p>
+<div class="flex items-center gap-2">
+<span class="font-headline-sm text-headline-sm text-market-up">+48,200 ج.م</span>
+<span class="font-body-sm text-body-sm text-market-up bg-market-up/10 px-2 py-0.5 rounded-full flex items-center gap-1 border border-market-up/20">
+                            +4.82%
+                            <span class="material-symbols-outlined text-[14px]">trending_up</span>
+</span>
+</div>
+</div>
+<div class="w-full h-px bg-border-glass"></div>
+<!-- Stats Row -->
+<div class="grid grid-cols-3 gap-4">
+<div>
+<p class="font-label-md text-label-md text-on-surface-variant mb-1">نسبة النجاح</p>
+<p class="font-body-lg text-body-lg text-on-background font-semibold">80%</p>
+</div>
+<div>
+<p class="font-label-md text-label-md text-on-surface-variant mb-1">العمليات المنفذة</p>
+<p class="font-body-lg text-body-lg text-on-background font-semibold">24</p>
+</div>
+<div>
+<p class="font-label-md text-label-md text-on-surface-variant mb-1">أفضل سهم</p>
+<p class="font-body-lg text-body-lg text-secondary font-semibold">COMI</p>
+</div>
+</div>
+</div>
+</section>
+<!-- Tabs Navigation -->
+<nav class="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
+<button class="px-5 py-2.5 rounded-full bg-primary-container text-on-primary-container font-label-md text-label-md font-bold whitespace-nowrap shadow-[0_0_15px_rgba(16,185,129,0.2)]">
+                الصفقات المفتوحة (3)
+            </button>
+<button class="px-5 py-2.5 rounded-full bg-surface-container-high text-on-surface border border-border-glass font-label-md text-label-md hover:bg-surface-bright transition-colors whitespace-nowrap">
+                سجل العمليات
+            </button>
+<button class="px-5 py-2.5 rounded-full bg-surface-container-high text-on-surface border border-border-glass font-label-md text-label-md hover:bg-surface-bright transition-colors whitespace-nowrap flex items-center gap-1">
+<span class="material-symbols-outlined text-[16px]">add</span>
+                فتح صفقة جديدة
+            </button>
+</nav>
+<!-- Trades List -->
+<div class="space-y-stack-gap">
+<!-- Trade Card 1: SWDY (Winning Trade) -->
+<article class="bg-surface-glass border border-border-glass rounded-xl p-5 hover:border-primary/40 transition-colors group">
+<div class="flex justify-between items-start mb-4">
+<div class="flex items-center gap-3">
+<div class="w-12 h-12 rounded-lg bg-surface-bright border border-border-glass flex items-center justify-center font-bold text-on-background">
+                            SW
+                        </div>
+<div>
+<h3 class="font-headline-sm text-headline-sm text-on-background">SWDY</h3>
+<p class="font-label-md text-label-md text-on-surface-variant">السويدي إلكتريك</p>
+</div>
+</div>
+<div class="text-left">
+<p class="font-headline-sm text-headline-sm text-market-up font-bold">+2,450 ج.م</p>
+<p class="font-label-md text-label-md text-market-up flex items-center justify-end gap-1">
+<span class="material-symbols-outlined text-[14px]">arrow_upward</span>
+                            5.2%
+                        </p>
+</div>
+</div>
+<div class="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-background/60 p-3 rounded-lg mb-4 border border-border-glass/50">
+<div>
+<p class="font-label-md text-label-md text-on-surface-variant mb-0.5">سعر الدخول</p>
+<p class="font-body-sm text-body-sm text-on-background">28.50 ج.م</p>
+</div>
+<div>
+<p class="font-label-md text-label-md text-on-surface-variant mb-0.5">السعر الحالي</p>
+<p class="font-body-sm text-body-sm text-on-background">30.00 ج.م</p>
+</div>
+<div>
+<p class="font-label-md text-label-md text-on-surface-variant mb-0.5">الكمية</p>
+<p class="font-body-sm text-body-sm text-on-background">1,000 سهم</p>
+</div>
+<div>
+<p class="font-label-md text-label-md text-on-surface-variant mb-0.5">القيمة الإجمالية</p>
+<p class="font-body-sm text-body-sm text-on-background">30,000 ج.م</p>
+</div>
+</div>
+<div class="flex gap-3">
+<button class="flex-1 px-4 py-2.5 rounded-lg bg-surface-bright text-on-background border border-border-glass hover:bg-surface-variant transition-colors font-label-md text-label-md flex justify-center items-center gap-2">
+<span class="material-symbols-outlined text-[18px]">edit</span>
+                        تعديل الهدف/الوقف
+                    </button>
+<button class="flex-1 px-4 py-2.5 rounded-lg bg-market-down/10 text-market-down border border-market-down/30 hover:bg-market-down hover:text-white transition-all font-label-md text-label-md font-bold flex justify-center items-center gap-2">
+<span class="material-symbols-outlined text-[18px]">close</span>
+                        إغلاق المركز
+                    </button>
+</div>
+</article>
+<!-- Trade Card 2: FWRY (Losing Trade Example) -->
+<article class="bg-surface-glass border border-border-glass rounded-xl p-5 hover:border-market-down/40 transition-colors group">
+<div class="flex justify-between items-start mb-4">
+<div class="flex items-center gap-3">
+<div class="w-12 h-12 rounded-lg bg-surface-bright border border-border-glass flex items-center justify-center font-bold text-on-background">
+                            FW
+                        </div>
+<div>
+<h3 class="font-headline-sm text-headline-sm text-on-background">FWRY</h3>
+<p class="font-label-md text-label-md text-on-surface-variant">فوري لتكنولوجيا البنوك</p>
+</div>
+</div>
+<div class="text-left">
+<p class="font-headline-sm text-headline-sm text-market-down font-bold">-450 ج.م</p>
+<p class="font-label-md text-label-md text-market-down flex items-center justify-end gap-1">
+<span class="material-symbols-outlined text-[14px]">arrow_downward</span>
+                            1.8%
+                        </p>
+</div>
+</div>
+<div class="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-background/60 p-3 rounded-lg mb-4 border border-border-glass/50">
+<div>
+<p class="font-label-md text-label-md text-on-surface-variant mb-0.5">سعر الدخول</p>
+<p class="font-body-sm text-body-sm text-on-background">5.50 ج.م</p>
+</div>
+<div>
+<p class="font-label-md text-label-md text-on-surface-variant mb-0.5">السعر الحالي</p>
+<p class="font-body-sm text-body-sm text-on-background">5.40 ج.م</p>
+</div>
+<div>
+<p class="font-label-md text-label-md text-on-surface-variant mb-0.5">الكمية</p>
+<p class="font-body-sm text-body-sm text-on-background">4,500 سهم</p>
+</div>
+<div>
+<p class="font-label-md text-label-md text-on-surface-variant mb-0.5">القيمة الإجمالية</p>
+<p class="font-body-sm text-body-sm text-on-background">24,300 ج.م</p>
+</div>
+</div>
+<div class="flex gap-3">
+<button class="flex-1 px-4 py-2.5 rounded-lg bg-surface-bright text-on-background border border-border-glass hover:bg-surface-variant transition-colors font-label-md text-label-md flex justify-center items-center gap-2">
+<span class="material-symbols-outlined text-[18px]">edit</span>
+                        تعديل الهدف/الوقف
+                    </button>
+<button class="flex-1 px-4 py-2.5 rounded-lg bg-market-down/10 text-market-down border border-market-down/30 hover:bg-market-down hover:text-white transition-all font-label-md text-label-md font-bold flex justify-center items-center gap-2">
+<span class="material-symbols-outlined text-[18px]">close</span>
+                        إغلاق المركز
+                    </button>
+</div>
+</article>
+</div>
+</main>
+</body></html>

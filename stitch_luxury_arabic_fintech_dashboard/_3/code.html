@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+
+<html class="dark" dir="rtl" lang="ar"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>دليل الاستثمار - الرئيسية</title>
+<!-- Material Symbols Outlined -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Google Fonts: IBM Plex Sans Arabic -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Tailwind Config -->
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "error": "#ffb4ab",
+                    "surface-tint": "#4edea3",
+                    "on-tertiary-fixed": "#410004",
+                    "primary": "#4edea3",
+                    "tertiary-fixed-dim": "#ffb3ad",
+                    "surface-bright": "#363940",
+                    "secondary-container": "#ee9800",
+                    "error-container": "#93000a",
+                    "market-down": "#ef4444",
+                    "primary-fixed-dim": "#4edea3",
+                    "market-up": "#10b981",
+                    "on-tertiary": "#68000a",
+                    "on-surface-variant": "#bbcabf",
+                    "outline-variant": "#3c4a42",
+                    "surface-container-lowest": "#0b0e14",
+                    "on-background": "#e1e2eb",
+                    "on-primary-fixed": "#002113",
+                    "on-secondary-fixed": "#2a1700",
+                    "on-error-container": "#ffdad6",
+                    "tertiary-fixed": "#ffdad7",
+                    "surface-dim": "#10131a",
+                    "background": "#10131a",
+                    "on-secondary-fixed-variant": "#653e00",
+                    "inverse-primary": "#006c49",
+                    "on-secondary-container": "#5b3800",
+                    "surface-glass": "#1e293b",
+                    "surface": "#10131a",
+                    "secondary-fixed-dim": "#ffb95f",
+                    "on-primary-container": "#00422b",
+                    "on-primary-fixed-variant": "#005236",
+                    "surface-container-low": "#191c22",
+                    "primary-container": "#10b981",
+                    "on-primary": "#003824",
+                    "surface-container-high": "#272a31",
+                    "on-surface": "#e1e2eb",
+                    "secondary": "#ffb95f",
+                    "outline": "#86948a",
+                    "tertiary": "#ffb3ad",
+                    "inverse-surface": "#e1e2eb",
+                    "inverse-on-surface": "#2e3037",
+                    "on-tertiary-container": "#79000e",
+                    "secondary-fixed": "#ffddb8",
+                    "tertiary-container": "#ff7a73",
+                    "on-secondary": "#472a00",
+                    "surface-variant": "#32353c",
+                    "surface-container-highest": "#32353c",
+                    "primary-fixed": "#6ffbbe",
+                    "gold-accent": "#f59e0b",
+                    "border-glass": "#334155",
+                    "surface-container": "#1d2026",
+                    "on-error": "#690005",
+                    "on-tertiary-fixed-variant": "#930013"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "stack-gap": "16px",
+                    "inner-padding": "12px",
+                    "section-margin": "32px",
+                    "container-padding": "20px",
+                    "unit": "4px"
+            },
+            "fontFamily": {
+                    "body-md": ["IBM Plex Sans Arabic"],
+                    "body-sm": ["IBM Plex Sans Arabic"],
+                    "display-lg": ["IBM Plex Sans Arabic"],
+                    "body-lg": ["IBM Plex Sans Arabic"],
+                    "headline-md": ["IBM Plex Sans Arabic"],
+                    "label-md": ["IBM Plex Sans Arabic"],
+                    "display-lg-mobile": ["IBM Plex Sans Arabic"],
+                    "headline-sm": ["IBM Plex Sans Arabic"]
+            },
+            "fontSize": {
+                    "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                    "body-sm": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                    "display-lg": ["32px", {"lineHeight": "40px", "fontWeight": "700"}],
+                    "body-lg": ["18px", {"lineHeight": "28px", "fontWeight": "400"}],
+                    "headline-md": ["24px", {"lineHeight": "32px", "fontWeight": "600"}],
+                    "label-md": ["12px", {"lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "500"}],
+                    "display-lg-mobile": ["28px", {"lineHeight": "36px", "fontWeight": "700"}],
+                    "headline-sm": ["20px", {"lineHeight": "28px", "fontWeight": "600"}]
+            }
+          }
+        }
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        
+        @keyframes ticker-scroll {
+            0% { transform: translateX(100%); }
+            100% { transform: translateX(-100%); }
+        }
+        .animate-ticker {
+            display: inline-block;
+            white-space: nowrap;
+            animation: ticker-scroll 30s linear infinite;
+        }
+        
+        .hide-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .hide-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+
+        /* Pulse glow animation for active states */
+        @keyframes subtle-pulse {
+            0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4); }
+            70% { box-shadow: 0 0 0 10px rgba(16, 185, 129, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+        }
+        .pulse-glow {
+            animation: subtle-pulse 2s infinite;
+        }
+
+        /* Staggered Entrance Animations */
+        @keyframes fade-slide-up {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade-slide-up {
+            animation: fade-slide-up 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+            opacity: 0;
+        }
+        .delay-100 { animation-delay: 100ms; }
+        .delay-200 { animation-delay: 200ms; }
+        .delay-300 { animation-delay: 300ms; }
+        .delay-400 { animation-delay: 400ms; }
+        .delay-500 { animation-delay: 500ms; }
+        
+        /* Shimmer Effect */
+        @keyframes shimmer {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+        }
+        .shimmer-bg {
+            position: relative;
+            overflow: hidden;
+        }
+        .shimmer-bg::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
+            animation: shimmer 2s infinite;
+        }
+
+        /* Sparkline Animation */
+        @keyframes draw-path {
+            to { stroke-dashoffset: 0; }
+        }
+        .animate-draw-path {
+            stroke-dasharray: 1000;
+            stroke-dashoffset: 1000;
+            animation: draw-path 2s ease-in-out forwards;
+        }
+
+        /* Respect prefers-reduced-motion */
+        @media (prefers-reduced-motion: reduce) {
+            .animate-ticker, .pulse-glow, .animate-fade-slide-up, .shimmer-bg::after, .animate-draw-path {
+                animation: none !important;
+                opacity: 1 !important;
+                transform: none !important;
+                stroke-dashoffset: 0 !important;
+            }
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+</head>
+<body class="bg-surface-container-lowest text-on-surface font-body-md antialiased pb-24 md:pb-0">
+<!-- TopAppBar Shared Component -->
+<header class="bg-surface-dim dark:bg-surface-dim fixed top-0 w-full z-50 border-b border-outline-variant flat no shadows flex flex-row-reverse justify-between items-center px-container-padding h-16 w-full">
+<!-- Leading Icon -->
+<button class="text-on-surface-variant hover:bg-surface-variant transition-colors p-2 rounded-full active:scale-95 duration-100 flex items-center justify-center">
+<span class="material-symbols-outlined" data-icon="menu">menu</span>
+</button>
+<!-- Center content: Headline + Market Selector -->
+<div class="flex items-center gap-4">
+<!-- App Title -->
+<h1 class="font-headline-sm text-headline-sm-mobile md:text-headline-sm text-primary dark:text-primary m-0">دليل الاستثمار</h1>
+<!-- Market Selector Pill -->
+<div class="hidden md:flex items-center gap-2 bg-surface-variant/50 border border-outline-variant rounded-full px-3 py-1 cursor-pointer hover:bg-surface-variant transition-colors">
+<span class="text-lg">🇪🇬</span>
+<span class="font-label-md text-label-md text-on-surface-variant">البورصة المصرية | EGX</span>
+<span class="material-symbols-outlined text-sm text-on-surface-variant">expand_more</span>
+</div>
+</div>
+<!-- Trailing Icons -->
+<div class="flex items-center gap-2">
+<!-- Notification -->
+<button class="relative text-on-surface-variant hover:bg-surface-variant transition-colors p-2 rounded-full active:scale-95 duration-100 flex items-center justify-center">
+<span class="material-symbols-outlined">notifications</span>
+<span class="absolute top-2 right-2 w-2 h-2 bg-error rounded-full border border-surface-dim"></span>
+</button>
+<!-- Public -->
+<button class="text-on-surface-variant hover:bg-surface-variant transition-colors p-2 rounded-full active:scale-95 duration-100 flex items-center justify-center">
+<span class="material-symbols-outlined" data-icon="public">public</span>
+</button>
+</div>
+</header>
+<!-- Live Index Bar (Ticker) -->
+<div class="fixed top-16 w-full bg-surface-container-low border-b border-outline-variant/50 h-8 flex items-center overflow-hidden z-40 text-sm">
+<div class="animate-ticker flex items-center gap-8 font-label-md text-label-md text-on-surface-variant">
+<span class="flex items-center gap-2">EGX30 <span class="text-market-up">+1.2%</span></span>
+<span class="flex items-center gap-2">EGX70 <span class="text-market-up">+2.1%</span></span>
+<span class="flex items-center gap-2">BTC/USDT <span class="text-market-up">+3.4%</span></span>
+<span class="flex items-center gap-2">S&amp;P500 <span class="text-market-down">-0.5%</span></span>
+<span class="flex items-center gap-2">GOLD <span class="text-market-up">+0.8%</span></span>
+<!-- Duplicate for seamless scroll effect visually -->
+<span class="flex items-center gap-2 pl-8">EGX30 <span class="text-market-up">+1.2%</span></span>
+<span class="flex items-center gap-2">EGX70 <span class="text-market-up">+2.1%</span></span>
+</div>
+</div>
+<!-- Main Content Canvas -->
+<main class="max-w-7xl mx-auto pt-[104px] px-container-padding flex flex-col gap-section-margin">
+<!-- Market Pulse Card -->
+<section class="mt-4 animate-fade-slide-up delay-100">
+<div class="bg-surface-glass/80 backdrop-blur-md border border-border-glass rounded-xl p-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 relative overflow-hidden transition-transform hover:scale-[1.01] duration-300">
+<!-- Subtle background glow -->
+<div class="absolute -top-10 -right-10 w-32 h-32 bg-primary/10 rounded-full blur-3xl pointer-events-none"></div>
+<div class="flex flex-col gap-1 z-10">
+<span class="font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">حالة السوق</span>
+<div class="flex items-center gap-2">
+<span class="w-3 h-3 rounded-full bg-market-up pulse-glow"></span>
+<h2 class="font-headline-sm text-headline-sm text-on-surface">السوق صاعد ومستقر</h2>
+</div>
+</div>
+<div class="w-full md:w-1/2 flex flex-col gap-2 z-10">
+<div class="flex justify-between font-label-md text-label-md text-on-surface-variant">
+<span>السيولة الداخلة 65%</span>
+<span>الخارجة 35%</span>
+</div>
+<!-- Dual Progress Bar -->
+<div class="w-full h-2 bg-surface-variant rounded-full overflow-hidden flex shimmer-bg">
+<div class="h-full bg-market-up" style="width: 65%;"></div>
+<div class="h-full bg-market-down" style="width: 35%;"></div>
+</div>
+</div>
+</div>
+</section>
+<!-- Quick Filter Pills -->
+<section class="animate-fade-slide-up delay-200">
+<div class="flex overflow-x-auto hide-scrollbar gap-2 pb-2">
+<button class="bg-primary text-on-primary-fixed border border-primary font-label-md text-label-md px-4 py-2 rounded-full whitespace-nowrap active:scale-95 transition-all duration-200 hover:shadow-lg flex items-center gap-1 shadow-[0_0_15px_rgba(16,185,129,0.3)]">
+                    الأكثر نشاطاً
+                </button>
+<button class="bg-surface-variant border border-border-glass text-on-surface font-label-md text-label-md px-4 py-2 rounded-full whitespace-nowrap hover:bg-surface-container-high transition-all duration-200 active:scale-95 flex items-center gap-1">
+                    زخم غير اعتيادي 🔥
+                </button>
+<button class="bg-surface-variant border border-border-glass text-on-surface font-label-md text-label-md px-4 py-2 rounded-full whitespace-nowrap hover:bg-surface-container-high transition-all duration-200 active:scale-95 flex items-center gap-1">
+                    الأكثر صعوداً
+                </button>
+<button class="bg-surface-variant border border-border-glass text-on-surface font-label-md text-label-md px-4 py-2 rounded-full whitespace-nowrap hover:bg-surface-container-high transition-all duration-200 active:scale-95 flex items-center gap-1">
+                    صيد الارتداد
+                </button>
+</div>
+</section>
+<!-- Live Watchlist -->
+<section>
+<div class="flex items-center justify-between mb-4 animate-fade-slide-up delay-300">
+<h3 class="font-body-lg text-body-lg text-on-surface font-semibold">قائمة المراقبة المباشرة</h3>
+<button class="text-primary font-label-md text-label-md hover:underline transition-all">عرض الكل</button>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-stack-gap">
+<!-- Watchlist Card 1 -->
+<div class="bg-surface-glass border border-border-glass rounded-xl p-inner-padding hover:border-primary-fixed-dim/50 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-primary/5 cursor-pointer group active:scale-[0.98] animate-fade-slide-up delay-300">
+<div class="flex justify-between items-start mb-4">
+<div class="flex flex-col">
+<span class="font-headline-md text-headline-md text-on-surface group-hover:text-primary transition-colors duration-300">COMI</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant">CIB - البنك التجاري الدولي</span>
+</div>
+<div class="flex flex-col items-end">
+<span class="font-headline-md text-headline-md text-on-surface">82.50</span>
+<span class="font-label-md text-label-md text-market-up bg-market-up/10 px-2 py-0.5 rounded transition-colors group-hover:bg-market-up/20">+1.45%</span>
+</div>
+</div>
+<!-- Sparkline SVG -->
+<div class="h-12 w-full mt-2">
+<svg class="w-full h-full preserve-aspect-ratio-none" viewbox="0 0 100 30">
+<path class="vector-effect-non-scaling-stroke animate-draw-path" d="M0,25 L10,22 L20,26 L30,15 L40,18 L50,10 L60,12 L70,5 L80,8 L90,2 L100,5" fill="none" stroke="#10b981" stroke-width="2"></path>
+<!-- Subtle gradient fill under sparkline -->
+<path class="animate-fade-slide-up delay-500" d="M0,25 L10,22 L20,26 L30,15 L40,18 L50,10 L60,12 L70,5 L80,8 L90,2 L100,5 L100,30 L0,30 Z" fill="url(#sparkline-grad-1)" opacity="0.2"></path>
+<defs>
+<lineargradient id="sparkline-grad-1" x1="0" x2="0" y1="0" y2="1">
+<stop offset="0%" stop-color="#10b981"></stop>
+<stop offset="100%" stop-color="transparent"></stop>
+</lineargradient>
+</defs>
+</svg>
+</div>
+</div>
+<!-- Watchlist Card 2 -->
+<div class="bg-surface-glass border border-border-glass rounded-xl p-inner-padding hover:border-primary-fixed-dim/50 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-primary/5 cursor-pointer group active:scale-[0.98] animate-fade-slide-up delay-400">
+<div class="flex justify-between items-start mb-4">
+<div class="flex flex-col">
+<span class="font-headline-md text-headline-md text-on-surface group-hover:text-primary transition-colors duration-300">TMGH</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant">مجموعة طلعت مصطفى</span>
+</div>
+<div class="flex flex-col items-end">
+<span class="font-headline-md text-headline-md text-on-surface">54.20</span>
+<span class="font-label-md text-label-md text-market-up bg-market-up/10 px-2 py-0.5 rounded transition-colors group-hover:bg-market-up/20">+3.20%</span>
+</div>
+</div>
+<!-- Sparkline SVG -->
+<div class="h-12 w-full mt-2">
+<svg class="w-full h-full preserve-aspect-ratio-none" viewbox="0 0 100 30">
+<path class="vector-effect-non-scaling-stroke animate-draw-path" d="M0,28 L15,25 L30,20 L45,22 L60,10 L75,15 L90,5 L100,2" fill="none" stroke="#10b981" stroke-width="2"></path>
+<path class="animate-fade-slide-up delay-500" d="M0,28 L15,25 L30,20 L45,22 L60,10 L75,15 L90,5 L100,2 L100,30 L0,30 Z" fill="url(#sparkline-grad-2)" opacity="0.2"></path>
+<defs>
+<lineargradient id="sparkline-grad-2" x1="0" x2="0" y1="0" y2="1">
+<stop offset="0%" stop-color="#10b981"></stop>
+<stop offset="100%" stop-color="transparent"></stop>
+</lineargradient>
+</defs>
+</svg>
+</div>
+</div>
+<!-- Watchlist Card 3 -->
+<div class="bg-surface-glass border border-border-glass rounded-xl p-inner-padding hover:border-primary-fixed-dim/50 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-primary/5 cursor-pointer group active:scale-[0.98] animate-fade-slide-up delay-500">
+<div class="flex justify-between items-start mb-4">
+<div class="flex flex-col">
+<span class="font-headline-md text-headline-md text-on-surface group-hover:text-primary transition-colors duration-300">SWDY</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant">السويدي اليكتريك</span>
+</div>
+<div class="flex flex-col items-end">
+<span class="font-headline-md text-headline-md text-on-surface">41.80</span>
+<span class="font-label-md text-label-md text-market-up bg-market-up/10 px-2 py-0.5 rounded transition-colors group-hover:bg-market-up/20">+0.85%</span>
+</div>
+</div>
+<!-- Sparkline SVG -->
+<div class="h-12 w-full mt-2">
+<svg class="w-full h-full preserve-aspect-ratio-none" viewbox="0 0 100 30">
+<path class="vector-effect-non-scaling-stroke animate-draw-path" d="M0,20 L20,18 L40,22 L60,15 L80,10 L100,8" fill="none" stroke="#10b981" stroke-width="2"></path>
+<path class="animate-fade-slide-up delay-500" d="M0,20 L20,18 L40,22 L60,15 L80,10 L100,8 L100,30 L0,30 Z" fill="url(#sparkline-grad-3)" opacity="0.2"></path>
+<defs>
+<lineargradient id="sparkline-grad-3" x1="0" x2="0" y1="0" y2="1">
+<stop offset="0%" stop-color="#10b981"></stop>
+<stop offset="100%" stop-color="transparent"></stop>
+</lineargradient>
+</defs>
+</svg>
+</div>
+</div>
+</div>
+</section>
+</main>
+<!-- BottomNavBar Shared Component -->
+<nav class="md:hidden bg-surface-glass/80 dark:bg-surface-glass/80 backdrop-blur-xl fixed bottom-0 w-full z-50 rounded-t-xl border-t border-border-glass shadow-lg flex flex-row-reverse justify-around items-center w-full h-20 pb-safe px-2 font-label-md text-label-md">
+<!-- Active Tab: "الرئيسية" -->
+<button class="relative flex flex-col items-center justify-center text-primary px-4 py-1 active:scale-90 transition-transform duration-150 group">
+<div class="absolute inset-0 bg-primary-container/20 rounded-xl transition-all duration-300 scale-100 opacity-100"></div>
+<span class="material-symbols-outlined mb-1 relative z-10 transition-transform duration-300 group-hover:-translate-y-1" data-icon="dashboard" style="font-variation-settings: 'FILL' 1;">dashboard</span>
+<span class="relative z-10 transition-transform duration-300 group-hover:translate-y-0.5">الرئيسية</span>
+</button>
+<!-- Inactive Tab 2: "التوقعات" -->
+<button class="relative flex flex-col items-center justify-center text-on-surface-variant hover:text-on-surface active:scale-90 transition-all duration-150 px-4 py-1 group">
+<div class="absolute inset-0 bg-surface-variant/50 rounded-xl transition-all duration-300 scale-0 opacity-0 group-hover:scale-100 group-hover:opacity-100"></div>
+<span class="material-symbols-outlined mb-1 relative z-10 transition-transform duration-300 group-hover:-translate-y-1" data-icon="analytics">analytics</span>
+<span class="relative z-10 transition-transform duration-300 group-hover:translate-y-0.5">التوقعات</span>
+</button>
+<!-- Inactive Tab 3: "التفاصيل" -->
+<button class="relative flex flex-col items-center justify-center text-on-surface-variant hover:text-on-surface active:scale-90 transition-all duration-150 px-4 py-1 group">
+<div class="absolute inset-0 bg-surface-variant/50 rounded-xl transition-all duration-300 scale-0 opacity-0 group-hover:scale-100 group-hover:opacity-100"></div>
+<span class="material-symbols-outlined mb-1 relative z-10 transition-transform duration-300 group-hover:-translate-y-1" data-icon="show_chart">show_chart</span>
+<span class="relative z-10 transition-transform duration-300 group-hover:translate-y-0.5">التفاصيل</span>
+</button>
+<!-- Inactive Tab 4: "المحفظة" -->
+<button class="relative flex flex-col items-center justify-center text-on-surface-variant hover:text-on-surface active:scale-90 transition-all duration-150 px-4 py-1 group">
+<div class="absolute inset-0 bg-surface-variant/50 rounded-xl transition-all duration-300 scale-0 opacity-0 group-hover:scale-100 group-hover:opacity-100"></div>
+<span class="material-symbols-outlined mb-1 relative z-10 transition-transform duration-300 group-hover:-translate-y-1" data-icon="account_balance_wallet">account_balance_wallet</span>
+<span class="relative z-10 transition-transform duration-300 group-hover:translate-y-0.5">المحفظة</span>
+</button>
+</nav>
+<!-- Desktop Navigation Side Panel -->
+<aside class="hidden md:flex flex-col fixed right-0 top-24 bottom-0 w-20 xl:w-64 bg-surface-glass border-l border-border-glass py-8 items-center xl:items-start px-2 xl:px-4 z-40">
+<nav class="flex flex-col gap-4 w-full font-label-md text-label-md">
+<button class="flex items-center gap-3 bg-primary-container/20 text-primary rounded-xl px-4 py-3 w-full justify-center xl:justify-start hover:bg-primary-container/30 transition-all duration-300 hover:translate-x-1">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">dashboard</span>
+<span class="hidden xl:block font-headline-sm text-headline-sm">الرئيسية</span>
+</button>
+<button class="flex items-center gap-3 text-on-surface-variant rounded-xl px-4 py-3 w-full justify-center xl:justify-start hover:bg-surface-variant hover:text-on-surface transition-all duration-300 hover:translate-x-1">
+<span class="material-symbols-outlined">analytics</span>
+<span class="hidden xl:block font-headline-sm text-headline-sm">التوقعات</span>
+</button>
+<button class="flex items-center gap-3 text-on-surface-variant rounded-xl px-4 py-3 w-full justify-center xl:justify-start hover:bg-surface-variant hover:text-on-surface transition-all duration-300 hover:translate-x-1">
+<span class="material-symbols-outlined">show_chart</span>
+<span class="hidden xl:block font-headline-sm text-headline-sm">التفاصيل</span>
+</button>
+<button class="flex items-center gap-3 text-on-surface-variant rounded-xl px-4 py-3 w-full justify-center xl:justify-start hover:bg-surface-variant hover:text-on-surface transition-all duration-300 hover:translate-x-1">
+<span class="material-symbols-outlined">account_balance_wallet</span>
+<span class="hidden xl:block font-headline-sm text-headline-sm">المحفظة</span>
+</button>
+</nav>
+</aside>
+</body></html>

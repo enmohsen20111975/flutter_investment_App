@@ -1,13 +1,12 @@
 // ============================================================================
-// مساعد الاستثمار Flutter - News Screen
-// Shows news from /api/mobile/news with category filters
+// مساعد الاستثمار Flutter - Quantum News & Disclosures Screen
+// Economic News & Company Disclosures with Filters & Offline Support
 // ============================================================================
 
 import 'package:flutter/material.dart';
 import '../theme/colors.dart';
 import '../api/client.dart';
-import '../widgets/skeleton_loader.dart';
-import '../widgets/state_view.dart';
+import '../models/types.dart';
 import 'stock_history_screen.dart';
 
 class NewsScreen extends StatefulWidget {
@@ -17,222 +16,245 @@ class NewsScreen extends StatefulWidget {
   State<NewsScreen> createState() => _NewsScreenState();
 }
 
-class _NewsScreenState extends State<NewsScreen> {
-  Future<List<dynamic>>? _newsFuture;
-  String _category = 'الكل';
+class _NewsScreenState extends State<NewsScreen> with SingleTickerProviderStateMixin {
+  late TabController _tabController;
+  bool _isLoading = true;
+  List<dynamic> _newsList = [];
+  List<CompanyDisclosure> _disclosures = [];
+  String _selectedCategory = 'الكل';
 
-  final List<String> _categories = ['الكل', 'بورصة', 'كريبتو', 'مؤشرات'];
+  final List<String> _categories = ['الكل', 'البورصة المصرية', 'الاقتصاد الكلي', 'الذهب والعملات'];
 
   @override
   void initState() {
     super.initState();
-    _newsFuture = _fetchNews();
+    _tabController = TabController(length: 2, vsync: this);
+    _loadData();
   }
 
-  Future<List<dynamic>> _fetchNews() async {
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadData() async {
+    setState(() => _isLoading = true);
     try {
-      return await api.getMobileNews();
-    } catch (_) {
-      return [];
-    }
-  }
+      final news = await GLMApiClient.instance.getLatestNews();
+      final disclosures = await GLMApiClient.instance.getCompanyDisclosures('EGX');
 
-  Future<void> _refresh() async {
-    setState(() => _newsFuture = _fetchNews());
-  }
-
-  Color _importanceColor(String? imp) {
-    switch (imp?.toLowerCase()) {
-      case 'high':
-      case 'مهم':
-        return AppColors.danger;
-      case 'medium':
-      case 'متوسط':
-        return AppColors.warning;
-      default:
-        return AppColors.textMuted;
+      if (mounted) {
+        setState(() {
+          _newsList = news;
+          _disclosures = disclosures;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('[News] Load error: $e');
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Directionality(
-      textDirection: TextDirection.rtl,
-      child: Scaffold(
-        backgroundColor: AppColors.background,
-        appBar: AppBar(
-          backgroundColor: AppColors.surface,
-          elevation: 0,
-          title: const Text('الأخبار',
-              style: TextStyle(fontWeight: FontWeight.w800)),
-          leading: IconButton(
-              icon: const Icon(Icons.arrow_back),
-              onPressed: () => Navigator.pop(context)),
+    return Scaffold(
+      backgroundColor: AppColors.quantumBg,
+      appBar: AppBar(
+        backgroundColor: AppColors.quantumSurface,
+        elevation: 0,
+        title: const Text('الأخبار والإفصاحات', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        bottom: TabBar(
+          controller: _tabController,
+          indicatorColor: AppColors.quantumEmerald,
+          labelColor: AppColors.quantumEmerald,
+          unselectedLabelColor: Colors.white60,
+          labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+          tabs: const [
+            Tab(text: 'الأخبار الاقتصادية 📰'),
+            Tab(text: 'إفصاحات الشركات 📜'),
+          ],
         ),
-        body: FutureBuilder<List<dynamic>>(
-          future: _newsFuture,
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting)
-              return const SkeletonList(itemCount: 5);
-            if (snapshot.hasError)
-              return StateView(error: 'فشل تحميل الأخبار', onRetry: _refresh);
-            final news = snapshot.data ?? [];
-            if (news.isEmpty)
-              return const StateView(
-                  empty: true, emptyMessage: 'لا توجد أخبار');
-            return RefreshIndicator(
-              color: AppColors.primary,
-              onRefresh: _refresh,
-              child: Column(children: [
-                SizedBox(
-                  height: 40,
-                  child: ListView(
-                    scrollDirection: Axis.horizontal,
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    children: _categories
-                        .map((c) => Padding(
-                              padding: const EdgeInsets.only(left: 8),
-                              child: FilterChip(
-                                label: Text(c,
-                                    style: TextStyle(
-                                        fontSize: 12,
-                                        color: _category == c
-                                            ? AppColors.white
-                                            : AppColors.textSecondary)),
-                                selected: _category == c,
-                                selectedColor: AppColors.primary,
-                                backgroundColor: AppColors.surface,
-                                side: BorderSide(
-                                    color: _category == c
-                                        ? AppColors.primary
-                                        : AppColors.border),
-                                onSelected: (_) {
-                                  setState(() => _category = c);
-                                },
-                              ),
-                            ))
-                        .toList(),
-                  ),
-                ),
-                Expanded(
-                  child: ListView.builder(
-                    padding: const EdgeInsets.all(16),
-                    itemCount: news.length,
-                    itemBuilder: (context, index) {
-                      final n = news[index] is Map
-                          ? Map<String, dynamic>.from(news[index])
-                          : <String, dynamic>{};
-                      final title = n['title']?.toString() ??
-                          n['headline']?.toString() ??
-                          '';
-                      final summary = n['summary']?.toString() ??
-                          n['snippet']?.toString() ??
-                          '';
-                      final source = n['source']?.toString() ?? '';
-                      final time = n['published_at']?.toString() ??
-                          n['timestamp']?.toString() ??
-                          '';
-                      final importance = n['importance']?.toString() ??
-                          n['priority']?.toString();
-                      final tickers = n['tickers'] is List
-                          ? (n['tickers'] as List)
-                              .map((e) => e.toString())
-                              .toList()
-                          : <String>[];
-                      return Container(
-                        margin: const EdgeInsets.only(bottom: 10),
-                        padding: const EdgeInsets.all(14),
-                        decoration: BoxDecoration(
-                          color: AppColors.surface,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: AppColors.border),
-                        ),
-                        child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(children: [
-                                Expanded(
-                                    child: Text(title,
-                                        style: const TextStyle(
-                                            fontWeight: FontWeight.w700,
-                                            fontSize: 14))),
-                                if (importance != null)
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 6, vertical: 2),
-                                    decoration: BoxDecoration(
-                                        color: _importanceColor(importance)
-                                            .withValues(alpha: 0.1),
-                                        borderRadius: BorderRadius.circular(6)),
-                                    child: Text(importance,
-                                        style: TextStyle(
-                                            fontSize: 10,
-                                            color:
-                                                _importanceColor(importance))),
-                                  ),
-                              ]),
-                              if (summary.isNotEmpty) ...[
-                                const SizedBox(height: 6),
-                                Text(summary,
-                                    style: const TextStyle(
-                                        fontSize: 12,
-                                        color: AppColors.textSecondary),
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis),
-                              ],
-                              if (tickers.isNotEmpty) ...[
-                                const SizedBox(height: 8),
-                                Wrap(
-                                    spacing: 6,
-                                    children: tickers
-                                        .map((t) => ActionChip(
-                                              label: Text(t,
-                                                  style: const TextStyle(
-                                                      fontSize: 10,
-                                                      color:
-                                                          AppColors.primary)),
-                                              backgroundColor:
-                                                  AppColors.primaryMuted,
-                                              padding: EdgeInsets.zero,
-                                              materialTapTargetSize:
-                                                  MaterialTapTargetSize
-                                                      .shrinkWrap,
-                                              onPressed: () {
-                                                Navigator.push(
-                                                    context,
-                                                    MaterialPageRoute(
-                                                        builder: (_) =>
-                                                            StockHistoryScreen(
-                                                                ticker: t)));
-                                              },
-                                            ))
-                                        .toList()),
-                              ],
-                              const SizedBox(height: 6),
-                              Row(children: [
-                                if (source.isNotEmpty)
-                                  Text(source,
-                                      style: const TextStyle(
-                                          fontSize: 10,
-                                          color: AppColors.textMuted)),
-                                if (source.isNotEmpty && time.isNotEmpty)
-                                  const SizedBox(width: 8),
-                                if (time.isNotEmpty)
-                                  Text(time,
-                                      style: const TextStyle(
-                                          fontSize: 10,
-                                          color: AppColors.textMuted)),
-                              ]),
-                            ]),
-                      );
+      ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator(color: AppColors.quantumEmerald))
+          : TabBarView(
+              controller: _tabController,
+              children: [
+                _buildNewsTab(),
+                _buildDisclosuresTab(),
+              ],
+            ),
+    );
+  }
+
+  Widget _buildNewsTab() {
+    return RefreshIndicator(
+      color: AppColors.quantumEmerald,
+      backgroundColor: AppColors.quantumGlass,
+      onRefresh: _loadData,
+      child: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          // Filter chips
+          SizedBox(
+            height: 38,
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              itemCount: _categories.length,
+              itemBuilder: (context, index) {
+                final cat = _categories[index];
+                final isSelected = cat == _selectedCategory;
+                return Padding(
+                  padding: const EdgeInsets.only(left: 8.0),
+                  child: FilterChip(
+                    label: Text(cat),
+                    selected: isSelected,
+                    onSelected: (val) {
+                      setState(() => _selectedCategory = cat);
                     },
+                    selectedColor: AppColors.quantumEmerald,
+                    backgroundColor: AppColors.quantumGlass,
+                    labelStyle: TextStyle(
+                      color: isSelected ? Colors.black : Colors.white70,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20),
+                      side: BorderSide(
+                        color: isSelected ? AppColors.quantumEmerald : AppColors.quantumGlassBorder,
+                      ),
+                    ),
                   ),
+                );
+              },
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          if (_newsList.isEmpty)
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.all(40),
+                child: Text('لا توجد أخبار حديثة حالياً', style: TextStyle(color: Colors.white.withOpacity(0.5))),
+              ),
+            )
+          else
+            ..._newsList.map((item) {
+              final title = item['title'] ?? item['headline'] ?? 'خبر اقتصادي عاجل';
+              final source = item['source'] ?? 'البورصة المصرية';
+              final time = item['published_at'] ?? item['time'] ?? 'منذ ساعتين';
+
+              return Container(
+                margin: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: AppColors.quantumGlass,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: AppColors.quantumGlassBorder),
                 ),
-              ]),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: AppColors.quantumEmerald.withOpacity(0.15),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(source, style: const TextStyle(color: AppColors.quantumEmerald, fontSize: 11, fontWeight: FontWeight.bold)),
+                        ),
+                        Text(time, style: const TextStyle(color: Colors.white38, fontSize: 11)),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    Text(title, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14, height: 1.4)),
+                  ],
+                ),
+              );
+            }).toList(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDisclosuresTab() {
+    return RefreshIndicator(
+      color: AppColors.quantumEmerald,
+      backgroundColor: AppColors.quantumGlass,
+      onRefresh: _loadData,
+      child: ListView.builder(
+        padding: const EdgeInsets.all(16),
+        itemCount: _disclosures.isEmpty ? 1 : _disclosures.length,
+        itemBuilder: (context, index) {
+          if (_disclosures.isEmpty) {
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(40),
+                child: Text('لا توجد إفصاحات شركات مسجلة', style: TextStyle(color: Colors.white.withOpacity(0.5))),
+              ),
             );
-          },
-        ),
+          }
+          final item = _disclosures[index];
+          return Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: AppColors.quantumGlass,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: AppColors.quantumGlassBorder),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    GestureDetector(
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => StockHistoryScreen(ticker: item.symbol),
+                          ),
+                        );
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: AppColors.quantumGold.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: AppColors.quantumGold.withOpacity(0.4)),
+                        ),
+                        child: Text(
+                          item.symbol,
+                          style: const TextStyle(color: AppColors.quantumGold, fontWeight: FontWeight.bold, fontSize: 12),
+                        ),
+                      ),
+                    ),
+                    Text(
+                      '${item.date.day}/${item.date.month}/${item.date.year}',
+                      style: const TextStyle(color: Colors.white38, fontSize: 11),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Text(item.title, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
+                if (item.summary != null) ...[
+                  const SizedBox(height: 6),
+                  Text(item.summary!, style: const TextStyle(color: Colors.white70, fontSize: 12, height: 1.3)),
+                ],
+              ],
+            ),
+          );
+        },
       ),
     );
   }
