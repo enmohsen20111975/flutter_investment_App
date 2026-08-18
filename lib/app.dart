@@ -973,27 +973,6 @@ class _MainNavigatorState extends State<MainNavigator> {
     );
   }
 
-            const Divider(),
-
-            // ── Website ──
-            _buildDrawerItem(Icons.language, 'فتح الموقع',
-                () => _navigateTo(const WebViewScreen())),
-
-            const SizedBox(height: 20),
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 20),
-              child: Text(
-                'الإصدار 2.0.0 • © 2024 مساعد الاستثمار',
-                style: TextStyle(fontSize: 10, color: AppColors.textMuted),
-              ),
-            ),
-            const SizedBox(height: 20),
-          ],
-        ),
-      ),
-    );
-  }
-
   Future<void> _handleLogout() async {
     final confirm = await showDialog<bool>(
       context: context,
