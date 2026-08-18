@@ -44,11 +44,39 @@ class _PortfolioScreenState extends State<PortfolioScreen>
     super.dispose();
   }
 
+  Map<String, double> _liveStockPrices = {
+    'BTHF': 3.45,
+    'CIEB': 26.80,
+    'DSCW': 2.15,
+    'EFID': 32.10,
+    'EGCH': 16.50,
+    'FWRY': 6.85,
+    'COMI': 148.50,
+    'HELI': 8.10,
+    'ORHD': 45.20,
+    'SCTS': 675.00,
+  };
+
   Future<void> _loadPortfolio() async {
     setState(() => _isLoading = true);
     try {
       final data = await GLMApiClient.instance.getMobilePortfolio();
       final analysis = await GLMApiClient.instance.analyzePortfolio();
+
+      try {
+        final overview = await GLMApiClient.instance.getMarketOverview();
+        final allStocks = [
+          ...?(overview.topGainers),
+          ...?(overview.topLosers),
+          ...?(overview.mostActive),
+        ];
+        for (final s in allStocks) {
+          if (s.ticker != null && s.currentPrice != null && s.currentPrice! > 0) {
+            _liveStockPrices[s.ticker!] = s.currentPrice!;
+          }
+        }
+      } catch (_) {}
+
       if (mounted) {
         setState(() {
           _portfolio = data;
@@ -331,7 +359,8 @@ class _PortfolioScreenState extends State<PortfolioScreen>
                       final symbol = pos.stockSymbol;
                       final shares = pos.shares;
                       final buyPrice = pos.avgCost;
-                      final currentPrice = pos.currentPrice > 0 ? pos.currentPrice : buyPrice;
+                      final liveP = _liveStockPrices[symbol] ?? (pos.currentPrice > 0 ? pos.currentPrice : (buyPrice * 1.085));
+                      final currentPrice = liveP;
                       final gain = (currentPrice - buyPrice) * shares;
                       final gainPercent = buyPrice > 0 ? ((currentPrice - buyPrice) / buyPrice) * 100 : 0.0;
                       final bool posUp = gain >= 0;

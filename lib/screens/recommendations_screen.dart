@@ -176,18 +176,50 @@ class _RecommendationsScreenState extends State<RecommendationsScreen> {
         }
       }
 
-      // Filter recommendations locally by active market.
+      // Filter recommendations locally by active market, persona, and status.
       List<ExpertRecommendation> filteredRecs = <ExpertRecommendation>[];
       for (final rec in recs) {
         final symbol = rec.stockSymbol ?? '';
         final isNumeric4 = RegExp(r'^\d{4}$').hasMatch(symbol.trim());
-        if (market == 'TADAWUL') {
-          if (isNumeric4) filteredRecs.add(rec);
-        } else if (market == 'EGX') {
-          if (!isNumeric4) filteredRecs.add(rec);
-        } else {
-          filteredRecs.add(rec);
+        
+        // 1. Market Filter
+        if (market == 'TADAWUL' && !isNumeric4) continue;
+        if (market == 'EGX' && isNumeric4) continue;
+
+        // 2. Persona Filter
+        if (_selectedPersona != 'all') {
+          final personaStr = '${rec.action ?? ''} ${rec.notes ?? ''} ${rec.recommendationDate ?? ''}'.toLowerCase();
+          if (_selectedPersona == 'gambler') {
+            final isGambler = personaStr.contains('gambler') || personaStr.contains('high') || personaStr.contains('مضارب') || personaStr.contains('t1_buy') || personaStr.contains('سريع');
+            if (!isGambler) continue;
+          } else if (_selectedPersona == 'balanced') {
+            final isBalanced = personaStr.contains('balanced') || personaStr.contains('medium') || personaStr.contains('متوازن') || personaStr.contains('t2_buy');
+            if (!isBalanced) continue;
+          } else if (_selectedPersona == 'conservative') {
+            final isConservative = personaStr.contains('conservative') || personaStr.contains('low') || personaStr.contains('محافظ') || personaStr.contains('investor') || personaStr.contains('احتفاظ');
+            if (!isConservative) continue;
+          }
         }
+
+        // 3. Status Filter
+        if (_statusFilter != 'all') {
+          final statusStr = _normalizeStatus(rec.status);
+          if (_statusFilter == 'pending') {
+            final isPending = statusStr == 'pending' || statusStr.contains('انتظار') || statusStr == 'open' || statusStr == 'active' || (rec.hitTarget != true && rec.hitStopLoss != true && statusStr != 'expired');
+            if (!isPending) continue;
+          } else if (_statusFilter == 'target_hit') {
+            final isTargetHit = statusStr == 'target_hit' || statusStr.contains('هدف') || statusStr == 'success' || rec.hitTarget == true;
+            if (!isTargetHit) continue;
+          } else if (_statusFilter == 'stopped') {
+            final isStopped = statusStr == 'stopped' || statusStr.contains('توقف') || statusStr == 'sl_hit' || rec.hitStopLoss == true;
+            if (!isStopped) continue;
+          } else if (_statusFilter == 'expired') {
+            final isExpired = statusStr == 'expired' || statusStr.contains('منتهي') || statusStr == 'closed';
+            if (!isExpired) continue;
+          }
+        }
+
+        filteredRecs.add(rec);
       }
       recs = filteredRecs;
 

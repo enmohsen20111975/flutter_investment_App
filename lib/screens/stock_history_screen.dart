@@ -136,108 +136,110 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator(color: AppColors.quantumEmerald))
-          : Column(
-              children: [
-                // Top Quote Summary Header
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: const BoxDecoration(
-                    color: AppColors.quantumSurface,
-                    border: Border(bottom: BorderSide(color: AppColors.quantumGlassBorder)),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          : NestedScrollView(
+              headerSliverBuilder: (context, innerBoxIsScrolled) => [
+                SliverToBoxAdapter(
+                  child: Column(
                     children: [
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            '$price ج.م',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 26,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: (isUp ? AppColors.quantumEmerald : AppColors.quantumCrimson).withOpacity(0.2),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Row(
+                      // Top Quote Summary Header
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: const BoxDecoration(
+                          color: AppColors.quantumSurface,
+                          border: Border(bottom: BorderSide(color: AppColors.quantumGlassBorder)),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Icon(
-                                  isUp ? Icons.arrow_drop_up : Icons.arrow_drop_down,
-                                  color: isUp ? AppColors.quantumEmerald : AppColors.quantumCrimson,
-                                ),
                                 Text(
-                                  '${isUp ? '+' : ''}${changeNum.toStringAsFixed(2)}%',
-                                  style: TextStyle(
-                                    color: isUp ? AppColors.quantumEmerald : AppColors.quantumCrimson,
+                                  '$price ج.م',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 24,
                                     fontWeight: FontWeight.bold,
-                                    fontSize: 13,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: (isUp ? AppColors.quantumEmerald : AppColors.quantumCrimson).withValues(alpha: 0.2),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        isUp ? Icons.arrow_drop_up : Icons.arrow_drop_down,
+                                        color: isUp ? AppColors.quantumEmerald : AppColors.quantumCrimson,
+                                      ),
+                                      Text(
+                                        '${isUp ? '+' : ''}${changeNum.toStringAsFixed(2)}%',
+                                        style: TextStyle(
+                                          color: isUp ? AppColors.quantumEmerald : AppColors.quantumCrimson,
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
                               ],
                             ),
-                          ),
-                        ],
+                            // Quick metrics
+                            Row(
+                              children: [
+                                _buildQuickMetric('الأعلى', '${_stockQuote?['high'] ?? 30.10}'),
+                                const SizedBox(width: 12),
+                                _buildQuickMetric('الأدنى', '${_stockQuote?['low'] ?? 28.90}'),
+                                const SizedBox(width: 12),
+                                _buildQuickMetric('الحجم', '${_stockQuote?['volume'] ?? '1.2M'}'),
+                              ],
+                            ),
+                          ],
+                        ),
                       ),
-                      // Quick metrics
-                      Row(
-                        children: [
-                          _buildQuickMetric('الأعلى', '${_stockQuote?['high'] ?? 30.10}'),
-                          const SizedBox(width: 16),
-                          _buildQuickMetric('الأدنى', '${_stockQuote?['low'] ?? 28.90}'),
-                          const SizedBox(width: 16),
-                          _buildQuickMetric('الحجم', '${_stockQuote?['volume'] ?? '1.2M'}'),
-                        ],
+                      // TradingView Chart Widget Container
+                      const SizedBox(
+                        height: 220,
+                        child: TradingViewChartWithControls(
+                          darkTheme: true,
+                        ),
                       ),
                     ],
                   ),
                 ),
-
-                // TradingView Chart Widget
-                const SizedBox(
-                  height: 280,
-                  child: TradingViewChartWithControls(
-                    darkTheme: true,
-                  ),
-                ),
-
-                // Sub-tabs (Orderbook, Fundamentals, Disclosures, Recommendation)
-                Container(
-                  color: AppColors.quantumSurface,
-                  child: TabBar(
-                    controller: _tabController,
-                    indicatorColor: AppColors.quantumEmerald,
-                    labelColor: AppColors.quantumEmerald,
-                    unselectedLabelColor: Colors.white60,
-                    labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                    tabs: const [
-                      Tab(text: 'عمق السوق'),
-                      Tab(text: 'البيانات المالية'),
-                      Tab(text: 'الإفصاحات'),
-                      Tab(text: 'التحليل والـ AI'),
-                    ],
-                  ),
-                ),
-
-                // Tab Views
-                Expanded(
-                  child: TabBarView(
-                    controller: _tabController,
-                    children: [
-                      _buildOrderBookTab(),
-                      _buildFundamentalsTab(),
-                      _buildDisclosuresTab(),
-                      _buildRecommendationTab(),
-                    ],
+                SliverPersistentHeader(
+                  pinned: true,
+                  delegate: _SliverTabBarDelegate(
+                    TabBar(
+                      controller: _tabController,
+                      indicatorColor: AppColors.quantumEmerald,
+                      labelColor: AppColors.quantumEmerald,
+                      unselectedLabelColor: Colors.white60,
+                      labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                      tabs: const [
+                        Tab(text: 'عمق السوق'),
+                        Tab(text: 'البيانات المالية'),
+                        Tab(text: 'الإفصاحات'),
+                        Tab(text: 'التحليل والـ AI'),
+                      ],
+                    ),
                   ),
                 ),
               ],
+              body: TabBarView(
+                controller: _tabController,
+                children: [
+                  _buildOrderBookTab(),
+                  _buildFundamentalsTab(),
+                  _buildDisclosuresTab(),
+                  _buildRecommendationTab(),
+                ],
+              ),
             ),
     );
   }
@@ -517,10 +519,34 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
   Widget _buildRecPriceMetric(String title, String val, Color col) {
     return Column(
       children: [
-        Text(title, style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 12)),
+        Text(title, style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 12)),
         const SizedBox(height: 4),
         Text(val, style: TextStyle(color: col, fontWeight: FontWeight.bold, fontSize: 16)),
       ],
     );
+  }
+}
+
+class _SliverTabBarDelegate extends SliverPersistentHeaderDelegate {
+  final TabBar tabBar;
+  _SliverTabBarDelegate(this.tabBar);
+
+  @override
+  double get minExtent => tabBar.preferredSize.height;
+
+  @override
+  double get maxExtent => tabBar.preferredSize.height;
+
+  @override
+  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
+    return Container(
+      color: AppColors.quantumSurface,
+      child: tabBar,
+    );
+  }
+
+  @override
+  bool shouldRebuild(_SliverTabBarDelegate oldDelegate) {
+    return false;
   }
 }

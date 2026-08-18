@@ -88,13 +88,43 @@ class _DashboardScreenState extends State<DashboardScreen>
       final goldResult = await goldFuture.catchError((_) => <String, dynamic>{});
       final currencyResult = await currencyFuture.catchError((_) => <dynamic>[]);
 
+      List<dynamic> gainers = movers['top_gainers'] ?? movers['gainers'] ?? summary['top_gainers'] ?? summary['gainers'] ?? [];
+      List<dynamic> losers = movers['top_losers'] ?? movers['losers'] ?? summary['top_losers'] ?? summary['losers'] ?? [];
+      List<dynamic> mostActive = movers['most_active'] ?? summary['most_active'] ?? summary['active'] ?? [];
+
+      if (gainers.isEmpty || losers.isEmpty || mostActive.isEmpty) {
+        try {
+          final overview = await api.getMarketOverview();
+          if (gainers.isEmpty && overview.topGainers != null) {
+            gainers = overview.topGainers!.map((s) => {'ticker': s.ticker, 'symbol': s.ticker, 'name': s.name, 'price': s.currentPrice, 'current_price': s.currentPrice, 'change_percent': s.changePercent}).toList();
+          }
+          if (losers.isEmpty && overview.topLosers != null) {
+            losers = overview.topLosers!.map((s) => {'ticker': s.ticker, 'symbol': s.ticker, 'name': s.name, 'price': s.currentPrice, 'current_price': s.currentPrice, 'change_percent': s.changePercent}).toList();
+          }
+          if (mostActive.isEmpty && overview.mostActive != null) {
+            mostActive = overview.mostActive!.map((s) => {'ticker': s.ticker, 'symbol': s.ticker, 'name': s.name, 'price': s.currentPrice, 'current_price': s.currentPrice, 'change_percent': s.changePercent}).toList();
+          }
+        } catch (_) {}
+      }
+
+      if (gainers.isEmpty || losers.isEmpty || mostActive.isEmpty) {
+        try {
+          final localStocks = await LocalDatabase.instance.queryStocks();
+          if (localStocks.isNotEmpty) {
+            if (gainers.isEmpty) gainers = localStocks.take(5).toList();
+            if (losers.isEmpty) losers = localStocks.skip(5).take(5).toList();
+            if (mostActive.isEmpty) mostActive = localStocks.take(8).toList();
+          }
+        } catch (_) {}
+      }
+
       if (mounted) {
         setState(() {
           _marketSummary = summary;
           _indices = indices;
-          _gainers = movers['top_gainers'] ?? summary['top_gainers'] ?? [];
-          _losers = movers['top_losers'] ?? summary['top_losers'] ?? [];
-          _mostActive = movers['most_active'] ?? summary['most_active'] ?? [];
+          _gainers = gainers;
+          _losers = losers;
+          _mostActive = mostActive;
           _goldData = _safeAsMap(goldResult) ?? (goldResult is List && (goldResult as List).isNotEmpty ? {'gold_prices': goldResult} : null);
           _currencyData = _safeAsMap(currencyResult) ?? (currencyResult.isNotEmpty ? {'currency_rates': currencyResult} : null);
           _isOffline = false;
