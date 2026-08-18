@@ -36,6 +36,8 @@ import 'screens/trading_journal_screen.dart';
 import 'screens/smart_confluence_screen.dart';
 import 'screens/live_monitor_screen.dart';
 import 'screens/academy_screen.dart';
+import 'screens/academy_encyclopedia_screen.dart';
+import 'screens/candle_simulator_screen.dart';
 import 'screens/risk_profiler_screen.dart';
 import 'screens/persona_screen.dart';
 import 'api/client.dart';
@@ -466,6 +468,32 @@ class _MainNavigatorState extends State<MainNavigator> {
           index: _currentIndex,
           children: _screens,
         ),
+        floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+        floatingActionButton: Container(
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [AppColors.quantumEmerald, AppColors.quantumGold],
+            ),
+            borderRadius: BorderRadius.circular(30),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.quantumEmerald.withValues(alpha: 0.4),
+                blurRadius: 16,
+                spreadRadius: 2,
+              ),
+            ],
+          ),
+          child: FloatingActionButton.extended(
+            onPressed: () => _showQuickHubModal(context),
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            icon: const Icon(Icons.bolt_rounded, color: Colors.black, size: 22),
+            label: const Text(
+              'الأوامر السريعة',
+              style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 13),
+            ),
+          ),
+        ),
         bottomNavigationBar: Container(
           decoration: const BoxDecoration(
             gradient: LinearGradient(
@@ -544,16 +572,17 @@ class _MainNavigatorState extends State<MainNavigator> {
   }
 
   // ===========================================================================
-  // Side Drawer
+  // Side Drawer (Categorized Tree Structure)
   // ===========================================================================
   Widget _buildDrawer() {
     return Drawer(
+      backgroundColor: AppColors.quantumBg,
       child: Directionality(
         textDirection: TextDirection.rtl,
         child: ListView(
           padding: EdgeInsets.zero,
           children: [
-            // Header with user info
+            // Header with user profile info
             Container(
               padding: const EdgeInsets.fromLTRB(20, 50, 20, 20),
               decoration: const BoxDecoration(
@@ -585,9 +614,9 @@ class _MainNavigatorState extends State<MainNavigator> {
                           color: AppColors.white,
                           fontFamily: 'Cairo')),
                   const SizedBox(height: 4),
-                  Text('منصة الاستثمار الذكية',
+                  Text('منصة الاستثمار الذكية Quantum 2.0',
                       style: TextStyle(
-                          fontSize: 13,
+                          fontSize: 12,
                           color: AppColors.white.withValues(alpha: 0.8))),
                   if (_isLoggedIn && _user != null) ...[
                     const SizedBox(height: 12),
@@ -665,142 +694,284 @@ class _MainNavigatorState extends State<MainNavigator> {
               ),
             ),
 
-            // ── Quick Access ──
-            const Padding(
-              padding: EdgeInsets.fromLTRB(20, 20, 20, 8),
-              child: Text('الوصول السريع',
-                  style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.textMuted)),
+            const SizedBox(height: 8),
+
+            // ── Tree Category 1: الأسواق والأصول المالية ──
+            _buildTreeCategory(
+              title: 'الأسواق والأصول المالية',
+              icon: Icons.candlestick_chart_rounded,
+              badgeCount: '6',
+              accentColor: AppColors.quantumEmerald,
+              children: [
+                _buildTreeSubItem(Icons.domain_rounded, 'الأسهم المصرية والخليجية', () {
+                  setState(() => _currentIndex = 1);
+                }),
+                _buildTreeSubItem(Icons.currency_bitcoin_rounded, 'الكريبتو والعملات الرقمية', () {
+                  setState(() => _currentIndex = 3);
+                }),
+                _buildTreeSubItem(Icons.diamond_rounded, 'الذهب والمعادن وعيار 21', () => _navigateTo(const MetalsScreen())),
+                _buildTreeSubItem(Icons.currency_exchange_rounded, 'أسعار صرف العملات الأجنبية', () => _navigateTo(const CurrencyScreen())),
+                _buildTreeSubItem(Icons.bar_chart_rounded, 'تفاصيل وشارت السهم', () => _navigateTo(const StockHistoryScreen(ticker: 'EGX'))),
+                _buildTreeSubItem(Icons.stacked_line_chart_rounded, 'الشارت التفاعلي الشامل', () => _navigateTo(const TradingChartScreen(ticker: 'EGX'))),
+              ],
             ),
-            _buildDrawerItem(Icons.notifications_outlined, 'الإشعارات',
-                () => _navigateTo(const NotificationsScreen())),
-            _buildDrawerItem(Icons.visibility_outlined, 'قائمة المراقبة',
-                () => _navigateTo(const WatchlistScreen())),
-            _buildDrawerItem(Icons.history, 'تاريخ الأسهم',
-                () => _navigateTo(const StockHistoryScreen(ticker: 'EGX'))),
-            _buildDrawerItem(Icons.tune_outlined, 'التنبيهات',
-                () => _navigateTo(const AlertsScreen())),
-            _buildDrawerItem(Icons.auto_awesome_outlined, 'تحليل AI',
-                () => _navigateTo(const AiAnalysisScreen())),
 
-            const Divider(),
-
-            // ── Markets ──
-            const Padding(
-              padding: EdgeInsets.fromLTRB(20, 12, 20, 8),
-              child: Text('الأسواق',
-                  style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.textMuted)),
+            // ── Tree Category 2: الفرص وتوصيات AI ──
+            _buildTreeCategory(
+              title: 'الفرص والذكاء الاصطناعي',
+              icon: Icons.auto_awesome_rounded,
+              badgeCount: '6',
+              accentColor: AppColors.quantumGold,
+              children: [
+                _buildTreeSubItem(Icons.local_fire_department_rounded, 'صائد الفرص الانفجارية', () {
+                  setState(() => _currentIndex = 2);
+                }),
+                _buildTreeSubItem(Icons.hub_rounded, 'التلاقي الذكي (Confluence)', () => _navigateTo(const SmartConfluenceScreen())),
+                _buildTreeSubItem(Icons.psychology_rounded, 'تحليل ومحرك AI', () => _navigateTo(const AiAnalysisScreen())),
+                _buildTreeSubItem(Icons.batch_prediction_rounded, 'توصيات وتوقعات الخبراء', () => _navigateTo(const RecommendationsScreen())),
+                _buildTreeSubItem(Icons.filter_alt_rounded, 'المسح الفني المتعدد (Screener)', () => _navigateTo(const ScreenerScreen())),
+                _buildTreeSubItem(Icons.radar_rounded, 'المراقبة اللحظية والرادار', () => _navigateTo(const LiveMonitorScreen())),
+              ],
             ),
-            _buildDrawerItem(
-                Icons.trending_up,
-                'الأسهم',
-                () => setState(() {
-                      _currentIndex = 1;
-                      Navigator.pop(context);
-                    })),
-            _buildDrawerItem(
-                Icons.currency_bitcoin,
-                'الكريبتو',
-                () => setState(() {
-                      _currentIndex = 2;
-                      Navigator.pop(context);
-                    })),
-            _buildDrawerItem(Icons.swap_horiz, 'العملات',
-                () => _navigateTo(const CurrencyScreen())),
-            _buildDrawerItem(Icons.toll_outlined, 'الذهب والمعادن',
-                () => _navigateTo(const MetalsScreen())),
 
-            const Divider(),
-
-            // ── Analysis & Tools ──
-            const Padding(
-              padding: EdgeInsets.fromLTRB(20, 12, 20, 8),
-              child: Text('التحليل والأدوات',
-                  style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.textMuted)),
+            // ── Tree Category 3: أدوات واختبارات التداول ──
+            _buildTreeCategory(
+              title: 'أدوات واختبارات التداول',
+              icon: Icons.build_circle_rounded,
+              badgeCount: '5',
+              accentColor: AppColors.info,
+              children: [
+                _buildTreeSubItem(Icons.science_rounded, 'محاكاة التداول والاختبار', () => _navigateTo(const SimulationScreen())),
+                _buildTreeSubItem(Icons.menu_book_rounded, 'يومية وسجل التداول', () => _navigateTo(const TradingJournalScreen())),
+                _buildTreeSubItem(Icons.fact_check_rounded, 'تقييم دقة التوقعات', () => _navigateTo(const PredictionPerformanceScreen())),
+                _buildTreeSubItem(Icons.history_edu_rounded, 'مختبر التعلم والباك تيست', () => _navigateTo(const LearningBacktestScreen())),
+                _buildTreeSubItem(Icons.waterfall_chart_rounded, 'محاكاة الشموع اليابانية', () => _navigateTo(const CandleSimulatorScreen())),
+              ],
             ),
-            _buildDrawerItem(Icons.visibility, 'الفرص الاستثمارية',
-                () => _navigateTo(const HunterScreen())),
-            _buildDrawerItem(Icons.article_outlined, 'الأخبار',
-                () => _navigateTo(const NewsScreen())),
-            _buildDrawerItem(Icons.lightbulb_outline, 'التوقعات',
-                () => _navigateTo(const RecommendationsScreen())),
-            _buildDrawerItem(Icons.person_outline, 'الشخصيات الاستثمارية',
-                () => _navigateTo(const PersonaScreen())),
-            _buildDrawerItem(Icons.calculate_outlined, 'حاسبة الزكاة',
-                () => _navigateTo(const ZakatScreen())),
-            _buildDrawerItem(Icons.analytics_outlined, 'التعلم والاستراتيجيات',
-                () => _navigateTo(const LearningBacktestScreen())),
-            _buildDrawerItem(Icons.school_outlined, 'أكاديمية M2y التعليمية',
-                () => _navigateTo(const AcademyScreen())),
-            _buildDrawerItem(Icons.psychology_outlined, 'استبيان تحمّل المخاطر',
-                () => _navigateTo(const RiskProfilerScreen())),
 
-            const Divider(),
-
-            // ── Advanced Tools (NEW) ──
-            const Padding(
-              padding: EdgeInsets.fromLTRB(20, 12, 20, 8),
-              child: Text('أدوات متقدمة',
-                  style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.textMuted)),
+            // ── Tree Category 4: الأكاديمية والتقارير ──
+            _buildTreeCategory(
+              title: 'الأكاديمية والتقارير',
+              icon: Icons.school_rounded,
+              badgeCount: '5',
+              accentColor: Colors.purpleAccent,
+              children: [
+                _buildTreeSubItem(Icons.workspace_premium_rounded, 'أكاديمية M2y التعليمية', () => _navigateTo(const AcademyScreen())),
+                _buildTreeSubItem(Icons.menu_book_sharp, 'موسوعة الاستثمار', () => _navigateTo(const AcademyEncyclopediaScreen())),
+                _buildTreeSubItem(Icons.newspaper_rounded, 'الأخبار والخبر العاجل', () => _navigateTo(const NewsScreen())),
+                _buildTreeSubItem(Icons.article_rounded, 'التقارير اليومية والصباحية', () => _navigateTo(const ReportsScreen())),
+                _buildTreeSubItem(Icons.calculate_rounded, 'حاسبة الزكاة والاستثمار', () => _navigateTo(const ZakatScreen())),
+              ],
             ),
-            _buildDrawerItem(Icons.grid_view_rounded, 'المسح المتعدد (Screener)',
-                () => _navigateTo(const ScreenerScreen())),
-            _buildDrawerItem(Icons.candlestick_chart_outlined, 'الشارت التفاعلي',
-                () => _navigateTo(const TradingChartScreen(ticker: 'EGX'))),
-            _buildDrawerItem(Icons.description_outlined, 'التقارير اليومية',
-                () => _navigateTo(const ReportsScreen())),
-            _buildDrawerItem(Icons.science_outlined, 'محاكاة التداول',
-                () => _navigateTo(const SimulationScreen())),
-            _buildDrawerItem(Icons.fact_check_outlined, 'تقييم التوقعات',
-                () => _navigateTo(const PredictionPerformanceScreen())),
-            _buildDrawerItem(Icons.menu_book_outlined, 'يومية التداول',
-                () => _navigateTo(const TradingJournalScreen())),
-            _buildDrawerItem(Icons.hub_outlined, 'التلاقي الذكي',
-                () => _navigateTo(const SmartConfluenceScreen())),
-            _buildDrawerItem(Icons.radar_outlined, 'المراقبة اللحظية',
-                () => _navigateTo(const LiveMonitorScreen())),
 
-            const Divider(),
-
-            // ── Account ──
-            const Padding(
-              padding: EdgeInsets.fromLTRB(20, 12, 20, 8),
-              child: Text('الحساب',
-                  style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.textMuted)),
+            // ── Tree Category 5: المحفظة والحساب ──
+            _buildTreeCategory(
+              title: 'المحفظة والإعدادات',
+              icon: Icons.account_balance_wallet_rounded,
+              badgeCount: '6',
+              accentColor: AppColors.quantumEmerald,
+              children: [
+                _buildTreeSubItem(Icons.account_balance_wallet_rounded, 'المحفظة وتوزيع الأصول', () {
+                  setState(() => _currentIndex = 4);
+                }),
+                _buildTreeSubItem(Icons.visibility_rounded, 'قائمة المراقبة والمتابعة', () => _navigateTo(const WatchlistScreen())),
+                _buildTreeSubItem(Icons.tune_rounded, 'إدارة التنبيهات والأسعار', () => _navigateTo(const AlertsScreen())),
+                _buildTreeSubItem(Icons.notifications_rounded, 'مركز الإشعارات', () => _navigateTo(const NotificationsScreen())),
+                _buildTreeSubItem(Icons.card_membership_rounded, 'باقات الاشتراكات والترقية', () => _navigateTo(const SubscriptionScreen())),
+                _buildTreeSubItem(Icons.settings_rounded, 'الإعدادات العامة', () => _navigateTo(const SettingsScreen())),
+              ],
             ),
-            _buildDrawerItem(
-                Icons.wallet_outlined,
-                'المحفظة',
-                () => setState(() {
-                      _currentIndex = 3;
-                      Navigator.pop(context);
-                    })),
-            _buildDrawerItem(Icons.card_membership_outlined, 'الاشتراكات',
-                () => _navigateTo(const SubscriptionScreen())),
-            _buildDrawerItem(Icons.settings_outlined, 'الإعدادات',
-                () => _navigateTo(const SettingsScreen())),
-            _buildDrawerItem(
-                Icons.login, _isLoggedIn ? 'تسجيل الخروج' : 'تسجيل الدخول', () {
-              if (_isLoggedIn) {
-                _handleLogout();
-              } else {
-                _navigateTo(const AuthScreen()).then((_) => _refreshAuth());
-              }
-            }),
+
+            const Divider(color: AppColors.quantumGlassBorder, height: 24),
+
+            // ── Quick Preferences ──
+            _buildTreeSubItem(Icons.psychology_alt_rounded, 'استبيان تحليل المخاطر', () => _navigateTo(const RiskProfilerScreen())),
+            _buildTreeSubItem(Icons.person_pin_rounded, 'الشخصية الاستثمارية', () => _navigateTo(const PersonaScreen())),
+            _buildTreeSubItem(Icons.language_rounded, 'فتح الموقع الإلكتروني', () => _navigateTo(const WebViewScreen())),
+            _buildTreeSubItem(
+              Icons.login, _isLoggedIn ? 'تسجيل الخروج' : 'تسجيل الدخول', () {
+                if (_isLoggedIn) {
+                  _handleLogout();
+                } else {
+                  _navigateTo(const AuthScreen()).then((_) => _refreshAuth());
+                }
+              },
+            ),
+
+            const SizedBox(height: 16),
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 20),
+              child: Text(
+                'الإصدار 2.0.2 • © 2026 مساعد الاستثمار',
+                style: TextStyle(fontSize: 10, color: Colors.white38),
+              ),
+            ),
+            const SizedBox(height: 24),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTreeCategory({
+    required String title,
+    required IconData icon,
+    required String badgeCount,
+    required Color accentColor,
+    required List<Widget> children,
+  }) {
+    return Theme(
+      data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+      child: ExpansionTile(
+        leading: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: accentColor.withValues(alpha: 0.15),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: accentColor.withValues(alpha: 0.3)),
+          ),
+          child: Icon(icon, color: accentColor, size: 20),
+        ),
+        title: Text(
+          title,
+          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+        ),
+        trailing: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+          decoration: BoxDecoration(
+            color: accentColor.withValues(alpha: 0.2),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Text(
+            badgeCount,
+            style: TextStyle(color: accentColor, fontSize: 11, fontWeight: FontWeight.bold),
+          ),
+        ),
+        children: children,
+      ),
+    );
+  }
+
+  Widget _buildTreeSubItem(IconData icon, String title, VoidCallback onTap) {
+    return ListTile(
+      contentPadding: const EdgeInsets.only(right: 28, left: 16),
+      leading: Icon(icon, color: Colors.white70, size: 18),
+      title: Text(
+        title,
+        style: const TextStyle(color: Colors.white70, fontSize: 12),
+      ),
+      onTap: () {
+        Navigator.pop(context);
+        onTap();
+      },
+    );
+  }
+
+  void _showQuickHubModal(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (ctx) => Container(
+        padding: const EdgeInsets.all(20),
+        decoration: const BoxDecoration(
+          color: AppColors.quantumSurface,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          border: Border(top: BorderSide(color: AppColors.quantumGlassBorder)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Row(
+                  children: [
+                    Icon(Icons.bolt_rounded, color: AppColors.quantumGold, size: 22),
+                    SizedBox(width: 8),
+                    Text(
+                      'مركز الأوامر والوصول السريع',
+                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                    ),
+                  ],
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close_rounded, color: Colors.white54),
+                  onPressed: () => Navigator.pop(ctx),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            GridView.count(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              crossAxisCount: 3,
+              mainAxisSpacing: 12,
+              crossAxisSpacing: 12,
+              childAspectRatio: 1.1,
+              children: [
+                _buildQuickHubTile(Icons.local_fire_department_rounded, 'صائد الفرص', AppColors.danger, () {
+                  Navigator.pop(ctx);
+                  setState(() => _currentIndex = 2);
+                }),
+                _buildQuickHubTile(Icons.hub_rounded, 'التلاقي الذكي', AppColors.quantumGold, () {
+                  Navigator.pop(ctx);
+                  _navigateTo(const SmartConfluenceScreen());
+                }),
+                _buildQuickHubTile(Icons.stacked_line_chart_rounded, 'الشارت التفاعلي', AppColors.info, () {
+                  Navigator.pop(ctx);
+                  _navigateTo(const TradingChartScreen(ticker: 'EGX'));
+                }),
+                _buildQuickHubTile(Icons.diamond_rounded, 'الذهب والعملات', AppColors.quantumEmerald, () {
+                  Navigator.pop(ctx);
+                  _navigateTo(const MetalsScreen());
+                }),
+                _buildQuickHubTile(Icons.psychology_rounded, 'تحليل AI', Colors.purpleAccent, () {
+                  Navigator.pop(ctx);
+                  _navigateTo(const AiAnalysisScreen());
+                }),
+                _buildQuickHubTile(Icons.calculate_rounded, 'حاسبة الزكاة', AppColors.quantumGold, () {
+                  Navigator.pop(ctx);
+                  _navigateTo(const ZakatScreen());
+                }),
+              ],
+            ),
+            const SizedBox(height: 16),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildQuickHubTile(IconData icon, String label, Color color, VoidCallback onTap) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: AppColors.quantumGlass,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: color.withValues(alpha: 0.3)),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, color: color, size: 24),
+            const SizedBox(height: 6),
+            Text(
+              label,
+              style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
             const Divider(),
 
