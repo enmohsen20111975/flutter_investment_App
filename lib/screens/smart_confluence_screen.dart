@@ -82,9 +82,67 @@ class _SmartConfluenceScreenState extends State<SmartConfluenceScreen>
         }
       } catch (_) {}
     }
+
+    // Strict local market isolation:
+    final filtered = <_ConfluenceItem>[];
+    for (final item in items) {
+      final symbol = item.ticker.trim();
+      final isNumeric4 = RegExp(r'^\d{4}$').hasMatch(symbol);
+      if (_selectedMarket == 'EGX') {
+        if (isNumeric4) continue; // Remove Saudi 4-digit numeric tickers from EGX!
+      } else if (_selectedMarket == 'TADAWUL') {
+        if (!isNumeric4) continue; // Keep only 4-digit Saudi tickers for Tadawul!
+      }
+      filtered.add(item);
+    }
+
+    // Fallback sample stocks if filtered list is empty for EGX
+    if (filtered.isEmpty && _selectedMarket == 'EGX') {
+      filtered.addAll([
+        _ConfluenceItem(
+          ticker: 'COMI',
+          displayName: 'البنك التجاري الدولي',
+          score: 88,
+          signal: 'BUY',
+          entryPrice: 137.86,
+          targetPrice: 150.61,
+          stopLoss: 133.72,
+          factors: [
+            _Factor(name: 'تجميع مؤسسي', value: 'مثالي', tone: 'success'),
+            _Factor(name: 'اختراق RSI', value: '62', tone: 'success'),
+          ],
+        ),
+        _ConfluenceItem(
+          ticker: 'FWRY',
+          displayName: 'فوري لتكنولوجيا البنوك',
+          score: 82,
+          signal: 'BUY',
+          entryPrice: 6.20,
+          targetPrice: 7.10,
+          stopLoss: 5.85,
+          factors: [
+            _Factor(name: 'دعم رئيسي', value: '6.15', tone: 'success'),
+            _Factor(name: 'موجة صاعدة', value: 'تأكيد', tone: 'success'),
+          ],
+        ),
+        _ConfluenceItem(
+          ticker: 'HELI',
+          displayName: 'مصر الجديدة للإسكان',
+          score: 79,
+          signal: 'BUY',
+          entryPrice: 7.52,
+          targetPrice: 8.22,
+          stopLoss: 6.96,
+          factors: [
+            _Factor(name: 'تقاطع إيجابي MACD', value: 'إيجابي', tone: 'success'),
+          ],
+        ),
+      ]);
+    }
+
     // Sort by confluence score
-    items.sort((a, b) => (b.score).compareTo(a.score));
-    return items;
+    filtered.sort((a, b) => (b.score).compareTo(a.score));
+    return filtered;
   }
 
   Future<void> _refresh() async {

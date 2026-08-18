@@ -204,7 +204,7 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
                       ),
                       // TradingView Chart Widget Container
                       const SizedBox(
-                        height: 220,
+                        height: 260,
                         child: TradingViewChartWithControls(
                           darkTheme: true,
                         ),

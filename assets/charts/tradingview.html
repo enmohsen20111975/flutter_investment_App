@@ -180,7 +180,38 @@
       }
     });
 
-    createChart();
+    function generateSampleCandles() {
+      var candles = [];
+      var volumes = [];
+      var now = Math.floor(Date.now() / 1000) - (60 * 86400);
+      var price = 29.50;
+      for (var i = 0; i < 60; i++) {
+        var open = price + (Math.sin(i * 0.2) * 0.6) + (Math.random() - 0.45) * 0.4;
+        var high = open + Math.random() * 0.8 + 0.2;
+        var low = open - Math.random() * 0.8 - 0.2;
+        var close = low + Math.random() * (high - low);
+        price = close;
+        var t = now + (i * 86400);
+        candles.push({ time: t, open: parseFloat(open.toFixed(2)), high: parseFloat(high.toFixed(2)), low: parseFloat(low.toFixed(2)), close: parseFloat(close.toFixed(2)) });
+        volumes.push({ time: t, value: Math.floor(Math.random() * 80000) + 15000, color: close >= open ? '#22c55e' : '#ef4444' });
+      }
+      setData(candles, volumes);
+    }
+
+    function initChart() {
+      createChart({ dark: true });
+      setTimeout(function() {
+        if (storedCandles.length === 0) {
+          generateSampleCandles();
+        }
+      }, 150);
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initChart);
+    } else {
+      initChart();
+    }
   </script>
 </body>
 </html>

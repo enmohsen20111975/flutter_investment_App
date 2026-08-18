@@ -184,9 +184,8 @@ class _TradingViewChartWithControlsState extends State<TradingViewChartWithContr
     return Column(
       children: [
         _buildControls(),
-        const SizedBox(height: 8),
-        SizedBox(
-          height: 300,
+        const SizedBox(height: 6),
+        Expanded(
           child: TradingViewChart(
             key: _chartKey,
             chartType: _chartType,
