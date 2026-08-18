@@ -2,8 +2,10 @@
 // مساعد الاستثمار Flutter - Prediction Performance Screen
 // Tracks historical prediction accuracy (win/loss) and metrics
 // API: /api/mobile/predictions?status=closed
+//      /api/predictions/performance-dashboard (for freshness + backend metrics)
 // ============================================================================
 
+import 'dart:async';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import '../theme/colors.dart';
@@ -11,6 +13,7 @@ import '../theme/typography.dart';
 import '../api/client.dart';
 import '../widgets/state_view.dart';
 import '../widgets/skeleton_loader.dart';
+import '../widgets/freshness_badge.dart';
 
 class PredictionPerformanceScreen extends StatefulWidget {
   const PredictionPerformanceScreen({super.key});
@@ -23,11 +26,31 @@ class PredictionPerformanceScreen extends StatefulWidget {
 class _PredictionPerformanceScreenState
     extends State<PredictionPerformanceScreen> {
   Future<List<_ClosedPrediction>>? _predictionsFuture;
+  Future<Map<String, dynamic>?>? _dashboardFuture;
+
+  // ── 60s auto-refresh ──
+  Timer? _autoRefreshTimer;
 
   @override
   void initState() {
     super.initState();
     _predictionsFuture = _fetchPredictions();
+    _dashboardFuture = _fetchDashboard();
+    _startAutoRefresh();
+  }
+
+  @override
+  void dispose() {
+    _autoRefreshTimer?.cancel();
+    super.dispose();
+  }
+
+  void _startAutoRefresh() {
+    _autoRefreshTimer?.cancel();
+    _autoRefreshTimer = Timer.periodic(const Duration(seconds: 60), (_) {
+      if (!mounted) return;
+      _refresh();
+    });
   }
 
   Future<List<_ClosedPrediction>> _fetchPredictions() async {
@@ -45,9 +68,20 @@ class _PredictionPerformanceScreenState
     }
   }
 
+  /// Fetch the backend-computed dashboard (freshness_info + overall metrics).
+  /// Failures are swallowed — the screen keeps showing client-side metrics.
+  Future<Map<String, dynamic>?> _fetchDashboard() async {
+    try {
+      return await api.getPerformanceDashboard(days: 30);
+    } catch (_) {
+      return null;
+    }
+  }
+
   Future<void> _refresh() async {
     setState(() {
       _predictionsFuture = _fetchPredictions();
+      _dashboardFuture = _fetchDashboard();
     });
   }
 
@@ -97,6 +131,8 @@ class _PredictionPerformanceScreenState
                 SliverToBoxAdapter(
                   child: Column(
                     children: [
+                      const SizedBox(height: 8),
+                      _buildFreshnessRow(),
                       const SizedBox(height: 8),
                       _buildStatsRow(metrics),
                       const SizedBox(height: 8),
@@ -198,6 +234,38 @@ class _PredictionPerformanceScreenState
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  /// Freshness row + 60s auto-refresh indicator. Pulls from
+  /// `/api/predictions/performance-dashboard` → `freshness_info`.
+  Widget _buildFreshnessRow() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      child: FutureBuilder<Map<String, dynamic>?>(
+        future: _dashboardFuture,
+        builder: (context, snap) {
+          final info = snap.data?['freshness_info'];
+          final infoMap = info is Map ? Map<String, dynamic>.from(info) : null;
+          return Row(
+            children: [
+              const Text('آخر تحديث: ',
+                  style: TextStyle(fontSize: 12, color: AppColors.textMuted)),
+              const SizedBox(width: 6),
+              Flexible(child: FreshnessBadge.fromInfo(infoMap, compact: true)),
+              const Spacer(),
+              Icon(Icons.autorenew_rounded,
+                  size: 14,
+                  color: AppColors.textMuted.withValues(alpha: 0.7)),
+              const SizedBox(width: 4),
+              Text('تحديث تلقائي كل 60 ثانية',
+                  style: TextStyle(
+                      fontSize: 10,
+                      color: AppColors.textMuted.withValues(alpha: 0.7))),
+            ],
+          );
+        },
       ),
     );
   }

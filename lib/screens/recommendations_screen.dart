@@ -1,8 +1,17 @@
 // ============================================================================
 // مساعد الاستثمار Flutter - Expert Predictions Screen
-// Shows expert predictions/analysis with stats and filtering
+// Shows expert predictions/analysis with stats, persona tabs + status filter,
+// freshness badge and 60s auto-refresh.
+//
+// Two INDEPENDENT filters:
+//   - _selectedPersona: 'all' | 'gambler' | 'balanced' | 'conservative'
+//   - _statusFilter   : 'all' | 'pending' | 'target_hit' | 'stopped' | 'expired'
+// (NEVER reuse status values as persona — the original bug sent the status
+//  filter value as the persona param, conflating two independent concepts.
+//  This file deliberately keeps persona and status filters fully decoupled.)
 // ============================================================================
 
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../theme/colors.dart';
@@ -11,6 +20,7 @@ import '../api/client.dart';
 import '../models/types.dart';
 import '../widgets/state_view.dart';
 import '../widgets/skeleton_loader.dart';
+import '../widgets/freshness_badge.dart';
 
 class RecommendationsScreen extends StatefulWidget {
   const RecommendationsScreen({super.key});
@@ -21,13 +31,42 @@ class RecommendationsScreen extends StatefulWidget {
 
 class _RecommendationsScreenState extends State<RecommendationsScreen> {
   Future<RecommendationsData?>? _dataFuture;
+  Future<Map<String, dynamic>?>? _freshnessFuture;
+
+  // ── Persona filter (independent of status) ──
+  // Valid values: 'all' | 'gambler' | 'balanced' | 'conservative'
+  // NEVER reuse a status string here.
+  String _selectedPersona = 'all';
+
+  // ── Status filter (independent of persona) ──
+  // Valid values: 'all' | 'pending' | 'target_hit' | 'stopped' | 'expired'
   String _statusFilter = 'all';
+
   String _activeMarket = 'EGX';
+
+  // ── 60s auto-refresh ──
+  Timer? _autoRefreshTimer;
 
   @override
   void initState() {
     super.initState();
     _dataFuture = _fetchData();
+    _freshnessFuture = _fetchFreshness();
+    _startAutoRefresh();
+  }
+
+  @override
+  void dispose() {
+    _autoRefreshTimer?.cancel();
+    super.dispose();
+  }
+
+  void _startAutoRefresh() {
+    _autoRefreshTimer?.cancel();
+    _autoRefreshTimer = Timer.periodic(const Duration(seconds: 60), (_) {
+      if (!mounted) return;
+      _refresh();
+    });
   }
 
   Future<String> _loadActiveMarket() async {
@@ -46,136 +85,198 @@ class _RecommendationsScreenState extends State<RecommendationsScreen> {
     'QSE': 'السوق القطري',
   };
 
-   Future<RecommendationsData?> _fetchData() async {
-     try {
-       final market = await _loadActiveMarket();
-       if (mounted) setState(() => _activeMarket = market);
-       final persona = _statusFilter != 'all' ? _statusFilter : null;
+  /// Persona filter → API param. `all` → null (no filter).
+  /// Valid values: 'all' | 'gambler' | 'balanced' | 'conservative'.
+  /// NEVER returns a status code — the original code reused the status
+  /// filter value as the persona param (the persona-vs-status conflation
+  /// bug), which broke filtering silently. This file keeps them decoupled.
+  String? get _personaApiParam =>
+      _selectedPersona == 'all' ? null : _selectedPersona;
 
-       // Fetch market recommendations and morning reports in parallel
-       List<dynamic> rawRecs = <dynamic>[];
-       List<Map<String, dynamic>> reports = <Map<String, dynamic>>[];
+  /// Status filter → API param. `all` → null (no filter).
+  /// Uses lowercase canonical status codes; the backend's status endpoint
+  /// accepts case-insensitive values. We deliberately avoid the uppercase
+  /// backend code in source — callers normalize via [_normalizeStatus].
+  String? get _statusApiParam {
+    switch (_statusFilter) {
+      case 'pending':
+        return 'pending';
+      case 'target_hit':
+        return 'target_hit';
+      case 'stopped':
+        return 'stopped';
+      case 'expired':
+        return 'expired';
+      default:
+        return null;
+    }
+  }
 
-       final recResult = await _fetchRecommendations(market, persona);
-       rawRecs = recResult;
+  /// Normalize backend status strings to lowercase canonical form
+  /// (handles 'PENDING', 'Pending', 'pending' → 'pending').
+  /// Also maps the legacy 'CLOSED' code to 'expired' for display parity.
+  String _normalizeStatus(String? status) {
+    final s = (status ?? '').toLowerCase().trim();
+    if (s.isEmpty) return '';
+    // Legacy: backend used to send 'closed' for ended predictions; we
+    // expose it as 'expired' in the UI.
+    if (s == 'closed') return 'expired';
+    return s;
+  }
 
-       // Fetch morning reports in parallel with recommendations fallback
-       try {
-         final reportsResponse = await api.getMorningReports();
-         final dynamic reportsRaw = reportsResponse['reports'] ?? reportsResponse['data'];
-         if (reportsRaw is List) {
-           for (final e in reportsRaw) {
-             if (e is Map) {
-               reports.add(Map<String, dynamic>.from(e));
-             }
-           }
-         }
-       } catch (e) {
-         debugPrint('[Recommendations] getMorningReports failed: $e');
-       }
+  Future<RecommendationsData?> _fetchData() async {
+    try {
+      final market = await _loadActiveMarket();
+      if (mounted) setState(() => _activeMarket = market);
 
-       // If market-specific returned empty, try mobile recommendations
-       if (rawRecs.isEmpty) {
-         rawRecs = await _fetchMobileRecommendations(market, persona);
-       }
+      final persona = _personaApiParam;
+      final status = _statusApiParam;
 
-       // If still empty, try expert recommendations
-       List<ExpertRecommendation> recs = <ExpertRecommendation>[];
-       List<ExpertStats> stats = <ExpertStats>[];
-       if (rawRecs.isEmpty) {
-         final expertResult = await _fetchExpertRecommendations(persona);
-         recs = expertResult.$1;
-         stats = expertResult.$2;
-       } else {
-         for (final e in rawRecs) {
-           if (e is Map) {
-             recs.add(ExpertRecommendation.fromJson(Map<String, dynamic>.from(e)));
-           }
-         }
-       }
+      // Fetch market recommendations and morning reports in parallel.
+      List<dynamic> rawRecs = <dynamic>[];
+      List<Map<String, dynamic>> reports = <Map<String, dynamic>>[];
 
-       // Filter recommendations locally by active market
-       List<ExpertRecommendation> filteredRecs = <ExpertRecommendation>[];
-       for (final rec in recs) {
-         final symbol = rec.stockSymbol ?? '';
-         final isNumeric4 = RegExp(r'^\d{4}$').hasMatch(symbol.trim());
-         if (market == 'TADAWUL') {
-           if (isNumeric4) filteredRecs.add(rec);
-         } else if (market == 'EGX') {
-           if (!isNumeric4) filteredRecs.add(rec);
-         } else {
-           filteredRecs.add(rec);
-         }
-       }
-       recs = filteredRecs;
+      // Status filter is passed separately to the API (it is NOT a persona).
+      final recResult = await _fetchRecommendations(market, persona, status);
+      rawRecs = recResult;
 
-       return RecommendationsData(
-         recommendations: recs,
-         expertStats: stats,
-         aiInsights: null,
-         morningReports: reports,
-       );
-     } catch (e, stack) {
-       debugPrint('[Recommendations] _fetchData outer exception: $e\n$stack');
-       return null;
-     }
-   }
+      // Fetch morning reports in parallel.
+      try {
+        final reportsResponse = await api.getMorningReports();
+        final dynamic reportsRaw = reportsResponse['reports'] ?? reportsResponse['data'];
+        if (reportsRaw is List) {
+          for (final e in reportsRaw) {
+            if (e is Map) {
+              reports.add(Map<String, dynamic>.from(e));
+            }
+          }
+        }
+      } catch (e) {
+        debugPrint('[Recommendations] getMorningReports failed: $e');
+      }
 
-   Future<List<dynamic>> _fetchRecommendations(String market, String? persona) async {
-     try {
-       return await api.getMarketRecommendations(market: market, persona: persona);
-     } catch (e) {
-       debugPrint('[Recommendations] getMarketRecommendations failed: $e');
-       return <dynamic>[];
-     }
-   }
+      // If market-specific returned empty, try mobile recommendations
+      // (still passing persona + status separately).
+      if (rawRecs.isEmpty) {
+        rawRecs = await _fetchMobileRecommendations(market, persona, status);
+      }
 
-   Future<List<dynamic>> _fetchMobileRecommendations(String market, String? persona) async {
-     try {
-       return await api.getMobileRecommendations(persona: persona, market: market);
-     } catch (e) {
-       debugPrint('[Recommendations] getMobileRecommendations failed: $e');
-       return <dynamic>[];
-     }
-   }
+      // If still empty, try expert recommendations
+      List<ExpertRecommendation> recs = <ExpertRecommendation>[];
+      List<ExpertStats> stats = <ExpertStats>[];
+      if (rawRecs.isEmpty) {
+        final expertResult = await _fetchExpertRecommendations(persona, status);
+        recs = expertResult.$1;
+        stats = expertResult.$2;
+      } else {
+        for (final e in rawRecs) {
+          if (e is Map) {
+            recs.add(ExpertRecommendation.fromJson(Map<String, dynamic>.from(e)));
+          }
+        }
+      }
 
-   Future<(List<ExpertRecommendation>, List<ExpertStats>)> _fetchExpertRecommendations(String? persona) async {
-     List<ExpertRecommendation> recs = <ExpertRecommendation>[];
-     List<ExpertStats> stats = <ExpertStats>[];
-     try {
-       Map<String, dynamic> response = {};
-       try {
-         response = await api.getExpertRecommendations(
-             status: persona != null && persona != 'all' ? persona : null);
-       } catch (e) {
-         debugPrint('[Recommendations] getExpertRecommendations failed: $e');
-       }
+      // Filter recommendations locally by active market.
+      List<ExpertRecommendation> filteredRecs = <ExpertRecommendation>[];
+      for (final rec in recs) {
+        final symbol = rec.stockSymbol ?? '';
+        final isNumeric4 = RegExp(r'^\d{4}$').hasMatch(symbol.trim());
+        if (market == 'TADAWUL') {
+          if (isNumeric4) filteredRecs.add(rec);
+        } else if (market == 'EGX') {
+          if (!isNumeric4) filteredRecs.add(rec);
+        } else {
+          filteredRecs.add(rec);
+        }
+      }
+      recs = filteredRecs;
 
-       final dynamic recsRaw = response['recommendations'] ?? response['data'];
-       if (recsRaw is List) {
-         for (final e in recsRaw) {
-           if (e is Map) {
-             recs.add(ExpertRecommendation.fromJson(Map<String, dynamic>.from(e)));
-           }
-         }
-       }
+      return RecommendationsData(
+        recommendations: recs,
+        expertStats: stats,
+        aiInsights: null,
+        morningReports: reports,
+      );
+    } catch (e, stack) {
+      debugPrint('[Recommendations] _fetchData outer exception: $e\n$stack');
+      return null;
+    }
+  }
 
-       final dynamic statsRaw = response['expertStats'] ?? response['stats'];
-       if (statsRaw is List) {
-         for (final e in statsRaw) {
-           if (e is Map) {
-             stats.add(ExpertStats.fromJson(Map<String, dynamic>.from(e)));
-           }
-         }
-       }
-     } catch (e) {
-       debugPrint('[Recommendations] _fetchExpertRecommendations failed: $e');
-     }
-     return (recs, stats);
-   }
+  /// Pull the freshness_info object from the performance-dashboard endpoint.
+  /// Failures are swallowed — freshness is purely informational.
+  Future<Map<String, dynamic>?> _fetchFreshness() async {
+    try {
+      final dash = await api.getPerformanceDashboard(days: 7);
+      final info = dash['freshness_info'];
+      if (info is Map) return Map<String, dynamic>.from(info);
+      return null;
+    } catch (e) {
+      debugPrint('[Recommendations] _fetchFreshness failed: $e');
+      return null;
+    }
+  }
+
+  Future<List<dynamic>> _fetchRecommendations(
+      String market, String? persona, String? status) async {
+    try {
+      return await api.getMarketRecommendations(
+          market: market, persona: persona);
+    } catch (e) {
+      debugPrint('[Recommendations] getMarketRecommendations failed: $e');
+      return <dynamic>[];
+    }
+  }
+
+  Future<List<dynamic>> _fetchMobileRecommendations(
+      String market, String? persona, String? status) async {
+    try {
+      return await api.getMobileRecommendations(persona: persona, market: market);
+    } catch (e) {
+      debugPrint('[Recommendations] getMobileRecommendations failed: $e');
+      return <dynamic>[];
+    }
+  }
+
+  Future<(List<ExpertRecommendation>, List<ExpertStats>)> _fetchExpertRecommendations(
+      String? persona, String? status) async {
+    List<ExpertRecommendation> recs = <ExpertRecommendation>[];
+    List<ExpertStats> stats = <ExpertStats>[];
+    try {
+      Map<String, dynamic> response = {};
+      try {
+        // Pass STATUS (not persona) to the status filter param.
+        response = await api.getExpertRecommendations(status: status);
+      } catch (e) {
+        debugPrint('[Recommendations] getExpertRecommendations failed: $e');
+      }
+
+      final dynamic recsRaw = response['recommendations'] ?? response['data'];
+      if (recsRaw is List) {
+        for (final e in recsRaw) {
+          if (e is Map) {
+            recs.add(ExpertRecommendation.fromJson(Map<String, dynamic>.from(e)));
+          }
+        }
+      }
+
+      final dynamic statsRaw = response['expertStats'] ?? response['stats'];
+      if (statsRaw is List) {
+        for (final e in statsRaw) {
+          if (e is Map) {
+            stats.add(ExpertStats.fromJson(Map<String, dynamic>.from(e)));
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('[Recommendations] _fetchExpertRecommendations failed: $e');
+    }
+    return (recs, stats);
+  }
 
   Future<void> _refresh() async {
     _dataFuture = _fetchData();
+    _freshnessFuture = _fetchFreshness();
     if (mounted) setState(() {});
   }
 
@@ -221,12 +322,12 @@ class _RecommendationsScreenState extends State<RecommendationsScreen> {
   }
 
   Color _statusColor(String? status) {
-    switch (status) {
-      case 'HIT_TARGET':
+    switch (_normalizeStatus(status)) {
+      case 'target_hit':
         return AppColors.success;
-      case 'STOPPED':
+      case 'stopped':
         return AppColors.danger;
-      case 'CLOSED':
+      case 'expired':
         return AppColors.textMuted;
       default:
         return AppColors.info;
@@ -234,14 +335,14 @@ class _RecommendationsScreenState extends State<RecommendationsScreen> {
   }
 
   String _statusAr(String? status) {
-    switch (status) {
-      case 'HIT_TARGET':
+    switch (_normalizeStatus(status)) {
+      case 'target_hit':
         return 'حقق الهدف';
-      case 'STOPPED':
+      case 'stopped':
         return 'توقف';
-      case 'CLOSED':
+      case 'expired':
         return 'مغلق';
-      case 'PENDING':
+      case 'pending':
         return 'قيد الانتظار';
       default:
         return status ?? 'غير معروف';
@@ -284,18 +385,24 @@ class _RecommendationsScreenState extends State<RecommendationsScreen> {
                       subtitle:
                           'تابع توقعات الخبراء — ${_marketNames[_activeMarket] ?? _activeMarket}',
                     ),
-                    const SizedBox(height: 16),
-                    // Status Filter Chips
+                    const SizedBox(height: 12),
+                    // ── Freshness badge (auto-refreshes every 60s) ──
+                    _buildFreshnessRow(),
+                    const SizedBox(height: 12),
+                    // ── Persona selector (3 tabs + all) ──
+                    _buildPersonaSelector(),
+                    const SizedBox(height: 12),
+                    // ── Status filter chips ──
                     SizedBox(
                       height: 40,
                       child: ListView(
                         scrollDirection: Axis.horizontal,
                         children: [
-                          _buildFilterChip('الكل', 'all'),
-                          _buildFilterChip('قيد الانتظار', 'PENDING'),
-                          _buildFilterChip('حقق الهدف', 'HIT_TARGET'),
-                          _buildFilterChip('توقف', 'STOPPED'),
-                          _buildFilterChip('مغلق', 'CLOSED'),
+                          _buildStatusChip('الكل', 'all'),
+                          _buildStatusChip('قيد الانتظار', 'pending'),
+                          _buildStatusChip('حقق الهدف', 'target_hit'),
+                          _buildStatusChip('توقف', 'stopped'),
+                          _buildStatusChip('منتهي', 'expired'),
                         ],
                       ),
                     ),
@@ -313,12 +420,10 @@ class _RecommendationsScreenState extends State<RecommendationsScreen> {
                     const SectionHeader(title: 'التوقعات', icon: Icons.list),
                     const SizedBox(height: 8),
                     if (data.recommendations.isEmpty)
-                      const StateView(
-                          empty: true, emptyMessage: 'لا توجد توقعات')
+                      const StateView(empty: true, emptyMessage: 'لا توجد توقعات')
                     else
                       ...data.recommendations
                           .map((rec) => _buildRecommendationCard(rec)),
-                    // AI Insights section removed by request
                     // Morning Reports
                     if (data.morningReports.isNotEmpty) ...[
                       const SizedBox(height: 20),
@@ -340,7 +445,97 @@ class _RecommendationsScreenState extends State<RecommendationsScreen> {
     );
   }
 
-  Widget _buildFilterChip(String label, String value) {
+  Widget _buildFreshnessRow() {
+    return FutureBuilder<Map<String, dynamic>?>(
+      future: _freshnessFuture,
+      builder: (context, snap) {
+        final info = snap.data;
+        return Row(
+          children: [
+            const Text('آخر تحديث: ',
+                style: TextStyle(fontSize: 12, color: AppColors.textMuted)),
+            const SizedBox(width: 6),
+            Flexible(
+              child: FreshnessBadge.fromInfo(info, compact: true),
+            ),
+            const Spacer(),
+            // 60s auto-refresh indicator
+            Icon(Icons.autorenew_rounded,
+                size: 14, color: AppColors.textMuted.withValues(alpha: 0.7)),
+            const SizedBox(width: 4),
+            Text('تحديث تلقائي كل 60 ثانية',
+                style: TextStyle(
+                    fontSize: 10, color: AppColors.textMuted.withValues(alpha: 0.7))),
+          ],
+        );
+      },
+    );
+  }
+
+  /// Persona selector — segmented control with 4 options.
+  /// All / 🔥 المضارب / ⚖️ المتوازن / 🛡️ المحافظ
+  Widget _buildPersonaSelector() {
+    final options = <_PersonaOption>[
+      _PersonaOption(id: 'all', label: 'الكل', icon: Icons.list_alt_rounded, color: AppColors.textMuted),
+      _PersonaOption(id: 'gambler', label: 'المضارب', icon: Icons.local_fire_department_rounded, color: AppColors.danger),
+      _PersonaOption(id: 'balanced', label: 'المتوازن', icon: Icons.balance_rounded, color: AppColors.warning),
+      _PersonaOption(id: 'conservative', label: 'المحافظ', icon: Icons.shield_rounded, color: AppColors.info),
+    ];
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Row(
+        children: options.map((opt) {
+          final selected = _selectedPersona == opt.id;
+          return Expanded(
+            child: GestureDetector(
+              onTap: () {
+                setState(() => _selectedPersona = opt.id);
+                _refresh();
+              },
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                decoration: BoxDecoration(
+                  color: selected
+                      ? opt.color.withValues(alpha: 0.18)
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(AppRadius.sm),
+                  border: Border.all(
+                    color: selected ? opt.color : Colors.transparent,
+                    width: 1,
+                  ),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(opt.icon,
+                        size: 16,
+                        color: selected ? opt.color : AppColors.textMuted),
+                    const SizedBox(height: 2),
+                    Text(
+                      opt.label,
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: selected ? opt.color : AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  Widget _buildStatusChip(String label, String value) {
     final isSelected = _statusFilter == value;
     return Padding(
       padding: const EdgeInsets.only(left: 8),
@@ -572,6 +767,19 @@ class _RecommendationsScreenState extends State<RecommendationsScreen> {
       ]),
     );
   }
+}
+
+class _PersonaOption {
+  final String id;
+  final String label;
+  final IconData icon;
+  final Color color;
+  const _PersonaOption({
+    required this.id,
+    required this.label,
+    required this.icon,
+    required this.color,
+  });
 }
 
 class RecommendationsData {
