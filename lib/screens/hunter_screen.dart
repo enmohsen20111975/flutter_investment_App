@@ -99,6 +99,26 @@ class _HunterScreenState extends State<HunterScreen>
     return false;
   }
 
+  bool _matchesSelectedMarket(Map<String, dynamic> cand) {
+    if (_selectedMarket == 'ALL') return true;
+
+    final marketStr = (cand['market'] ?? cand['exchange'] ?? cand['market_code'] ?? '').toString().toUpperCase();
+    if (marketStr.isNotEmpty && marketStr != _selectedMarket) {
+      return false;
+    }
+
+    final ticker = (cand['ticker'] ?? cand['symbol'] ?? '').toString().trim();
+    final isNumericTicker = RegExp(r'^\d{4}$').hasMatch(ticker);
+
+    if (_selectedMarket == 'EGX') {
+      if (isNumericTicker || marketStr == 'TADAWUL') return false;
+    } else if (_selectedMarket == 'TADAWUL') {
+      if (!isNumericTicker && marketStr != 'TADAWUL') return false;
+    }
+
+    return true;
+  }
+
   @override
   Widget build(BuildContext context) {
     super.build(context);
@@ -169,7 +189,7 @@ class _HunterScreenState extends State<HunterScreen>
                 ? rawCandidates
                     .whereType<Map>()
                     .map((m) => Map<String, dynamic>.from(m))
-                    .where((c) => !_isBadData(c))
+                    .where((c) => !_isBadData(c) && _matchesSelectedMarket(c))
                     .toList()
                 : const <dynamic>[];
 

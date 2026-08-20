@@ -32,6 +32,7 @@ class _LiveMonitorScreenState extends State<LiveMonitorScreen>
   late AnimationController _pulseCtrl;
   bool _autoRefresh = true;
   String _filter = 'all'; // all | gainers | losers
+  late Future<Map<String, dynamic>> _quotesFuture;
 
   @override
   void initState() {
@@ -56,17 +57,24 @@ class _LiveMonitorScreenState extends State<LiveMonitorScreen>
     if (mounted) {
       setState(() {
         _selectedMarket = _markets.contains(m) ? m : 'EGX';
+        _refreshQuotes();
       });
     }
-    await _fetchQuotes();
     _startPolling();
+  }
+
+  void _refreshQuotes() {
+    setState(() {
+      _quotesFuture = api.getMarketLiveQuotes(market: _selectedMarket);
+    });
+    _fetchQuotes();
   }
 
   void _startPolling() {
     _timer?.cancel();
     if (!_autoRefresh) return;
     _timer = Timer.periodic(const Duration(seconds: 15), (_) {
-      _fetchQuotes();
+      _refreshQuotes();
     });
   }
 
@@ -316,15 +324,21 @@ class _LiveMonitorScreenState extends State<LiveMonitorScreen>
                 ),
               ),
             ),
-            if (_loading && _quotes.isEmpty)
-              const SliverToBoxAdapter(
-                child: SkeletonList(itemCount: 6, itemHeight: 80),
-              )
-            else if (_error != null && _quotes.isEmpty)
-              SliverFillRemaining(
-                child: StateView(error: _error, onRetry: _refresh),
-              )
-            else if (_filteredQuotes.isEmpty)
+            SliverToBoxAdapter(
+              child: FutureBuilder<Map<String, dynamic>>(
+                future: _quotesFuture,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting && _quotes.isEmpty) {
+                    return const SkeletonList(itemCount: 6, itemHeight: 80);
+                  }
+                  if (snapshot.hasError && _quotes.isEmpty) {
+                    return StateView(error: snapshot.error.toString(), onRetry: _refreshQuotes);
+                  }
+                  return const SizedBox.shrink();
+                },
+              ),
+            ),
+            if (_filteredQuotes.isEmpty && !_loading)
               const SliverFillRemaining(
                 child: StateView(
                   empty: true,

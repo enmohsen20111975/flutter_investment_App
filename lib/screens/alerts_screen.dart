@@ -16,8 +16,7 @@ class AlertsScreen extends StatefulWidget {
 }
 
 class _AlertsScreenState extends State<AlertsScreen> {
-  bool _isLoading = true;
-  List<PriceAlert> _alerts = [];
+  late Future<List<PriceAlert>> _alertsFuture = GLMApiClient.instance.getAlerts();
 
   final TextEditingController _symbolController = TextEditingController();
   final TextEditingController _priceController = TextEditingController();
@@ -26,7 +25,7 @@ class _AlertsScreenState extends State<AlertsScreen> {
   @override
   void initState() {
     super.initState();
-    _loadAlerts();
+    _refreshAlerts();
   }
 
   @override
@@ -36,22 +35,10 @@ class _AlertsScreenState extends State<AlertsScreen> {
     super.dispose();
   }
 
-  Future<void> _loadAlerts() async {
-    setState(() => _isLoading = true);
-    try {
-      final list = await GLMApiClient.instance.getAlerts();
-      if (mounted) {
-        setState(() {
-          _alerts = list;
-          _isLoading = false;
-        });
-      }
-    } catch (e) {
-      debugPrint('[Alerts] Load error: $e');
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
-    }
+  void _refreshAlerts() {
+    setState(() {
+      _alertsFuture = GLMApiClient.instance.getAlerts();
+    });
   }
 
   Future<void> _createAlert() async {
@@ -69,24 +56,18 @@ class _AlertsScreenState extends State<AlertsScreen> {
       createdAt: DateTime.now(),
     );
 
-    setState(() {
-      _alerts.insert(0, newAlert);
-    });
-
     try {
       await GLMApiClient.instance.createAlert(newAlert.toJson());
-      _loadAlerts();
+      _refreshAlerts();
     } catch (e) {
       debugPrint('[Alerts] Create error: $e');
     }
   }
 
   Future<void> _deleteAlert(String id) async {
-    setState(() {
-      _alerts.removeWhere((a) => a.id == id);
-    });
     try {
       await GLMApiClient.instance.deleteAlert(id);
+      _refreshAlerts();
     } catch (e) {
       debugPrint('[Alerts] Delete error: $e');
     }
@@ -187,26 +168,53 @@ class _AlertsScreenState extends State<AlertsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.quantumBg,
-      appBar: AppBar(
-        backgroundColor: AppColors.quantumSurface,
-        elevation: 0,
-        title: const Text('تنبيهات الأسعار', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.add_alert_outlined, color: AppColors.quantumEmerald),
-            onPressed: _showAddAlertDialog,
+    return FutureBuilder<List<PriceAlert>>(
+      future: _alertsFuture,
+      builder: (context, snapshot) {
+        final alerts = snapshot.data ?? [];
+
+        return Scaffold(
+          backgroundColor: AppColors.quantumBg,
+          appBar: AppBar(
+            backgroundColor: AppColors.quantumSurface,
+            elevation: 0,
+            title: const Text('تنبيهات الأسعار', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.add_alert_outlined, color: AppColors.quantumEmerald),
+                onPressed: _showAddAlertDialog,
+              ),
+            ],
           ),
-        ],
-      ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: AppColors.quantumEmerald))
-          : RefreshIndicator(
+          body: () {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator(color: AppColors.quantumEmerald));
+            }
+
+            if (snapshot.hasError) {
+              return Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.error_outline, size: 48, color: AppColors.quantumCrimson),
+                    const SizedBox(height: 12),
+                    const Text('حدث خطأ في تحميل التنبيهات', style: TextStyle(color: Colors.white70)),
+                    const SizedBox(height: 12),
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(backgroundColor: AppColors.quantumEmerald, foregroundColor: Colors.black),
+                      onPressed: _refreshAlerts,
+                      child: const Text('إعادة المحاولة'),
+                    ),
+                  ],
+                ),
+              );
+            }
+
+            return RefreshIndicator(
               color: AppColors.quantumEmerald,
               backgroundColor: AppColors.quantumGlass,
-              onRefresh: _loadAlerts,
-              child: _alerts.isEmpty
+              onRefresh: () async => _refreshAlerts(),
+              child: alerts.isEmpty
                   ? Center(
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -230,9 +238,9 @@ class _AlertsScreenState extends State<AlertsScreen> {
                     )
                   : ListView.builder(
                       padding: const EdgeInsets.all(16),
-                      itemCount: _alerts.length,
+                      itemCount: alerts.length,
                       itemBuilder: (context, index) {
-                        final item = _alerts[index];
+                        final item = alerts[index];
                         final isAbove = item.condition == 'ABOVE';
 
                         return Container(
@@ -293,7 +301,10 @@ class _AlertsScreenState extends State<AlertsScreen> {
                         );
                       },
                     ),
-            ),
+            );
+          }(),
+        );
+      },
     );
   }
 }

@@ -22,9 +22,8 @@ class _PortfolioScreenState extends State<PortfolioScreen>
   @override
   bool get wantKeepAlive => true;
 
-  bool _isLoading = true;
-  PortfolioResponse? _portfolio;
-  Map<String, dynamic>? _analysis;
+  late Future<PortfolioResponse> _portfolioFuture = GLMApiClient.instance.getMobilePortfolio();
+  late Future<Map<String, dynamic>> _analysisFuture = GLMApiClient.instance.analyzePortfolio();
 
   final TextEditingController _symbolController = TextEditingController();
   final TextEditingController _sharesController = TextEditingController();
@@ -33,7 +32,7 @@ class _PortfolioScreenState extends State<PortfolioScreen>
   @override
   void initState() {
     super.initState();
-    _loadPortfolio();
+    _refreshPortfolio();
   }
 
   @override
@@ -57,45 +56,18 @@ class _PortfolioScreenState extends State<PortfolioScreen>
     'SCTS': 675.00,
   };
 
-  Future<void> _loadPortfolio() async {
-    setState(() => _isLoading = true);
-    try {
-      final data = await GLMApiClient.instance.getMobilePortfolio();
-      final analysis = await GLMApiClient.instance.analyzePortfolio();
-
-      try {
-        final overview = await GLMApiClient.instance.getMarketOverview();
-        final allStocks = [
-          ...?(overview.topGainers),
-          ...?(overview.topLosers),
-          ...?(overview.mostActive),
-        ];
-        for (final s in allStocks) {
-          if (s.ticker != null && s.currentPrice != null && s.currentPrice! > 0) {
-            _liveStockPrices[s.ticker!] = s.currentPrice!;
-          }
-        }
-      } catch (_) {}
-
-      if (mounted) {
-        setState(() {
-          _portfolio = data;
-          _analysis = analysis;
-          _isLoading = false;
-        });
-      }
-    } catch (e) {
-      debugPrint('[Portfolio] Load error: $e');
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
-    }
+  void _refreshPortfolio() {
+    setState(() {
+      _portfolioFuture = GLMApiClient.instance.getMobilePortfolio();
+      _analysisFuture = GLMApiClient.instance.analyzePortfolio();
+    });
   }
 
-  void _showAddTransactionDialog() {
-    final positionsCount = _portfolio?.positions.length ?? 0;
+  void _showAddTransactionDialog() async {
+    final res = await _portfolioFuture;
+    final positionsCount = res.positions.length;
     final canAdd = SubscriptionService.instance.canAddToPortfolio(positionsCount);
-    if (!canAdd) {
+    if (!canAdd && mounted) {
       UpgradeModal.show(
         context,
         feature: 'portfolio_unlimited',
@@ -150,7 +122,7 @@ class _PortfolioScreenState extends State<PortfolioScreen>
                     'shares': shares,
                     'buy_price': price,
                   });
-                  _loadPortfolio();
+                  _refreshPortfolio();
                 } catch (e) {
                   debugPrint('[Portfolio] Add error: $e');
                 }
@@ -185,30 +157,56 @@ class _PortfolioScreenState extends State<PortfolioScreen>
   Widget build(BuildContext context) {
     super.build(context);
 
-    final totalValue = _portfolio?.summary?.totalMarketValue ?? 125400.00;
-    final totalGain = _portfolio?.summary?.totalUnrealizedPnl ?? 14200.00;
-    final totalGainPercent = _portfolio?.summary?.totalUnrealizedPnlPercent ?? 12.75;
-    final isUp = totalGain >= 0;
+    return FutureBuilder<PortfolioResponse>(
+      future: _portfolioFuture,
+      builder: (context, snapshot) {
+        final portfolio = snapshot.data;
+        final totalValue = portfolio?.summary?.totalMarketValue ?? 0.00;
+        final totalGain = portfolio?.summary?.totalUnrealizedPnl ?? 0.00;
+        final totalGainPercent = portfolio?.summary?.totalUnrealizedPnlPercent ?? 0.00;
+        final isUp = totalGain >= 0;
 
-    return Scaffold(
-      backgroundColor: AppColors.quantumBg,
-      appBar: AppBar(
-        backgroundColor: AppColors.quantumSurface,
-        elevation: 0,
-        title: const Text('إدارة المحفظة الاستثمارية', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.add_chart_sharp, color: AppColors.quantumEmerald),
-            onPressed: _showAddTransactionDialog,
+        return Scaffold(
+          backgroundColor: AppColors.quantumBg,
+          appBar: AppBar(
+            backgroundColor: AppColors.quantumSurface,
+            elevation: 0,
+            title: const Text('إدارة المحفظة الاستثمارية', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.add_chart_sharp, color: AppColors.quantumEmerald),
+                onPressed: _showAddTransactionDialog,
+              ),
+            ],
           ),
-        ],
-      ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: AppColors.quantumEmerald))
-          : RefreshIndicator(
+          body: () {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator(color: AppColors.quantumEmerald));
+            }
+
+            if (snapshot.hasError) {
+              return Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.error_outline, size: 48, color: AppColors.quantumCrimson),
+                    const SizedBox(height: 12),
+                    const Text('حدث خطأ في تحميل بيانات المحفظة', style: TextStyle(color: Colors.white70)),
+                    const SizedBox(height: 12),
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(backgroundColor: AppColors.quantumEmerald, foregroundColor: Colors.black),
+                      onPressed: _refreshPortfolio,
+                      child: const Text('إعادة المحاولة'),
+                    ),
+                  ],
+                ),
+              );
+            }
+
+            return RefreshIndicator(
               color: AppColors.quantumEmerald,
               backgroundColor: AppColors.quantumGlass,
-              onRefresh: _loadPortfolio,
+              onRefresh: () async => _refreshPortfolio(),
               child: ListView(
                 padding: const EdgeInsets.all(16),
                 children: [
@@ -277,40 +275,52 @@ class _PortfolioScreenState extends State<PortfolioScreen>
                   const SizedBox(height: 20),
 
                   // Sector Allocation Summary Bar
-                  if (_analysis != null && _analysis!['diversification'] != null) ...[
-                    const Text('توزيع الأصول حسب القطاع', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
-                    const SizedBox(height: 10),
-                    Container(
-                      padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(
-                        color: AppColors.quantumGlass,
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: AppColors.quantumGlassBorder),
-                      ),
-                      child: Column(
+                  FutureBuilder<Map<String, dynamic>>(
+                    future: _analysisFuture,
+                    builder: (context, analysisSnap) {
+                      final analysis = analysisSnap.data;
+                      if (analysis == null || analysis['diversification'] == null) {
+                        return const SizedBox.shrink();
+                      }
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: const [
-                              Text('البنوك والخدمات المالية', style: TextStyle(color: Colors.white70, fontSize: 12)),
-                              Text('45%', style: TextStyle(color: AppColors.quantumGold, fontWeight: FontWeight.bold)),
-                            ],
-                          ),
-                          const SizedBox(height: 6),
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(4),
-                            child: const LinearProgressIndicator(
-                              value: 0.45,
-                              backgroundColor: AppColors.quantumSurface,
-                              color: AppColors.quantumGold,
-                              minHeight: 8,
+                          const Text('توزيع الأصول حسب القطاع', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+                          const SizedBox(height: 10),
+                          Container(
+                            padding: const EdgeInsets.all(14),
+                            decoration: BoxDecoration(
+                              color: AppColors.quantumGlass,
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(color: AppColors.quantumGlassBorder),
+                            ),
+                            child: Column(
+                              children: [
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: const [
+                                    Text('البنوك والخدمات المالية', style: TextStyle(color: Colors.white70, fontSize: 12)),
+                                    Text('45%', style: TextStyle(color: AppColors.quantumGold, fontWeight: FontWeight.bold)),
+                                  ],
+                                ),
+                                const SizedBox(height: 6),
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(4),
+                                  child: const LinearProgressIndicator(
+                                    value: 0.45,
+                                    backgroundColor: AppColors.quantumSurface,
+                                    color: AppColors.quantumGold,
+                                    minHeight: 8,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
+                          const SizedBox(height: 20),
                         ],
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                  ],
+                      );
+                    },
+                  ),
 
                   // Holdings Header & Add Action
                   Row(
@@ -327,7 +337,7 @@ class _PortfolioScreenState extends State<PortfolioScreen>
                   const SizedBox(height: 10),
 
                   // Holdings List
-                  if (_portfolio?.positions.isEmpty ?? true)
+                  if (portfolio?.positions.isEmpty ?? true)
                     Container(
                       padding: const EdgeInsets.all(32),
                       alignment: Alignment.center,
@@ -354,7 +364,7 @@ class _PortfolioScreenState extends State<PortfolioScreen>
                       ),
                     )
                   else
-                    ...(_portfolio!.positions.map((pos) {
+                    ...(portfolio!.positions.map((pos) {
                       final name = pos.stockName ?? pos.stockSymbol;
                       final symbol = pos.stockSymbol;
                       final shares = pos.shares;
@@ -421,7 +431,10 @@ class _PortfolioScreenState extends State<PortfolioScreen>
                     }).toList()),
                 ],
               ),
-            ),
+            );
+          }(),
+        );
+      },
     );
   }
 }

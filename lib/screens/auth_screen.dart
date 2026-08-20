@@ -102,15 +102,7 @@ class _AuthScreenState extends State<AuthScreen> {
         debugPrint('[Auth] Login successful!');
         unawaited(SubscriptionService.instance.getStatus(forceRefresh: true));
         if (mounted) {
-          final user = result.user;
-          final isNewUser = result.isNewUser == true ||
-              user?.phone == null ||
-              user!.phone!.isEmpty;
-          if (isNewUser) {
-            _showPhoneInputDialog(context);
-          } else {
-            Navigator.of(context).pushReplacementNamed('/home');
-          }
+          Navigator.of(context).pushReplacementNamed('/home');
         }
       } else {
         debugPrint('[Auth] Login failed: ${result.message}');

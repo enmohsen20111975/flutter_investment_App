@@ -27,13 +27,13 @@ class _TradingJournalScreenState extends State<TradingJournalScreen>
   late TabController _tabController;
   List<_JournalEntry> _entries = [];
   List<String> _suggestedTickers = [];
-  bool _loading = true;
+  late Future<List<_JournalEntry>> _journalFuture;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
-    _loadJournal();
+    _refreshJournal();
     _loadSuggestions();
   }
 
@@ -43,8 +43,13 @@ class _TradingJournalScreenState extends State<TradingJournalScreen>
     super.dispose();
   }
 
-  Future<void> _loadJournal() async {
-    setState(() => _loading = true);
+  void _refreshJournal() {
+    setState(() {
+      _journalFuture = _loadJournal();
+    });
+  }
+
+  Future<List<_JournalEntry>> _loadJournal() async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final str = prefs.getString(_kJournalKey);
@@ -55,8 +60,10 @@ class _TradingJournalScreenState extends State<TradingJournalScreen>
             .toList();
         _entries.sort((a, b) => b.date.compareTo(a.date));
       }
-    } catch (_) {}
-    if (mounted) setState(() => _loading = false);
+    } catch (e) {
+      debugPrint('[Journal] Load error: $e');
+    }
+    return _entries;
   }
 
   Future<void> _saveJournal() async {
@@ -328,18 +335,30 @@ class _TradingJournalScreenState extends State<TradingJournalScreen>
 
   @override
   Widget build(BuildContext context) {
-    final stats = _JournalStats.compute(_entries);
-    return Directionality(
-      textDirection: TextDirection.rtl,
-      child: Scaffold(
-        backgroundColor: AppColors.background,
-        floatingActionButton: FloatingActionButton.extended(
-          onPressed: () => _showAddEntryDialog(),
-          backgroundColor: AppColors.primary,
-          icon: const Icon(Icons.add_rounded, color: AppColors.white),
-          label: const Text('صفقة جديدة',
-              style: TextStyle(color: AppColors.white)),
-        ),
+    return FutureBuilder<List<_JournalEntry>>(
+      future: _journalFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting && _entries.isEmpty) {
+          return const Scaffold(
+            backgroundColor: AppColors.background,
+            body: Center(child: CircularProgressIndicator(color: AppColors.primary)),
+          );
+        }
+
+        final entries = snapshot.data ?? _entries;
+        final stats = _JournalStats.compute(entries);
+
+        return Directionality(
+          textDirection: TextDirection.rtl,
+          child: Scaffold(
+            backgroundColor: AppColors.background,
+            floatingActionButton: FloatingActionButton.extended(
+              onPressed: () => _showAddEntryDialog(),
+              backgroundColor: AppColors.primary,
+              icon: const Icon(Icons.add_rounded, color: AppColors.white),
+              label: const Text('صفقة جديدة',
+                  style: TextStyle(color: AppColors.white)),
+            ),
         body: CustomScrollView(
           slivers: [
             SliverAppBar(
@@ -478,7 +497,9 @@ class _TradingJournalScreenState extends State<TradingJournalScreen>
         ),
       ),
     );
-  }
+  },
+);
+}
 
   Widget _statColumn(String label, String value, Color color) {
     return Column(
@@ -499,9 +520,6 @@ class _TradingJournalScreenState extends State<TradingJournalScreen>
   }
 
   Widget _buildEntriesTab() {
-    if (_loading) {
-      return const SkeletonList(itemCount: 4, itemHeight: 110);
-    }
     if (_entries.isEmpty) {
       return const StateView(
         empty: true,

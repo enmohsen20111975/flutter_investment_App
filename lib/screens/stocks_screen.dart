@@ -1,5 +1,6 @@
 // ============================================================================
 // مساعد الاستثمار Flutter - Stocks Screen
+// FutureBuilder Powered Data Fetching & Market Classification
 // ============================================================================
 
 import 'package:flutter/material.dart';
@@ -22,74 +23,29 @@ class _StocksScreenState extends State<StocksScreen>
     with AutomaticKeepAliveClientMixin {
   @override
   bool get wantKeepAlive => true;
+
   Future<List<Stock>>? _stocksFuture;
+  Future<Map<String, dynamic>?>? _movementFuture;
+
   final TextEditingController _searchCtrl = TextEditingController();
   String _query = '';
   bool _showMovers = true;
-  bool _isLoadingMore = false;
-  int _currentPage = 1;
-  static const int _pageSize = 20;
-  List<Stock> _allStocks = <Stock>[];
-  List<Stock> _displayedStocks = <Stock>[];
-  bool _hasMore = true;
-
-  List<Map<String, dynamic>> get _gainers =>
-      (_movementData?['gainers'] as List?)
-          ?.map((e) => Map<String, dynamic>.from(e as Map))
-          .toList() ??
-      <Map<String, dynamic>>[];
-  List<Map<String, dynamic>> get _losers =>
-      (_movementData?['losers'] as List?)
-          ?.map((e) => Map<String, dynamic>.from(e as Map))
-          .toList() ??
-      <Map<String, dynamic>>[];
-  List<Map<String, dynamic>> get _active =>
-      (_movementData?['most_active'] as List?)
-          ?.map((e) => Map<String, dynamic>.from(e as Map))
-          .toList() ??
-      <Map<String, dynamic>>[];
-
-  Map<String, dynamic>? _movementData;
   String _activeMarket = 'EGX';
   String _movementFilter = 'gainers';
-
-  String get _marketTitle {
-    switch (_activeMarket) {
-      case 'TADAWUL':
-        return 'أسهم السعودية';
-      case 'KSE':
-        return 'أسهم الكويت';
-      case 'QSE':
-        return 'أسهم قطر';
-      case 'DFM':
-        return 'أسهم دبي';
-      case 'ADX':
-        return 'أسهم أبوظبي';
-      case 'BSE':
-        return 'أسهم البحرين';
-      default:
-        return 'الأسهم المصرية';
-    }
-  }
 
   @override
   void initState() {
     super.initState();
-    _initData();
+    _refreshData();
+    _loadActiveMarketAndData();
   }
 
   @override
   void didUpdateWidget(covariant StocksScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.marketVersion != widget.marketVersion) {
-      _initData();
+      _loadActiveMarketAndData();
     }
-  }
-
-  Future<void> _initData() async {
-    await _loadActiveMarket();
-    await _loadStocks(_query);
-    await _loadMovement();
   }
 
   @override
@@ -98,12 +54,41 @@ class _StocksScreenState extends State<StocksScreen>
     super.dispose();
   }
 
+  Future<void> _loadActiveMarketAndData() async {
+    final prefs = await SharedPreferences.getInstance();
+    final market = prefs.getString('active_market') ?? 'EGX';
+    if (mounted && market != _activeMarket) {
+      setState(() {
+        _activeMarket = market;
+        _refreshData();
+      });
+    }
+  }
+
+  void _refreshData() {
+    setState(() {
+      _stocksFuture = _fetchStocks(_query, _activeMarket);
+      _movementFuture = _fetchMovement(_activeMarket);
+    });
+  }
+
   Future<List<Stock>> _fetchStocks([String? search, String? market]) async {
-    final response = await api.getStocks(search: search ?? '', market: market);
-    return (response['stocks'] as List?)
+    final targetMarket = market ?? _activeMarket;
+    final response = await api.getStocks(search: search ?? '', market: targetMarket);
+    final list = (response['stocks'] as List?)
             ?.map((e) => Stock.fromJson(e))
             .toList() ??
         <Stock>[];
+    if (targetMarket == 'ALL') return list;
+    return list.where((s) {
+      final isNumeric = RegExp(r'^\d{4}$').hasMatch(s.ticker);
+      if (targetMarket == 'EGX') {
+        if (isNumeric) return false;
+      } else if (targetMarket == 'TADAWUL') {
+        if (!isNumeric) return false;
+      }
+      return true;
+    }).toList();
   }
 
   Future<Map<String, dynamic>?> _fetchMovement([String? market]) async {
@@ -111,71 +96,18 @@ class _StocksScreenState extends State<StocksScreen>
       final data = await api.getStockMovementClassification(market: market);
       final rawWrapper = data['data'];
       final wrapper = rawWrapper is Map ? Map<String, dynamic>.from(rawWrapper) : null;
-      return wrapper ?? data;
+      if (wrapper != null || data.isNotEmpty) return wrapper ?? data;
+      return await _fetchMovementFallback(market ?? 'EGX');
     } catch (e) {
-      debugPrint(
-          '[Stocks] Movement classification error (may be unavailable): $e');
-      return null;
+      debugPrint('[Stocks] Movement classification error: $e');
+      return await _fetchMovementFallback(market ?? 'EGX');
     }
   }
 
-  Future<void> _loadActiveMarket() async {
-    final prefs = await SharedPreferences.getInstance();
-    if (mounted) {
-      setState(() {
-        _activeMarket = prefs.getString('active_market') ?? 'EGX';
-      });
-    }
-  }
-
-   Future<void> _loadStocks([String? search]) async {
-     _query = search ?? _query;
-     _currentPage = 1;
-     _hasMore = true;
-     _allStocks = <Stock>[];
-     _displayedStocks = <Stock>[];
-     _stocksFuture = _fetchStocks(_query, _activeMarket);
-     try {
-       final stocks = await _stocksFuture!;
-       _allStocks = stocks;
-       _displayedStocks = stocks.take(_pageSize).toList();
-       _hasMore = stocks.length > _pageSize;
-       if (mounted) setState(() {});
-     } catch (e) {
-       debugPrint('[Stocks] Load failed: $e');
-       if (mounted) setState(() {});
-     }
-   }
-
-  Future<void> _loadMoreStocks() async {
-    if (_isLoadingMore || !_hasMore) return;
-    setState(() => _isLoadingMore = true);
-    _currentPage++;
-    final start = (_currentPage - 1) * _pageSize;
-    final end = start + _pageSize;
-    final nextBatch = _allStocks.skip(start).take(_pageSize).toList();
-    await Future<void>.delayed(const Duration(milliseconds: 300));
-    _displayedStocks.addAll(nextBatch);
-    _hasMore = end < _allStocks.length;
-    setState(() => _isLoadingMore = false);
-  }
-
-   Future<void> _loadMovement() async {
-     final data = await _fetchMovement(_activeMarket);
-     if (mounted) {
-       if (data != null &&
-           (data['gainers'] is List || data['losers'] is List || data['most_active'] is List)) {
-         setState(() => _movementData = data);
-       } else {
-         await _fetchMovementFallback(_activeMarket);
-       }
-     }
-   }
-
-  Future<void> _fetchMovementFallback(String market) async {
+  Future<Map<String, dynamic>> _fetchMovementFallback(String market) async {
     try {
       final overview = await api.getMarketOverview(market);
-      final topMovers = <String, dynamic>{
+      return {
         'gainers': (overview.topGainers ?? [])
             .map((s) => <String, dynamic>{
                   'ticker': s.ticker,
@@ -198,18 +130,36 @@ class _StocksScreenState extends State<StocksScreen>
                 })
             .toList(),
       };
-      if (mounted) {
-        setState(() => _movementData = topMovers);
-      }
     } catch (e) {
       debugPrint('[Stocks] Movement fallback failed: $e');
+      return {};
+    }
+  }
+
+  String get _marketTitle {
+    switch (_activeMarket) {
+      case 'TADAWUL':
+        return 'أسهم السعودية';
+      case 'KSE':
+        return 'أسهم الكويت';
+      case 'QSE':
+        return 'أسهم قطر';
+      case 'DFM':
+        return 'أسهم دبي';
+      case 'ADX':
+        return 'أسهم أبوظبي';
+      case 'BSE':
+        return 'أسهم البحرين';
+      default:
+        return 'الأسهم المصرية';
     }
   }
 
   void _onSearchChanged(String value) {
-    _searchCtrl.text = value;
     _query = value;
-    _loadStocks(value);
+    setState(() {
+      _stocksFuture = _fetchStocks(_query, _activeMarket);
+    });
   }
 
   @override
@@ -242,7 +192,10 @@ class _StocksScreenState extends State<StocksScreen>
                   suffixIcon: _query.isNotEmpty
                       ? IconButton(
                           icon: const Icon(Icons.clear),
-                          onPressed: () => _onSearchChanged(''))
+                          onPressed: () {
+                            _searchCtrl.clear();
+                            _onSearchChanged('');
+                          })
                       : null,
                   filled: true,
                   fillColor: AppColors.background,
@@ -279,56 +232,15 @@ class _StocksScreenState extends State<StocksScreen>
                 ),
               ]),
             ),
-            // Content
+            // Content FutureBuilder
             Expanded(
               child: RefreshIndicator(
                 color: AppColors.primary,
-                onRefresh: () async {
-                  await _loadStocks(_query);
-                  await _loadMovement();
-                },
+                onRefresh: () async => _refreshData(),
                 child: CustomScrollView(
                   slivers: [
                     if (_showMovers) _buildMoversSliver(),
-                    SliverList(
-                      delegate: SliverChildBuilderDelegate(
-                        (context, index) {
-                          if (index >= _displayedStocks.length) {
-                            if (_hasMore) {
-                              WidgetsBinding.instance.addPostFrameCallback(
-                                  (_) => _loadMoreStocks());
-                              return const Padding(
-                                padding: EdgeInsets.all(16),
-                                child: Center(
-                                    child: CircularProgressIndicator(
-                                        color: AppColors.primary)),
-                              );
-                            }
-                            return const SizedBox.shrink();
-                          }
-                          final stock = _displayedStocks[index];
-                          return _StockCard(stock: stock);
-                        },
-                        childCount:
-                            _displayedStocks.length + (_hasMore ? 1 : 0),
-                      ),
-                    ),
-                    if (_displayedStocks.isEmpty &&
-                        !_stocksFuture.toString().contains('waiting'))
-                      SliverToBoxAdapter(
-                        child: Center(
-                          child: Padding(
-                            padding: const EdgeInsets.all(32),
-                            child: Text(
-                              _query.isEmpty
-                                  ? 'لا توجد أسهم متاحة'
-                                  : 'لا توجد نتائج لـ "$_query"',
-                              style:
-                                  const TextStyle(color: AppColors.textMuted),
-                            ),
-                          ),
-                        ),
-                      ),
+                    _buildStocksListSliver(),
                   ],
                 ),
               ),
@@ -340,99 +252,176 @@ class _StocksScreenState extends State<StocksScreen>
   }
 
   Widget _buildMoversSliver() {
-    if (_movementData == null) {
-      return const SliverToBoxAdapter(
-        child: Padding(
-          padding: EdgeInsets.all(16),
-          child: Center(
-            child: CircularProgressIndicator(color: AppColors.primary, strokeWidth: 2),
+    return FutureBuilder<Map<String, dynamic>?>(
+      future: _movementFuture ??= _fetchMovement(_activeMarket),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const SliverToBoxAdapter(
+            child: Padding(
+              padding: EdgeInsets.all(16),
+              child: Center(
+                child: CircularProgressIndicator(color: AppColors.primary, strokeWidth: 2),
+              ),
+            ),
+          );
+        }
+
+        final data = snapshot.data ?? {};
+        final gainers = (data['gainers'] as List?) ?? [];
+        final losers = (data['losers'] as List?) ?? [];
+        final active = (data['most_active'] as List?) ?? [];
+
+        final movers = _movementFilter == 'gainers'
+            ? gainers
+            : _movementFilter == 'losers'
+                ? losers
+                : active;
+
+        if (movers.isEmpty) {
+          return SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Text(
+                _movementFilter == 'gainers'
+                    ? 'لا توجد أسهم مرتفعة حالياً'
+                    : _movementFilter == 'losers'
+                        ? 'لا توجد أسهم منخفضة حالياً'
+                        : 'لا توجد بيانات نشاط حالياً',
+                style: const TextStyle(color: AppColors.textMuted, fontSize: 12),
+                textAlign: TextAlign.center,
+              ),
+            ),
+          );
+        }
+
+        return SliverToBoxAdapter(
+          child: SizedBox(
+            height: 140,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              itemCount: movers.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 8),
+              itemBuilder: (_, i) {
+                final m = movers[i] is Map ? movers[i] as Map : {};
+                final ticker =
+                    m['ticker']?.toString() ?? m['symbol']?.toString() ?? '';
+                final price =
+                    double.tryParse((m['price'] ?? m['last'] ?? '0').toString()) ??
+                        0;
+                final change =
+                    double.tryParse((m['change_percent'] ?? '0').toString()) ?? 0;
+                final isUp = change >= 0;
+                return Container(
+                  width: 120,
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: AppColors.surface,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppColors.border),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(ticker,
+                          style: const TextStyle(
+                              fontWeight: FontWeight.w700, fontSize: 13),
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 1),
+                      const SizedBox(height: 4),
+                      Text(price.toStringAsFixed(2),
+                          style: const TextStyle(fontSize: 12)),
+                      const SizedBox(height: 4),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: (isUp ? AppColors.success : AppColors.danger)
+                              .withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          '${isUp ? '+' : ''}${change.toStringAsFixed(2)}%',
+                          style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: isUp ? AppColors.success : AppColors.danger),
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 1,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
           ),
-        ),
-      );
-    }
-    final movers = _movementFilter == 'gainers'
-        ? _gainers
-        : _movementFilter == 'losers'
-            ? _losers
-            : _active;
-    if (movers.isEmpty)
-      return SliverToBoxAdapter(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          child: Text(
-            _movementFilter == 'gainers'
-                ? 'لا توجد أسهم مرتفعة حالياً'
-                : _movementFilter == 'losers'
-                    ? 'لا توجد أسهم منخفضة حالياً'
-                    : 'لا توجد بيانات نشاط حالياً',
-            style: const TextStyle(color: AppColors.textMuted, fontSize: 12),
-            textAlign: TextAlign.center,
+        );
+      },
+    );
+  }
+
+  Widget _buildStocksListSliver() {
+    return FutureBuilder<List<Stock>>(
+      future: _stocksFuture ??= _fetchStocks(_query, _activeMarket),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const SliverToBoxAdapter(
+            child: Padding(
+              padding: EdgeInsets.all(32),
+              child: Center(
+                child: CircularProgressIndicator(color: AppColors.primary),
+              ),
+            ),
+          );
+        }
+
+        if (snapshot.hasError) {
+          return SliverToBoxAdapter(
+            child: Center(
+              child: Padding(
+                padding: const EdgeInsets.all(32),
+                child: Column(
+                  children: [
+                    const Icon(Icons.error_outline, size: 48, color: AppColors.danger),
+                    const SizedBox(height: 12),
+                    const Text('حدث خطأ في جلب بيانات الأسهم', style: TextStyle(color: AppColors.textMuted)),
+                    const SizedBox(height: 12),
+                    ElevatedButton(
+                      onPressed: _refreshData,
+                      child: const Text('إعادة المحاولة'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }
+
+        final stocks = snapshot.data ?? [];
+        if (stocks.isEmpty) {
+          return SliverToBoxAdapter(
+            child: Center(
+              child: Padding(
+                padding: const EdgeInsets.all(32),
+                child: Text(
+                  _query.isEmpty
+                      ? 'لا توجد أسهم متاحة'
+                      : 'لا توجد نتائج لـ "$_query"',
+                  style: const TextStyle(color: AppColors.textMuted),
+                ),
+              ),
+            ),
+          );
+        }
+
+        return SliverList(
+          delegate: SliverChildBuilderDelegate(
+            (context, index) => _StockCard(stock: stocks[index]),
+            childCount: stocks.length,
           ),
-        ),
-      );
-    return SliverToBoxAdapter(
-      child: SizedBox(
-        height: 140,
-        child: ListView.separated(
-          scrollDirection: Axis.horizontal,
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          itemCount: movers.length,
-          separatorBuilder: (_, __) => const SizedBox(width: 8),
-          itemBuilder: (_, i) {
-            final m = movers[i];
-            final ticker =
-                m['ticker']?.toString() ?? m['symbol']?.toString() ?? '';
-            final price =
-                double.tryParse((m['price'] ?? m['last'] ?? '0').toString()) ??
-                    0;
-            final change =
-                double.tryParse((m['change_percent'] ?? '0').toString()) ?? 0;
-            final isUp = change >= 0;
-             return Container(
-               width: 120,
-               padding: const EdgeInsets.all(10),
-               decoration: BoxDecoration(
-                 color: AppColors.surface,
-                 borderRadius: BorderRadius.circular(12),
-                 border: Border.all(color: AppColors.border),
-               ),
-               child: Column(
-                   crossAxisAlignment: CrossAxisAlignment.start,
-                   children: [
-                     Text(ticker,
-                         style: const TextStyle(
-                             fontWeight: FontWeight.w700, fontSize: 13),
-                         overflow: TextOverflow.ellipsis,
-                         maxLines: 1),
-                     const SizedBox(height: 4),
-                     Text(price.toStringAsFixed(2),
-                         style: const TextStyle(fontSize: 12)),
-                     const SizedBox(height: 4),
-                     Container(
-                       padding: const EdgeInsets.symmetric(
-                           horizontal: 6, vertical: 2),
-                       decoration: BoxDecoration(
-                         color: (isUp ? AppColors.success : AppColors.danger)
-                             .withValues(alpha: 0.1),
-                         borderRadius: BorderRadius.circular(4),
-                       ),
-                       child: Text(
-                           '${isUp ? '+' : ''}${change.toStringAsFixed(2)}%',
-                           style: TextStyle(
-                               fontSize: 11,
-                               fontWeight: FontWeight.w600,
-                               color:
-                                   isUp ? AppColors.success : AppColors.danger),
-                           overflow: TextOverflow.ellipsis,
-                           maxLines: 1,
-                         ),
-                     ),
-                   ],
-                 ),
-             );
-          },
-        ),
-      ),
+        );
+      },
     );
   }
 }
@@ -448,7 +437,7 @@ class _StockCard extends StatelessWidget {
     final isUp = change >= 0;
     final price = stock.currentPrice?.toStringAsFixed(2) ?? '0';
     return Container(
-      margin: const EdgeInsets.only(bottom: 8),
+      margin: const EdgeInsets.only(bottom: 8, left: 12, right: 12),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: AppColors.surface,

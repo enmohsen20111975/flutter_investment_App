@@ -70,12 +70,13 @@ class SubscriptionStatus {
     this.maxDailyAiAnalysis = 2,
   });
 
-  bool get isPlus => tier == 'plus';
-  bool get isPremium => tier == 'premium';
-  bool get isFree => tier == 'free' || tier.isEmpty;
+  bool get isAdmin => tier == 'admin' || tier == 'superadmin' || tier == 'owner';
+  bool get isPlus => tier == 'plus' || isPremium;
+  bool get isPremium => tier == 'premium' || isAdmin || isTrial;
+  bool get isFree => !isPlus && !isPremium;
 
   bool hasFeature(String feature) {
-    if (isPremium) return true;
+    if (isPremium || isAdmin || isTrial) return true;
     switch (feature) {
       case 'ai_analysis':
         if (isPlus) return true;
@@ -100,7 +101,7 @@ class SubscriptionStatus {
   }
 
   int remainingToday(String feature) {
-    if (isPlus || isPremium) return -1;
+    if (isPlus || isPremium || isAdmin || isTrial) return -1;
     switch (feature) {
       case 'ai_analysis':
         return (maxDailyAiAnalysis - (usageToday['ai_analysis'] ?? 0))
@@ -126,9 +127,12 @@ class SubscriptionStatus {
         ? Map<String, dynamic>.from(rawLimits)
         : {};
 
+    final String rawTier = (sub['tier'] ?? sub['plan_id'] ?? sub['role'] ?? 'free').toString().toLowerCase();
+    final bool isTrialActive = parseBool(sub['is_trial']) ?? parseBool(json['is_trial']) ?? true; // Default 30-day trial enabled
+
     return SubscriptionStatus(
-      tier: (sub['tier'] ?? sub['plan_id'] ?? 'free').toString().toLowerCase(),
-      isTrial: parseBool(sub['is_trial']) ?? false,
+      tier: rawTier,
+      isTrial: isTrialActive,
       isActive: (sub['status'] ?? 'active') == 'active' ||
           (sub['status'] ?? 'active') == 'trialing',
       expiresAt: sub['expires_at'] != null
@@ -140,9 +144,9 @@ class SubscriptionStatus {
       paymentProvider: parseString(sub['payment_provider']),
       usageToday: usage.map((k, v) => MapEntry(k, parseInt(v) ?? 0)),
       limits: limitMap.map((k, v) => MapEntry(k, parseInt(v))),
-      maxWatchlist: parseInt(limitMap['max_watchlist_items']) ?? 3,
-      maxPortfolio: parseInt(limitMap['max_portfolio_items']) ?? 3,
-      maxDailyAiAnalysis: parseInt(limitMap['max_ai_analysis_per_day']) ?? 2,
+      maxWatchlist: parseInt(limitMap['max_watchlist_items']) ?? 999,
+      maxPortfolio: parseInt(limitMap['max_portfolio_items']) ?? 999,
+      maxDailyAiAnalysis: parseInt(limitMap['max_ai_analysis_per_day']) ?? 999,
     );
   }
 
@@ -204,13 +208,36 @@ class SubscriptionService {
     }
 
     try {
+      final user = await api.getUser();
       final response = await api.getCurrentSubscription();
       _currentStatus = SubscriptionStatus.fromJson(response);
+      if (user?.isAdmin == true) {
+        _currentStatus = SubscriptionStatus(
+          tier: 'admin',
+          isTrial: true,
+          isActive: true,
+          maxWatchlist: 999,
+          maxPortfolio: 999,
+          maxDailyAiAnalysis: 999,
+        );
+      }
       _lastFetch = DateTime.now();
       await _saveToCache();
     } catch (e) {
       debugPrint('[Subscription] Failed to fetch status: $e');
-      _currentStatus ??= SubscriptionStatus(tier: 'free');
+      final user = await api.getUser();
+      if (user?.isAdmin == true) {
+        _currentStatus = SubscriptionStatus(
+          tier: 'admin',
+          isTrial: true,
+          isActive: true,
+          maxWatchlist: 999,
+          maxPortfolio: 999,
+          maxDailyAiAnalysis: 999,
+        );
+      } else {
+        _currentStatus ??= SubscriptionStatus(tier: 'free', isTrial: true);
+      }
     }
     return _currentStatus!;
   }

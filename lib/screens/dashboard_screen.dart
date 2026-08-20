@@ -157,7 +157,7 @@ class _DashboardScreenState extends State<DashboardScreen>
 
   Future<List<Map<String, dynamic>>> _fetchExplosivePreview() async {
     try {
-      final payload = await api.getExplosiveOpportunities(limit: 5);
+      final payload = await api.getExplosiveOpportunities(limit: 10);
       final raw = payload['top_candidates'];
       if (raw is! List) return <Map<String, dynamic>>[];
       final out = <Map<String, dynamic>>[];
@@ -166,7 +166,10 @@ class _DashboardScreenState extends State<DashboardScreen>
           final m = Map<String, dynamic>.from(e);
           final m5 = _toDouble(m['momentum_5d']);
           if (m5 != null && m5.abs() > 200) continue;
+          final ticker = (m['ticker'] ?? m['symbol'] ?? '').toString().trim();
+          if (RegExp(r'^\d{4}$').hasMatch(ticker)) continue; // Filter out Saudi stocks from EGX preview
           out.add(m);
+          if (out.length >= 5) break;
         }
       }
       return out;
@@ -727,7 +730,11 @@ class _DashboardScreenState extends State<DashboardScreen>
 
   Widget _buildIndexCard(dynamic item) {
     final name = item['name'] ?? item['symbol'] ?? 'مؤشر';
-    final value = (item['value'] ?? item['current_price'] ?? 0.0).toString();
+    final rawVal = item['value'] ?? item['current_price'] ?? 0.0;
+    final double? valNum = rawVal is num ? rawVal.toDouble() : double.tryParse(rawVal.toString().replaceAll(',', ''));
+    final String value = valNum != null
+        ? valNum.toStringAsFixed(2).replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]},')
+        : rawVal.toString();
     final change = (item['change_percent'] ?? item['change'] ?? 0.0);
     final double changeNum = change is num ? change.toDouble() : double.tryParse(change.toString()) ?? 0.0;
     final bool isUp = changeNum >= 0;

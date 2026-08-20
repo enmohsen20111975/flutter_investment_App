@@ -19,14 +19,13 @@ class WatchlistScreen extends StatefulWidget {
 }
 
 class _WatchlistScreenState extends State<WatchlistScreen> {
-  bool _isLoading = true;
-  List<WatchlistItem> _items = [];
+  late Future<WatchlistResponse> _watchlistFuture = GLMApiClient.instance.getWatchlistEnhanced();
   final TextEditingController _searchController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
-    _loadWatchlist();
+    _refreshWatchlist();
   }
 
   @override
@@ -35,27 +34,15 @@ class _WatchlistScreenState extends State<WatchlistScreen> {
     super.dispose();
   }
 
-  Future<void> _loadWatchlist() async {
-    setState(() => _isLoading = true);
-    try {
-      final res = await GLMApiClient.instance.getWatchlistEnhanced();
-      if (mounted) {
-        setState(() {
-          _items = res.items;
-          _isLoading = false;
-        });
-      }
-    } catch (e) {
-      debugPrint('[Watchlist] Load error: $e');
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
-    }
+  void _refreshWatchlist() {
+    setState(() {
+      _watchlistFuture = GLMApiClient.instance.getWatchlistEnhanced();
+    });
   }
 
-  Future<void> _addItem(String ticker) async {
+  Future<void> _addItem(String ticker, int currentCount) async {
     if (ticker.trim().isEmpty) return;
-    final canAdd = SubscriptionService.instance.canAddToWatchlist(_items.length);
+    final canAdd = SubscriptionService.instance.canAddToWatchlist(currentCount);
     if (!canAdd) {
       UpgradeModal.show(
         context,
@@ -65,46 +52,29 @@ class _WatchlistScreenState extends State<WatchlistScreen> {
       return;
     }
 
-    // Optimistic UI Update
-    final newItem = WatchlistItem(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
-      ticker: ticker.toUpperCase(),
-      name: ticker.toUpperCase(),
-      currentPrice: 30.00,
-      priceChange: 0.0,
-      changePercent: 0.0,
-    );
-
-    setState(() {
-      _items.insert(0, newItem);
-    });
-
     try {
       await GLMApiClient.instance.addToWatchlist({'symbol': ticker.toUpperCase()});
-      _loadWatchlist();
+      _refreshWatchlist();
     } catch (e) {
       debugPrint('[Watchlist] Add failed: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('فشل إضافة السهم: $e'), backgroundColor: AppColors.quantumCrimson),
+        );
+      }
     }
   }
 
   Future<void> _removeItem(String id, String ticker) async {
-    // Optimistic Removal
-    final removed = _items.firstWhere((i) => i.id == id || i.ticker == ticker, orElse: () => _items.first);
-    setState(() {
-      _items.removeWhere((i) => i.id == id || i.ticker == ticker);
-    });
-
     try {
       await GLMApiClient.instance.removeFromWatchlist(id);
+      _refreshWatchlist();
     } catch (e) {
-      debugPrint('[Watchlist] Remove failed, reverting: $e');
-      setState(() {
-        _items.add(removed);
-      });
+      debugPrint('[Watchlist] Remove failed: $e');
     }
   }
 
-  void _showAddDialog() {
+  void _showAddDialog(int currentCount) {
     _searchController.clear();
     showDialog(
       context: context,
@@ -143,7 +113,7 @@ class _WatchlistScreenState extends State<WatchlistScreen> {
               final ticker = _searchController.text.trim();
               Navigator.pop(context);
               if (ticker.isNotEmpty) {
-                _addItem(ticker);
+                _addItem(ticker, currentCount);
               }
             },
             child: const Text('إضافة'),
@@ -155,26 +125,53 @@ class _WatchlistScreenState extends State<WatchlistScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.quantumBg,
-      appBar: AppBar(
-        backgroundColor: AppColors.quantumSurface,
-        elevation: 0,
-        title: const Text('قائمة المتابعة', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.add_circle_outline, color: AppColors.quantumEmerald, size: 28),
-            onPressed: _showAddDialog,
+    return FutureBuilder<WatchlistResponse>(
+      future: _watchlistFuture,
+      builder: (context, snapshot) {
+        final items = snapshot.data?.items ?? [];
+
+        return Scaffold(
+          backgroundColor: AppColors.quantumBg,
+          appBar: AppBar(
+            backgroundColor: AppColors.quantumSurface,
+            elevation: 0,
+            title: const Text('قائمة المتابعة', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.add_circle_outline, color: AppColors.quantumEmerald, size: 28),
+                onPressed: () => _showAddDialog(items.length),
+              ),
+            ],
           ),
-        ],
-      ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: AppColors.quantumEmerald))
-          : RefreshIndicator(
+          body: () {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator(color: AppColors.quantumEmerald));
+            }
+
+            if (snapshot.hasError) {
+              return Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.error_outline, size: 48, color: AppColors.quantumCrimson),
+                    const SizedBox(height: 12),
+                    const Text('حدث خطأ في تحميل قائمة المتابعة', style: TextStyle(color: Colors.white70)),
+                    const SizedBox(height: 12),
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(backgroundColor: AppColors.quantumEmerald, foregroundColor: Colors.black),
+                      onPressed: _refreshWatchlist,
+                      child: const Text('إعادة المحاولة'),
+                    ),
+                  ],
+                ),
+              );
+            }
+
+            return RefreshIndicator(
               color: AppColors.quantumEmerald,
               backgroundColor: AppColors.quantumGlass,
-              onRefresh: _loadWatchlist,
-              child: _items.isEmpty
+              onRefresh: () async => _refreshWatchlist(),
+              child: items.isEmpty
                   ? Center(
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -191,16 +188,16 @@ class _WatchlistScreenState extends State<WatchlistScreen> {
                             ),
                             icon: const Icon(Icons.add),
                             label: const Text('إضافة أسهم قائمة المتابعة'),
-                            onPressed: _showAddDialog,
+                            onPressed: () => _showAddDialog(0),
                           ),
                         ],
                       ),
                     )
                   : ListView.builder(
                       padding: const EdgeInsets.all(16),
-                      itemCount: _items.length,
+                      itemCount: items.length,
                       itemBuilder: (context, index) {
-                        final item = _items[index];
+                        final item = items[index];
                         final ticker = item.ticker;
                         final name = item.nameAr ?? item.name ?? ticker;
                         final price = item.currentPrice ?? 29.50;
@@ -303,7 +300,10 @@ class _WatchlistScreenState extends State<WatchlistScreen> {
                         );
                       },
                     ),
-            ),
+            );
+          }(),
+        );
+      },
     );
   }
 }

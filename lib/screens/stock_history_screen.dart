@@ -22,8 +22,9 @@ class StockHistoryScreen extends StatefulWidget {
 class _StockHistoryScreenState extends State<StockHistoryScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  bool _isLoading = true;
+  late Future<Map<String, dynamic>> _detailsFuture = _loadStockDetailsData();
   bool _isInWatchlist = false;
+
   Map<String, dynamic>? _stockQuote;
   OrderBook? _orderBook;
   List<CompanyDisclosure> _disclosures = [];
@@ -34,7 +35,7 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: 4, vsync: this);
-    _loadStockDetails();
+    _refreshDetails();
   }
 
   @override
@@ -43,8 +44,13 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
     super.dispose();
   }
 
-  Future<void> _loadStockDetails() async {
-    setState(() => _isLoading = true);
+  void _refreshDetails() {
+    setState(() {
+      _detailsFuture = _loadStockDetailsData();
+    });
+  }
+
+  Future<Map<String, dynamic>> _loadStockDetailsData() async {
     try {
       final quote = await GLMApiClient.instance.getStockDetail(widget.ticker);
       final orderbook = await GLMApiClient.instance.getStockOrderBook(widget.ticker);
@@ -52,21 +58,22 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
       final fundamentals = await GLMApiClient.instance.getStockFundamentals(widget.ticker);
       final rec = await GLMApiClient.instance.getStockRecommendation(widget.ticker);
 
-      if (mounted) {
-        setState(() {
-          _stockQuote = quote;
-          _orderBook = orderbook;
-          _disclosures = disclosures;
-          _fundamentals = fundamentals;
-          _recommendation = rec;
-          _isLoading = false;
-        });
-      }
+      _stockQuote = quote;
+      _orderBook = orderbook;
+      _disclosures = disclosures;
+      _fundamentals = fundamentals;
+      _recommendation = rec;
+
+      return {
+        'quote': quote,
+        'orderbook': orderbook,
+        'disclosures': disclosures,
+        'fundamentals': fundamentals,
+        'recommendation': rec,
+      };
     } catch (e) {
       debugPrint('[StockDetail] Error loading details: $e');
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
+      return {};
     }
   }
 
@@ -96,47 +103,72 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
 
   @override
   Widget build(BuildContext context) {
-    final name = _stockQuote?['name_ar'] ?? _stockQuote?['name'] ?? widget.ticker;
-    final price = (_stockQuote?['price'] ?? _stockQuote?['current_price'] ?? 29.50);
-    final change = (_stockQuote?['change_percent'] ?? _stockQuote?['price_change'] ?? 1.85);
-    final double changeNum = change is num ? change.toDouble() : double.tryParse(change.toString()) ?? 0.0;
-    final bool isUp = changeNum >= 0;
+    return FutureBuilder<Map<String, dynamic>>(
+      future: _detailsFuture,
+      builder: (context, snapshot) {
+        final name = _stockQuote?['name_ar'] ?? _stockQuote?['name'] ?? widget.ticker;
+        final price = (_stockQuote?['price'] ?? _stockQuote?['current_price'] ?? 29.50);
+        final change = (_stockQuote?['change_percent'] ?? _stockQuote?['price_change'] ?? 1.85);
+        final double changeNum = change is num ? change.toDouble() : double.tryParse(change.toString()) ?? 0.0;
+        final bool isUp = changeNum >= 0;
 
-    return Scaffold(
-      backgroundColor: AppColors.quantumBg,
-      appBar: AppBar(
-        backgroundColor: AppColors.quantumSurface,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              name,
-              style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+        return Scaffold(
+          backgroundColor: AppColors.quantumBg,
+          appBar: AppBar(
+            backgroundColor: AppColors.quantumSurface,
+            elevation: 0,
+            leading: IconButton(
+              icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
+              onPressed: () => Navigator.pop(context),
             ),
-            Text(
-              widget.ticker,
-              style: const TextStyle(color: AppColors.quantumGold, fontSize: 12, fontWeight: FontWeight.bold),
+            title: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  name,
+                  style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+                Text(
+                  widget.ticker,
+                  style: const TextStyle(color: AppColors.quantumGold, fontSize: 12, fontWeight: FontWeight.bold),
+                ),
+              ],
             ),
-          ],
-        ),
-        actions: [
-          IconButton(
-            icon: Icon(
-              _isInWatchlist ? Icons.star : Icons.star_border,
-              color: _isInWatchlist ? AppColors.quantumGold : Colors.white70,
-            ),
-            onPressed: _toggleWatchlist,
+            actions: [
+              IconButton(
+                icon: Icon(
+                  _isInWatchlist ? Icons.star : Icons.star_border,
+                  color: _isInWatchlist ? AppColors.quantumGold : Colors.white70,
+                ),
+                onPressed: _toggleWatchlist,
+              ),
+            ],
           ),
-        ],
-      ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: AppColors.quantumEmerald))
-          : NestedScrollView(
+          body: () {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator(color: AppColors.quantumEmerald));
+            }
+
+            if (snapshot.hasError) {
+              return Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.error_outline, size: 48, color: AppColors.quantumCrimson),
+                    const SizedBox(height: 12),
+                    const Text('حدث خطأ في تحميل تفاصيل السهم', style: TextStyle(color: Colors.white70)),
+                    const SizedBox(height: 12),
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(backgroundColor: AppColors.quantumEmerald, foregroundColor: Colors.black),
+                      onPressed: _refreshDetails,
+                      child: const Text('إعادة المحاولة'),
+                    ),
+                  ],
+                ),
+              );
+            }
+
+            return NestedScrollView(
               headerSliverBuilder: (context, innerBoxIsScrolled) => [
                 SliverToBoxAdapter(
                   child: Column(
@@ -240,7 +272,10 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
                   _buildRecommendationTab(),
                 ],
               ),
-            ),
+            );
+          }(),
+        );
+      },
     );
   }
 
