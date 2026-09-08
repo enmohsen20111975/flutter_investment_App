@@ -34,7 +34,7 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this);
+    _tabController = TabController(length: 5, vsync: this);
     _refreshDetails();
   }
 
@@ -257,6 +257,7 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
                         Tab(text: 'عمق السوق'),
                         Tab(text: 'البيانات المالية'),
                         Tab(text: 'الإفصاحات'),
+                        Tab(text: 'الأخبار'),
                         Tab(text: 'التحليل والـ AI'),
                       ],
                     ),
@@ -269,6 +270,7 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
                   _buildOrderBookTab(),
                   _buildFundamentalsTab(),
                   _buildDisclosuresTab(),
+                  _buildStockNewsTab(),
                   _buildRecommendationTab(),
                 ],
               ),
@@ -459,6 +461,90 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
               ],
             ],
           ),
+        );
+      },
+    );
+  }
+
+  /// تبويب أخبار السهم — آخر الأخبار + الإفصاحات الخاصة بالسهم
+  Widget _buildStockNewsTab() {
+    return FutureBuilder<List<dynamic>>(
+      future: GLMApiClient.instance.getStockNews(widget.ticker),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        if (snapshot.hasError) {
+          return Center(child: Text('خطأ: ${snapshot.error}'));
+        }
+        final news = snapshot.data ?? [];
+        if (news.isEmpty) {
+          return const Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.newspaper_outlined, size: 64, color: Colors.grey),
+                SizedBox(height: 16),
+                Text('مفيش أخبار متاحة لهذا السهم دلوقتي',
+                    style: TextStyle(color: Colors.grey)),
+              ],
+            ),
+          );
+        }
+        return ListView.separated(
+          padding: const EdgeInsets.all(12),
+          itemCount: news.length,
+          separatorBuilder: (_, __) => const Divider(height: 1),
+          itemBuilder: (context, index) {
+            final item = news[index] as Map<String, dynamic>;
+            final title = item['title']?.toString() ?? item['headline']?.toString() ?? 'خبر';
+            final source = item['source']?.toString() ?? '';
+            final date = item['published_at']?.toString() ??
+                item['date']?.toString() ??
+                item['created_at']?.toString() ??
+                '';
+            final summary = item['summary']?.toString() ?? item['description']?.toString() ?? '';
+            final url = item['url']?.toString() ?? item['link']?.toString() ?? '';
+
+            return Card(
+              margin: const EdgeInsets.symmetric(vertical: 4),
+              child: ListTile(
+                leading: const Icon(Icons.article_outlined, color: Colors.blue),
+                title: Text(title, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                subtitle: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (summary.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: Text(summary,
+                            maxLines: 2, overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontSize: 11)),
+                      ),
+                    if (source.isNotEmpty || date.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: Row(
+                          children: [
+                            if (source.isNotEmpty)
+                              Flexible(child: Text(source, style: const TextStyle(fontSize: 10, color: Colors.grey))),
+                            if (source.isNotEmpty && date.isNotEmpty)
+                              const Text(' • ', style: TextStyle(fontSize: 10, color: Colors.grey)),
+                            if (date.isNotEmpty)
+                              Flexible(child: Text(date.split('T').first, style: const TextStyle(fontSize: 10, color: Colors.grey))),
+                          ],
+                        ),
+                      ),
+                  ],
+                ),
+                onTap: url.isNotEmpty
+                    ? () {
+                        // ممكن فتح URL بـ url_launcher لو متاح
+                      }
+                    : null,
+              ),
+            );
+          },
         );
       },
     );

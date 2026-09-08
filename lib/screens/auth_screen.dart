@@ -15,8 +15,19 @@ class AuthScreen extends StatefulWidget {
 
 class _AuthScreenState extends State<AuthScreen> {
   bool _isLoading = false;
+  bool _isCredentialsLoading = false;
+  bool _showRegisterForm = false;
   String? _error;
   String? _success;
+
+  // Credentials form controllers
+  final _emailOrUsernameController = TextEditingController();
+  final _passwordController = TextEditingController();
+  final _usernameController = TextEditingController();
+  final _emailController = TextEditingController();
+  final _registerPasswordController = TextEditingController();
+  final _nameController = TextEditingController();
+  bool _obscurePassword = true;
 
   late final GoogleSignIn _googleSignIn;
 
@@ -39,6 +50,108 @@ class _AuthScreenState extends State<AuthScreen> {
     } else {
       _googleSignIn = GoogleSignIn(scopes: <String>['email', 'profile']);
     }
+  }
+
+  /// تسجيل دخول بـ email/username + password
+  Future<void> _handleCredentialsLogin() async {
+    final emailOrUsername = _emailOrUsernameController.text.trim();
+    final password = _passwordController.text;
+
+    if (emailOrUsername.isEmpty || password.isEmpty) {
+      setState(() => _error = 'اكتب البريد الإلكتروني/اسم المستخدم + كلمة المرور');
+      return;
+    }
+
+    setState(() {
+      _isCredentialsLoading = true;
+      _error = null;
+      _success = null;
+    });
+
+    try {
+      final result = await GLMApiClient.instance.credentialsLogin(
+        emailOrUsername: emailOrUsername,
+        password: password,
+      );
+
+      if (result['success'] == true || result['token'] != null) {
+        await SubscriptionService.instance.refresh();
+        if (mounted) {
+          Navigator.of(context).pushReplacementNamed('/home');
+        }
+      } else {
+        setState(() {
+          _error = result['error']?.toString() ?? 'فشل تسجيل الدخول — تأكد من البيانات';
+          _isCredentialsLoading = false;
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _error = 'خطأ: $e';
+        _isCredentialsLoading = false;
+      });
+    }
+  }
+
+  /// تسجيل مستخدم جديد
+  Future<void> _handleRegister() async {
+    final email = _emailController.text.trim();
+    final username = _usernameController.text.trim();
+    final password = _registerPasswordController.text;
+    final name = _nameController.text.trim();
+
+    if (email.isEmpty || username.isEmpty || password.isEmpty) {
+      setState(() => _error = 'املأ كل الحقول المطلوبة');
+      return;
+    }
+
+    if (password.length < 6) {
+      setState(() => _error = 'كلمة المرور لازم 6 أحرف على الأقل');
+      return;
+    }
+
+    setState(() {
+      _isCredentialsLoading = true;
+      _error = null;
+      _success = null;
+    });
+
+    try {
+      final result = await GLMApiClient.instance.register(
+        email: email,
+        username: username,
+        password: password,
+        name: name.isNotEmpty ? name : null,
+      );
+
+      if (result['success'] == true || result['token'] != null) {
+        await SubscriptionService.instance.refresh();
+        if (mounted) {
+          Navigator.of(context).pushReplacementNamed('/home');
+        }
+      } else {
+        setState(() {
+          _error = result['error']?.toString() ?? 'فشل التسجيل — حاول بمستخدم آخر';
+          _isCredentialsLoading = false;
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _error = 'خطأ: $e';
+        _isCredentialsLoading = false;
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _emailOrUsernameController.dispose();
+    _passwordController.dispose();
+    _usernameController.dispose();
+    _emailController.dispose();
+    _registerPasswordController.dispose();
+    _nameController.dispose();
+    super.dispose();
   }
 
   Future<void> _handleGoogleLogin() async {
@@ -303,6 +416,184 @@ class _AuthScreenState extends State<AuthScreen> {
                                       color: AppColors.success, fontSize: 13))),
                         ],
                       ),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+                  // ═══ Credentials Login Form ═══
+                  if (!_showRegisterForm) ...[
+                    // Login form
+                    TextField(
+                      controller: _emailOrUsernameController,
+                      decoration: const InputDecoration(
+                        labelText: 'البريد الإلكتروني أو اسم المستخدم',
+                        prefixIcon: Icon(Icons.person_outline, size: 20),
+                        border: OutlineInputBorder(),
+                        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                        isDense: true,
+                      ),
+                      textInputAction: TextInputAction.next,
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: _passwordController,
+                      obscureText: _obscurePassword,
+                      decoration: InputDecoration(
+                        labelText: 'كلمة المرور',
+                        prefixIcon: const Icon(Icons.lock_outline, size: 20),
+                        suffixIcon: IconButton(
+                          icon: Icon(_obscurePassword ? Icons.visibility_off : Icons.visibility, size: 20),
+                          onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                        ),
+                        border: const OutlineInputBorder(),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                        isDense: true,
+                      ),
+                      onSubmitted: (_) => _handleCredentialsLogin(),
+                    ),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 46,
+                      child: FilledButton.icon(
+                        onPressed: _isCredentialsLoading ? null : _handleCredentialsLogin,
+                        icon: _isCredentialsLoading
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                            : const Icon(Icons.login, size: 20),
+                        label: Text(
+                          _isCredentialsLoading ? 'جاري الدخول...' : 'دخول',
+                          style: const TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                        style: FilledButton.styleFrom(
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Text('ليس لديك حساب؟', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                        TextButton(
+                          onPressed: () => setState(() {
+                            _showRegisterForm = true;
+                            _error = null;
+                          }),
+                          child: const Text('سجّل الآن', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    // Divider
+                    Row(
+                      children: [
+                        const Expanded(child: Divider()),
+                        const Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 12),
+                          child: Text('أو', style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+                        ),
+                        const Expanded(child: Divider()),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                  ] else ...[
+                    // Register form
+                    TextField(
+                      controller: _nameController,
+                      decoration: const InputDecoration(
+                        labelText: 'الاسم (اختياري)',
+                        prefixIcon: Icon(Icons.badge_outlined, size: 20),
+                        border: OutlineInputBorder(),
+                        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                        isDense: true,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    TextField(
+                      controller: _emailController,
+                      decoration: const InputDecoration(
+                        labelText: 'البريد الإلكتروني',
+                        prefixIcon: Icon(Icons.email_outlined, size: 20),
+                        border: OutlineInputBorder(),
+                        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                        isDense: true,
+                      ),
+                      keyboardType: TextInputType.emailAddress,
+                    ),
+                    const SizedBox(height: 10),
+                    TextField(
+                      controller: _usernameController,
+                      decoration: const InputDecoration(
+                        labelText: 'اسم المستخدم',
+                        prefixIcon: Icon(Icons.person_outline, size: 20),
+                        border: OutlineInputBorder(),
+                        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                        isDense: true,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    TextField(
+                      controller: _registerPasswordController,
+                      obscureText: _obscurePassword,
+                      decoration: InputDecoration(
+                        labelText: 'كلمة المرور (6 أحرف+)',
+                        prefixIcon: const Icon(Icons.lock_outline, size: 20),
+                        suffixIcon: IconButton(
+                          icon: Icon(_obscurePassword ? Icons.visibility_off : Icons.visibility, size: 20),
+                          onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                        ),
+                        border: const OutlineInputBorder(),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                        isDense: true,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 46,
+                      child: FilledButton.icon(
+                        onPressed: _isCredentialsLoading ? null : _handleRegister,
+                        icon: _isCredentialsLoading
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                            : const Icon(Icons.person_add, size: 20),
+                        label: Text(
+                          _isCredentialsLoading ? 'جاري التسجيل...' : 'إنشاء حساب',
+                          style: const TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                        style: FilledButton.styleFrom(
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Text('لديك حساب؟', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                        TextButton(
+                          onPressed: () => setState(() {
+                            _showRegisterForm = false;
+                            _error = null;
+                          }),
+                          child: const Text('سجّل الدخول', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        const Expanded(child: Divider()),
+                        const Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 12),
+                          child: Text('أو', style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+                        ),
+                        const Expanded(child: Divider()),
+                      ],
                     ),
                     const SizedBox(height: 16),
                   ],

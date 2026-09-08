@@ -2991,6 +2991,591 @@ class GLMApiClient {
     };
     return vectors[persona] ?? vectors['balanced']!;
   }
+
+  // ============================================================================
+  // 🔥 PHASE-9: Maker Radar / Liquidity / حركة السيولة والميكرز
+  // ============================================================================
+  // الـ radar هو اللي بـ يكتشف الأسهم اللي يجمعها صناع السوق قبل الانفجار.
+  // Web platform: /api/maker-radar (cached JSON from scripts/maker_radar.py)
+  // ============================================================================
+
+  /// GET /api/maker-radar?market=EGX
+  /// يجيب بيانات الرادار الكاملة: quiet_list, explosive_list, pre_surge_list,
+  /// surge_detector_list, early_break_list, top_explosions + trade_levels
+  Future<Map<String, dynamic>> getMakerRadar({String market = 'EGX'}) async {
+    try {
+      final response = await _dio.get(
+        '/api/maker-radar',
+        queryParameters: {'market': market},
+      );
+      return response.data is Map<String, dynamic>
+          ? response.data
+          : {'data': response.data};
+    } catch (e) {
+      debugPrint('[API] getMakerRadar($market) failed: $e');
+      return {};
+    }
+  }
+
+  /// POST /api/maker-radar/warmup?market=EGX
+  /// يدفّع الرادار يسخّن البيانات (لو الـ cache stale)
+  Future<Map<String, dynamic>> warmupMakerRadar({String market = 'EGX'}) async {
+    try {
+      final response = await _dio.post(
+        '/api/maker-radar/warmup',
+        queryParameters: {'market': market},
+      );
+      return response.data is Map<String, dynamic>
+          ? response.data
+          : {'data': response.data};
+    } catch (e) {
+      debugPrint('[API] warmupMakerRadar($market) failed: $e');
+      return {};
+    }
+  }
+
+  /// GET /api/maker-radar/live-watch
+  /// بيانات الـ live watch (لو شغّال)
+  Future<Map<String, dynamic>> getRadarLiveWatch() async {
+    try {
+      final response = await _dio.get('/api/maker-radar/live-watch');
+      return response.data is Map<String, dynamic>
+          ? response.data
+          : {'data': response.data};
+    } catch (e) {
+      debugPrint('[API] getRadarLiveWatch failed: $e');
+      return {};
+    }
+  }
+
+  /// GET /api/maker-radar/track
+  /// الأسهم المتتبّعة (tracked picks)
+  Future<List<dynamic>> getRadarTrackedStocks() async {
+    try {
+      final response = await _dio.get('/api/maker-radar/track');
+      return response.data is List ? response.data : [];
+    } catch (e) {
+      debugPrint('[API] getRadarTrackedStocks failed: $e');
+      return [];
+    }
+  }
+
+  /// POST /api/maker-radar/track
+  /// تتبّع سهم (entry price + notes)
+  Future<Map<String, dynamic>> trackRadarStock({
+    required String ticker,
+    required double entryPrice,
+    String? notes,
+  }) async {
+    try {
+      final response = await _dio.post(
+        '/api/maker-radar/track',
+        data: {
+          'ticker': ticker,
+          'entry_price': entryPrice,
+          if (notes != null) 'notes': notes,
+        },
+      );
+      return response.data is Map<String, dynamic>
+          ? response.data
+          : {'data': response.data};
+    } catch (e) {
+      debugPrint('[API] trackRadarStock($ticker) failed: $e');
+      return {};
+    }
+  }
+
+  /// DELETE /api/maker-radar/track?ticker=COMI
+  /// إلغاء تتبّع سهم
+  Future<bool> untrackRadarStock(String ticker) async {
+    try {
+      await _dio.delete(
+        '/api/maker-radar/track',
+        queryParameters: {'ticker': ticker},
+      );
+      return true;
+    } catch (e) {
+      debugPrint('[API] untrackRadarStock($ticker) failed: $e');
+      return false;
+    }
+  }
+
+  /// GET /api/maker-radar/stock?ticker=COMI
+  /// بيانات الرادار لسهم واحد
+  Future<Map<String, dynamic>> getRadarStockData(String ticker) async {
+    try {
+      final response = await _dio.get(
+        '/api/maker-radar/stock',
+        queryParameters: {'ticker': ticker},
+      );
+      return response.data is Map<String, dynamic>
+          ? response.data
+          : {'data': response.data};
+    } catch (e) {
+      debugPrint('[API] getRadarStockData($ticker) failed: $e');
+      return {};
+    }
+  }
+
+  // ============================================================================
+  // PHASE-9: Credentials Login (email/password) — besides Google
+  // ============================================================================
+
+  /// POST /api/auth/login
+  /// تسجيل دخول بـ email/username + password (مش Google)
+  Future<Map<String, dynamic>> credentialsLogin({
+    required String emailOrUsername,
+    required String password,
+  }) async {
+    try {
+      final response = await _dio.post(
+        '/api/auth/login',
+        data: {
+          'username_or_email': emailOrUsername,
+          'password': password,
+        },
+      );
+      final data = response.data is Map<String, dynamic>
+          ? response.data
+          : {'data': response.data};
+      // لو فيه token، احفظه
+      if (data['token'] != null) {
+        await _saveAuthToken(data['token']);
+      }
+      if (data['user'] != null) {
+        await _saveUserData(User.fromJson(data['user']));
+      }
+      return data;
+    } catch (e) {
+      debugPrint('[API] credentialsLogin failed: $e');
+      return {'success': false, 'error': e.toString()};
+    }
+  }
+
+  /// POST /api/auth/register
+  /// تسجيل مستخدم جديد بـ email + username + password
+  Future<Map<String, dynamic>> register({
+    required String email,
+    required String username,
+    required String password,
+    String? name,
+  }) async {
+    try {
+      final response = await _dio.post(
+        '/api/auth/register',
+        data: {
+          'email': email,
+          'username': username,
+          'password': password,
+          if (name != null) 'name': name,
+        },
+      );
+      final data = response.data is Map<String, dynamic>
+          ? response.data
+          : {'data': response.data};
+      if (data['token'] != null) {
+        await _saveAuthToken(data['token']);
+      }
+      if (data['user'] != null) {
+        await _saveUserData(User.fromJson(data['user']));
+      }
+      return data;
+    } catch (e) {
+      debugPrint('[API] register failed: $e');
+      return {'success': false, 'error': e.toString()};
+    }
+  }
+
+  // ============================================================================
+  // PHASE-9: Portfolio Master / Equity Curve / Accounts
+  // ============================================================================
+
+  /// GET /api/portfolio/equity-curve
+  /// منحنى القيمة الإجمالية للمحفظة (wealth_tracking table)
+  Future<List<dynamic>> getPortfolioEquityCurve({int days = 90}) async {
+    try {
+      final response = await _dio.get(
+        '/api/portfolio/equity-curve',
+        queryParameters: {'days': days},
+      );
+      return response.data is List ? response.data : [];
+    } catch (e) {
+      debugPrint('[API] getPortfolioEquityCurve failed: $e');
+      return [];
+    }
+  }
+
+  /// GET /api/portfolio/accounts
+  /// قائمة حسابات المحفظة (portfolios table)
+  Future<List<dynamic>> getPortfolioAccounts() async {
+    try {
+      final response = await _dio.get('/api/portfolio/accounts');
+      if (response.data is List) return response.data;
+      if (response.data is Map && response.data['accounts'] is List) {
+        return response.data['accounts'];
+      }
+      return [];
+    } catch (e) {
+      debugPrint('[API] getPortfolioAccounts failed: $e');
+      return [];
+    }
+  }
+
+  /// POST /api/portfolio/accounts
+  /// إنشاء حساب محفظة جديد
+  Future<Map<String, dynamic>> createPortfolioAccount({
+    required String name,
+    String? type,
+    double? initialCapital,
+  }) async {
+    try {
+      final response = await _dio.post(
+        '/api/portfolio/accounts',
+        data: {
+          'name': name,
+          if (type != null) 'type': type,
+          if (initialCapital != null) 'initial_capital': initialCapital,
+        },
+      );
+      return response.data is Map<String, dynamic>
+          ? response.data
+          : {'data': response.data};
+    } catch (e) {
+      debugPrint('[API] createPortfolioAccount failed: $e');
+      return {};
+    }
+  }
+
+  /// GET /api/portfolio/accounts/{id}/equity-curve
+  /// منحنى القيمة لحساب محفظة محدّد
+  Future<List<dynamic>> getAccountEquityCurve(String accountId,
+      {int days = 90}) async {
+    try {
+      final response = await _dio.get(
+        '/api/portfolio/accounts/$accountId/equity-curve',
+        queryParameters: {'days': days},
+      );
+      return response.data is List ? response.data : [];
+    } catch (e) {
+      debugPrint('[API] getAccountEquityCurve($accountId) failed: $e');
+      return [];
+    }
+  }
+
+  /// GET /api/portfolio/risk-summary
+  /// ملخص المخاطر للمحفظة
+  Future<Map<String, dynamic>> getPortfolioRiskSummary() async {
+    try {
+      final response = await _dio.get('/api/portfolio/risk-summary');
+      return response.data is Map<String, dynamic>
+          ? response.data
+          : {'data': response.data};
+    } catch (e) {
+      debugPrint('[API] getPortfolioRiskSummary failed: $e');
+      return {};
+    }
+  }
+
+  /// GET /api/portfolio/cashflow
+  /// تحليل التدفّقات النقدية للمحفظة
+  Future<Map<String, dynamic>> getPortfolioCashflow() async {
+    try {
+      final response = await _dio.get('/api/portfolio/cashflow');
+      return response.data is Map<String, dynamic>
+          ? response.data
+          : {'data': response.data};
+    } catch (e) {
+      debugPrint('[API] getPortfolioCashflow failed: $e');
+      return {};
+    }
+  }
+
+  /// GET /api/portfolio/smart-monitor/signals?ticker=COMI
+  /// إشارات الـ smart monitor لسهم محدّد أو لكل المحفظة
+  Future<Map<String, dynamic>> getSmartMonitorSignals({String? ticker}) async {
+    try {
+      final response = await _dio.get(
+        '/api/portfolio/smart-monitor/signals',
+        queryParameters: ticker != null ? {'ticker': ticker} : null,
+      );
+      return response.data is Map<String, dynamic>
+          ? response.data
+          : {'data': response.data};
+    } catch (e) {
+      debugPrint('[API] getSmartMonitorSignals failed: $e');
+      return {};
+    }
+  }
+
+  /// GET /api/portfolio/bag-holder-rescue
+  /// تحليل إنقاذ الأسهم المعلّقة (bag holders)
+  Future<Map<String, dynamic>> getBagHolderRescue() async {
+    try {
+      final response = await _dio.get('/api/portfolio/bag-holder-rescue');
+      return response.data is Map<String, dynamic>
+          ? response.data
+          : {'data': response.data};
+    } catch (e) {
+      debugPrint('[API] getBagHolderRescue failed: $e');
+      return {};
+    }
+  }
+
+  // ============================================================================
+  // PHASE-9: Crypto — activate dead-code methods (portfolio, stats, learning)
+  // ============================================================================
+
+  /// GET /api/crypto/watchlist — user crypto watchlist
+  Future<List<dynamic>> getCryptoWatchlist() async {
+    try {
+      final response = await _dio.get('/api/crypto/watchlist');
+      return response.data is List ? response.data : [];
+    } catch (e) {
+      debugPrint('[API] getCryptoWatchlist failed: $e');
+      return [];
+    }
+  }
+
+  /// GET /api/crypto/explosive — explosive cryptos (high volume surge)
+  Future<List<dynamic>> getExplosiveCryptos() async {
+    try {
+      final response = await _dio.get('/api/crypto/explosive');
+      return response.data is List ? response.data : [];
+    } catch (e) {
+      debugPrint('[API] getExplosiveCryptos failed: $e');
+      return [];
+    }
+  }
+
+  /// GET /api/crypto/flow?symbol=BTC — crypto flow analysis
+  Future<Map<String, dynamic>> getCryptoFlow(String symbol) async {
+    try {
+      final response = await _dio.get(
+        '/api/crypto/flow',
+        queryParameters: {'symbol': symbol},
+      );
+      return response.data is Map<String, dynamic>
+          ? response.data
+          : {'data': response.data};
+    } catch (e) {
+      debugPrint('[API] getCryptoFlow($symbol) failed: $e');
+      return {};
+    }
+  }
+
+  /// GET /api/crypto/full-analysis?coin_id=bitcoin — full crypto analysis
+  Future<Map<String, dynamic>> getCryptoFullAnalysis(String coinId) async {
+    try {
+      final response = await _dio.get(
+        '/api/crypto/full-analysis',
+        queryParameters: {'coin_id': coinId},
+      );
+      return response.data is Map<String, dynamic>
+          ? response.data
+          : {'data': response.data};
+    } catch (e) {
+      debugPrint('[API] getCryptoFullAnalysis($coinId) failed: $e');
+      return {};
+    }
+  }
+
+  /// GET /api/crypto/mr-signals — MR signals for crypto
+  Future<List<dynamic>> getCryptoMrSignals() async {
+    try {
+      final response = await _dio.get('/api/crypto/mr-signals');
+      return response.data is List ? response.data : [];
+    } catch (e) {
+      debugPrint('[API] getCryptoMrSignals failed: $e');
+      return [];
+    }
+  }
+
+  // ============================================================================
+  // PHASE-9: News — per-stock news + news-feed
+  // ============================================================================
+
+  /// GET /api/news-feed — unified multi-source news feed
+  Future<List<dynamic>> getNewsFeed({String? market, int limit = 50}) async {
+    try {
+      final response = await _dio.get(
+        '/api/news-feed',
+        queryParameters: {
+          if (market != null) 'market': market,
+          'limit': limit,
+        },
+      );
+      return response.data is List ? response.data : [];
+    } catch (e) {
+      debugPrint('[API] getNewsFeed failed: $e');
+      return [];
+    }
+  }
+
+  /// GET /api/news — news list (stocks.db consolidated)
+  Future<List<dynamic>> getNews({String? ticker, int limit = 50}) async {
+    try {
+      final response = await _dio.get(
+        '/api/news',
+        queryParameters: {
+          if (ticker != null) 'ticker': ticker,
+          'limit': limit,
+        },
+      );
+      return response.data is List ? response.data : [];
+    } catch (e) {
+      debugPrint('[API] getNews failed: $e');
+      return [];
+    }
+  }
+
+  // ============================================================================
+  // PHASE-9: Market extras — top movers, sectors intelligence, morning bell
+  // ============================================================================
+
+  /// GET /api/market/top-movers — top gainers/losers
+  Future<Map<String, dynamic>> getMarketTopMovers({String market = 'EGX'}) async {
+    try {
+      final response = await _dio.get(
+        '/api/market/top-movers',
+        queryParameters: {'market': market},
+      );
+      return response.data is Map<String, dynamic>
+          ? response.data
+          : {'data': response.data};
+    } catch (e) {
+      debugPrint('[API] getMarketTopMovers failed: $e');
+      return {};
+    }
+  }
+
+  /// GET /api/market/sectors/intelligence — sector intelligence
+  Future<Map<String, dynamic>> getSectorIntelligence() async {
+    try {
+      final response = await _dio.get('/api/market/sectors/intelligence');
+      return response.data is Map<String, dynamic>
+          ? response.data
+          : {'data': response.data};
+    } catch (e) {
+      debugPrint('[API] getSectorIntelligence failed: $e');
+      return {};
+    }
+  }
+
+  /// GET /api/market/morning-bell — morning bell (top 3 opportunities)
+  Future<Map<String, dynamic>> getMorningBell({String market = 'EGX'}) async {
+    try {
+      final response = await _dio.get(
+        '/api/market/morning-bell',
+        queryParameters: {'market': market},
+      );
+      return response.data is Map<String, dynamic>
+          ? response.data
+          : {'data': response.data};
+    } catch (e) {
+      debugPrint('[API] getMorningBell failed: $e');
+      return {};
+    }
+  }
+
+  /// GET /api/market/report/daily — daily market report
+  Future<Map<String, dynamic>> getDailyMarketReport() async {
+    try {
+      final response = await _dio.get('/api/market/report/daily');
+      return response.data is Map<String, dynamic>
+          ? response.data
+          : {'data': response.data};
+    } catch (e) {
+      debugPrint('[API] getDailyMarketReport failed: $e');
+      return {};
+    }
+  }
+
+  /// GET /api/market/report/weekly — weekly market report
+  Future<Map<String, dynamic>> getWeeklyMarketReport() async {
+    try {
+      final response = await _dio.get('/api/market/report/weekly');
+      return response.data is Map<String, dynamic>
+          ? response.data
+          : {'data': response.data};
+    } catch (e) {
+      debugPrint('[API] getWeeklyMarketReport failed: $e');
+      return {};
+    }
+  }
+
+  /// GET /api/market/exit-status — exit status for predictions
+  Future<Map<String, dynamic>> getMarketExitStatus() async {
+    try {
+      final response = await _dio.get('/api/market/exit-status');
+      return response.data is Map<String, dynamic>
+          ? response.data
+          : {'data': response.data};
+    } catch (e) {
+      debugPrint('[API] getMarketExitStatus failed: $e');
+      return {};
+    }
+  }
+
+  // ============================================================================
+  // PHASE-9: Unified — personas, predictions, config (activate dead-code)
+  // ============================================================================
+
+  /// GET /api/unified/predictions — unified predictions (multi-market)
+  Future<List<dynamic>> getUnifiedPredictions({String market = 'EGX'}) async {
+    try {
+      final response = await _dio.get(
+        '/api/unified/predictions',
+        queryParameters: {'market': market},
+      );
+      return response.data is List ? response.data : [];
+    } catch (e) {
+      debugPrint('[API] getUnifiedPredictions failed: $e');
+      return [];
+    }
+  }
+
+  /// GET /api/persona/recommendations — persona recommendations
+  Future<List<dynamic>> getPersonaRecommendations({
+    String persona = 'balanced',
+    String market = 'EGX',
+  }) async {
+    try {
+      final response = await _dio.get(
+        '/api/persona/recommendations',
+        queryParameters: {'persona': persona, 'market': market},
+      );
+      return response.data is List ? response.data : [];
+    } catch (e) {
+      debugPrint('[API] getPersonaRecommendations failed: $e');
+      return [];
+    }
+  }
+
+  /// GET /api/predictions/honest-tracking/live-tracking — live tracking
+  Future<Map<String, dynamic>> getHonestLiveTracking() async {
+    try {
+      final response = await _dio.get('/api/predictions/honest-tracking/live-tracking');
+      return response.data is Map<String, dynamic>
+          ? response.data
+          : {'data': response.data};
+    } catch (e) {
+      debugPrint('[API] getHonestLiveTracking failed: $e');
+      return {};
+    }
+  }
+
+  /// GET /api/fomo/missed-opportunities — FOMO missed opportunities
+  Future<Map<String, dynamic>> getFomoMissed() async {
+    try {
+      final response = await _dio.get('/api/fomo/missed-opportunities');
+      return response.data is Map<String, dynamic>
+          ? response.data
+          : {'data': response.data};
+    } catch (e) {
+      debugPrint('[API] getFomoMissed failed: $e');
+      return {};
+    }
+  }
 }
 
 // Top-level getter for backward compatibility

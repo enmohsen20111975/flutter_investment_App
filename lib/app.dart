@@ -35,6 +35,7 @@ import 'screens/prediction_performance_screen.dart';
 import 'screens/trading_journal_screen.dart';
 import 'screens/smart_confluence_screen.dart';
 import 'screens/live_monitor_screen.dart';
+import 'screens/radar_screen.dart';
 import 'screens/academy_screen.dart';
 import 'screens/academy_encyclopedia_screen.dart';
 import 'screens/candle_simulator_screen.dart';
@@ -730,7 +731,8 @@ class _MainNavigatorState extends State<MainNavigator> {
                 _buildTreeSubItem(Icons.psychology_rounded, 'تحليل ومحرك AI', () => _navigateTo(const AiAnalysisScreen())),
                 _buildTreeSubItem(Icons.batch_prediction_rounded, 'توصيات وتوقعات الخبراء', () => _navigateTo(const RecommendationsScreen())),
                 _buildTreeSubItem(Icons.filter_alt_rounded, 'المسح الفني المتعدد (Screener)', () => _navigateTo(const ScreenerScreen())),
-                _buildTreeSubItem(Icons.radar_rounded, 'المراقبة اللحظية والرادار', () => _navigateTo(const LiveMonitorScreen())),
+                _buildTreeSubItem(Icons.radar_rounded, 'رادار السيولة والميكرز', () => _navigateTo(const RadarScreen())),
+                _buildTreeSubItem(Icons.bolt_rounded, 'المراقبة اللحظية', () => _navigateTo(const LiveMonitorScreen())),
               ],
             ),
 
