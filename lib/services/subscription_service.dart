@@ -242,6 +242,8 @@ class SubscriptionService {
     return _currentStatus!;
   }
 
+  Future<SubscriptionStatus> refresh() => getStatus(forceRefresh: true);
+
   Future<FeatureAccessResult> checkAccess(String feature) async {
     try {
       final response = await api.dio.post(

@@ -121,6 +121,17 @@ class GLMApiClient {
       }
       return result;
     } catch (e) {
+      if (e is DioException) {
+        debugPrint('[API Auth] Google login failed status: ${e.response?.statusCode}');
+        debugPrint('[API Auth] Google login failed data: ${e.response?.data}');
+        final serverMsg = e.response?.data is Map
+            ? (e.response?.data['error_ar'] ?? e.response?.data['error'] ?? e.response?.data['message'])?.toString()
+            : null;
+        return AuthResponse(
+          success: false,
+          message: serverMsg ?? 'فشل تسجيل الدخول عبر Google: ${e.toString()}',
+        );
+      }
       debugPrint('[API Auth] Google login failed: $e');
       return AuthResponse(
         success: false,
@@ -698,7 +709,13 @@ class GLMApiClient {
   Future<List<dynamic>> getCurrencyList() async {
     try {
       final response = await _dio.get('/api/currency/list');
-      return response.data;
+      if (response.data is List) {
+        return response.data;
+      }
+      if (response.data is Map && response.data['rates'] != null) {
+        return response.data['rates'] is List ? response.data['rates'] : [response.data];
+      }
+      return [];
     } catch (e) {
       debugPrint('[API] getCurrencyList failed: $e');
       return [];
@@ -961,13 +978,13 @@ class GLMApiClient {
     }
   }
 
-  Future<Map<String, dynamic>> getStockNews(String ticker) async {
+  Future<dynamic> getStockNews(String ticker) async {
     try {
       final response = await _dio.get('/api/stocks/$ticker/news');
       return response.data;
     } catch (e) {
       debugPrint('[API] getStockNews failed: $e');
-      return {};
+      return null;
     }
   }
 
@@ -1613,26 +1630,7 @@ class GLMApiClient {
     };
   }
 
-  Future<List<dynamic>> getCurrencyList() async {
-    try {
-      final response = await _dio.get('/api/currency/list');
-      if (response.data is List && (response.data as List).isNotEmpty) {
-        return response.data;
-      }
-      if (response.data is Map && response.data['rates'] != null) {
-        return response.data['rates'] is List ? response.data['rates'] : [response.data];
-      }
-    } catch (e) {
-      debugPrint('[API] getCurrencyList failed: $e');
-    }
-    return [
-      {'code': 'USD', 'symbol': 'USD', 'name': 'الدولار الأمريكي', 'rate': 48.50, 'buy_rate': 48.45, 'sell_rate': 48.55},
-      {'code': 'SAR', 'symbol': 'SAR', 'name': 'الريال السعودي', 'rate': 12.92, 'buy_rate': 12.90, 'sell_rate': 12.94},
-      {'code': 'EUR', 'symbol': 'EUR', 'name': 'اليورو الأوروبي', 'rate': 52.80, 'buy_rate': 52.75, 'sell_rate': 52.85},
-    ];
-  }
-
-  Future<List<dynamic>> getGoldHistory(
+Future<List<dynamic>> getGoldHistory(
       {required String karat, required int days}) async {
     try {
       final response =
@@ -2212,22 +2210,6 @@ class GLMApiClient {
     } catch (e) {
       debugPrint('[API] getPersonaAnalyze failed: $e');
       return {};
-    }
-  }
-
-  Future<List<dynamic>> getPersonaRecommendations(
-      {String? persona, String? market}) async {
-    try {
-      final queryParams = <String, dynamic>{};
-      if (persona != null) queryParams['persona'] = persona;
-      if (market != null) queryParams['market'] = market;
-      final response = await _dio.get('/api/persona/recommendations',
-          queryParameters: queryParams);
-      if (response.data is List) return response.data;
-      return response.data['recommendations'] ?? response.data['data'] ?? [];
-    } catch (e) {
-      debugPrint('[API] getPersonaRecommendations failed: $e');
-      return [];
     }
   }
 
@@ -3534,22 +3516,6 @@ class GLMApiClient {
     }
   }
 
-  /// GET /api/persona/recommendations — persona recommendations
-  Future<List<dynamic>> getPersonaRecommendations({
-    String persona = 'balanced',
-    String market = 'EGX',
-  }) async {
-    try {
-      final response = await _dio.get(
-        '/api/persona/recommendations',
-        queryParameters: {'persona': persona, 'market': market},
-      );
-      return response.data is List ? response.data : [];
-    } catch (e) {
-      debugPrint('[API] getPersonaRecommendations failed: $e');
-      return [];
-    }
-  }
 
   /// GET /api/predictions/honest-tracking/live-tracking — live tracking
   Future<Map<String, dynamic>> getHonestLiveTracking() async {

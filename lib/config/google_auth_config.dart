@@ -25,7 +25,6 @@ class GoogleAuthConfig {
   // You NEED a WEB application client ID for server-side verification!
   // ===========================================================================
   
-  // Replace this with your Web Client ID (NOT the Android one!)
   static const String webClientId = '393659426254-n4ngsvhtfie714l0o5h8mlcpm5c58195.apps.googleusercontent.com';
   
   // iOS Client ID (if needed for iOS)

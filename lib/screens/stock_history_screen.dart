@@ -468,16 +468,25 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
 
   /// تبويب أخبار السهم — آخر الأخبار + الإفصاحات الخاصة بالسهم
   Widget _buildStockNewsTab() {
-    return FutureBuilder<List<dynamic>>(
+    return FutureBuilder<dynamic>(
       future: GLMApiClient.instance.getStockNews(widget.ticker),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
         }
         if (snapshot.hasError) {
-          return Center(child: Text('خطأ: ${snapshot.error}'));
+          return Center(child: Text(' خطأ: ${snapshot.error}'));
         }
-        final news = snapshot.data ?? [];
+        final raw = snapshot.data;
+        List<dynamic> news = [];
+        if (raw is List) {
+          news = raw;
+        } else if (raw is Map) {
+          final listCandidate = raw['news'] ?? raw['data'] ?? raw['articles'] ?? raw['items'];
+          if (listCandidate is List) {
+            news = listCandidate;
+          }
+        }
         if (news.isEmpty) {
           return const Center(
             child: Column(
@@ -496,7 +505,9 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
           itemCount: news.length,
           separatorBuilder: (_, __) => const Divider(height: 1),
           itemBuilder: (context, index) {
-            final item = news[index] as Map<String, dynamic>;
+            final item = news[index] is Map
+                ? Map<String, dynamic>.from(news[index] as Map)
+                : <String, dynamic>{};
             final title = item['title']?.toString() ?? item['headline']?.toString() ?? 'خبر';
             final source = item['source']?.toString() ?? '';
             final date = item['published_at']?.toString() ??
