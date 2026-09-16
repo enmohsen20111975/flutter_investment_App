@@ -9,6 +9,7 @@ import '../api/client.dart';
 import '../models/types.dart';
 import '../services/subscription_service.dart';
 import '../widgets/upgrade_modal.dart';
+import '../widgets/stock_icon.dart';
 import 'stock_history_screen.dart';
 
 class WatchlistScreen extends StatefulWidget {
@@ -240,25 +241,14 @@ class _WatchlistScreenState extends State<WatchlistScreen> {
                                   ),
                                   child: Row(
                                     children: [
-                                      Container(
-                                        width: 44,
-                                        height: 44,
-                                        decoration: BoxDecoration(
-                                          color: AppColors.quantumSurface,
-                                          borderRadius: BorderRadius.circular(10),
-                                          border: Border.all(color: AppColors.quantumGlassBorder),
-                                        ),
-                                        alignment: Alignment.center,
-                                        child: Text(
-                                          ticker,
-                                          style: const TextStyle(
-                                            color: AppColors.quantumGold,
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 12,
-                                          ),
-                                        ),
-                                      ),
-                                      const SizedBox(width: 12),
+StockIcon(
+                                         ticker: ticker,
+                                         sector: item.sector,
+                                         iconUrl: item.iconUrl,
+                                         size: 44,
+                                         iconSize: 22,
+                                       ),
+                                       const SizedBox(width: 12),
                                       Expanded(
                                         child: Column(
                                           crossAxisAlignment: CrossAxisAlignment.start,

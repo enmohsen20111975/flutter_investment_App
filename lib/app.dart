@@ -1,4 +1,4 @@
-// ============================================================================
+﻿// ============================================================================
 // مساعد الاستثمار Flutter - App Root with Navigation
 // Bottom Tab Navigator + AppBar + Drawer + Command Bar
 // ============================================================================
@@ -23,6 +23,8 @@ import 'screens/settings_screen.dart';
 import 'screens/webview_screen.dart';
 import 'screens/metals_screen.dart';
 import 'screens/learning_backtest_screen.dart';
+import 'core/official_links.dart';
+import 'core/share.dart';
 import 'screens/hunter_screen.dart';
 import 'screens/notifications_screen.dart';
 import 'screens/alerts_screen.dart';
@@ -556,7 +558,7 @@ class _MainNavigatorState extends State<MainNavigator> {
   // ===========================================================================
   // Command Bar - Quick search & navigation
   // ===========================================================================
-  void _showCommandBar() {
+void _showCommandBar() {
     showDialog(
       context: context,
       builder: (ctx) => _CommandBarDialog(
@@ -570,6 +572,51 @@ class _MainNavigatorState extends State<MainNavigator> {
         },
       ),
     );
+  }
+
+  // ── DTO Services Sheet ──
+  void _showServicesSheet(BuildContext context) {
+    final services = [
+      _ServiceItem(Icons.cloud_queue_rounded, 'VPS Python', 'خادم التحليلات', true, '12ms'),
+      _ServiceItem(Icons.storage_rounded, 'Database', 'قاعدة البيانات', true, '3ms'),
+      _ServiceItem(Icons.update_rounded, 'Data Freshness', 'تحديث البيانات', true, '< 30s'),
+      _ServiceItem(Icons.security_rounded, 'Auth Service', 'خدمة المصادقة', true, 'OK'),
+      _ServiceItem(Icons.cached_rounded, 'Cache Manager', 'lea cache', true, 'Active'),
+    ];
+    showModalBottomSheet(
+      context: context,
+      builder: (ctx) => Container(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('الخدمات', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 12),
+            ...services.map((s) => ListTile(
+              leading: Icon(s.icon, color: s.online ? AppColors.quantumEmerald : AppColors.quantumCrimson),
+              title: Text(s.name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w500)),
+              subtitle: Text(s.nameAr, style: const TextStyle(color: Colors.white70, fontSize: 12)),
+              trailing: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: s.online ? AppColors.quantumEmerald.withValues(alpha: 0.2) : AppColors.quantumCrimson.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  s.online ? 'Online • ${s.latency}' : 'Offline',
+                  style: TextStyle(color: s.online ? AppColors.quantumEmerald : AppColors.quantumCrimson, fontSize: 11),
+                ),
+              ),
+            )),
+          ],
+        ),
+      ),
+    );
+  }
+
+// ── Share Sheet ──
+  void _showShareSheet(BuildContext context) {
+    showShareSheet(context, 'مساعد Investment', body: 'منصة دlify للاستثمار في البورصة المصرية');
   }
 
   // ===========================================================================
@@ -786,10 +833,12 @@ class _MainNavigatorState extends State<MainNavigator> {
 
             const Divider(color: AppColors.quantumGlassBorder, height: 24),
 
-            // ── Quick Preferences ──
+// ── Quick Preferences ──
             _buildTreeSubItem(Icons.psychology_alt_rounded, 'استبيان تحليل المخاطر', () => _navigateTo(const RiskProfilerScreen())),
-            _buildTreeSubItem(Icons.person_pin_rounded, 'الشخصية الاستثمارية', () => _navigateTo(const PersonaScreen())),
-            _buildTreeSubItem(Icons.language_rounded, 'فتح الموقع الإلكتروني', () => _navigateTo(const WebViewScreen())),
+            _buildTreeSubItem(Icons.person_pin_rounded, 'الشخصية Tested', () => _navigateTo(const PersonaScreen())),
+            _buildTreeSubItem(Icons.language_rounded, 'فتح موقع invist.m2y.net', () => _navigateTo(const WebViewScreen())),
+            _buildTreeSubItem(Icons.hub_rounded, 'الخدمات', () => _showServicesSheet(context)),
+            _buildTreeSubItem(Icons.share_rounded, '��share على منصات مختلفة', () => _showShareSheet(context)),
             _buildTreeSubItem(
               Icons.login, _isLoggedIn ? 'تسجيل الخروج' : 'تسجيل الدخول', () {
                 if (_isLoggedIn) {
@@ -1241,4 +1290,13 @@ class _CommandAction {
 
   _CommandAction(this.label, this.icon, this.activeIcon, this.screenBuilder,
       this.tabIndex);
+}
+
+class _ServiceItem {
+  final IconData icon;
+  final String name;
+  final String nameAr;
+  final bool online;
+  final String latency;
+  _ServiceItem(this.icon, this.name, this.nameAr, this.online, this.latency);
 }

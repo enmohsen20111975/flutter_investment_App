@@ -15,6 +15,7 @@ class WatchlistItem {
   final double? priceChange;
   final double? changePercent;
   final String? sector;
+  final String? iconUrl;
   final double? alertPriceAbove;
   final double? alertPriceBelow;
   final String? notes;
@@ -30,6 +31,7 @@ class WatchlistItem {
     this.priceChange,
     this.changePercent,
     this.sector,
+    this.iconUrl,
     this.alertPriceAbove,
     this.alertPriceBelow,
     this.notes
@@ -46,6 +48,7 @@ class WatchlistItem {
         priceChange: parseDouble(json['price_change'] ?? json['change']),
         changePercent: parseDouble(json['change_percent'] ?? json['price_change_percent'] ?? json['change_percentage'] ?? json['price_change']),
         sector: json['sector']?.toString(),
+        iconUrl: (json['icon_url'] ?? json['logo_url'] ?? json['icon'])?.toString(),
         alertPriceAbove: parseDouble(json['alert_price_above'] ?? json['price_above']),
         alertPriceBelow: parseDouble(json['alert_price_below'] ?? json['price_below']),
         notes: json['notes']?.toString(),

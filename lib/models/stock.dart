@@ -11,6 +11,7 @@ class Stock {
   final String? nameAr;
   final String? sector;
   final String? industry;
+  final String? iconUrl;
   final double? currentPrice;
   final double? previousClose;
   final double? openPrice;
@@ -36,6 +37,7 @@ class Stock {
   Stock({
     required this.ticker,
     this.name, this.nameAr, this.sector, this.industry,
+    this.iconUrl,
     this.currentPrice, this.previousClose, this.openPrice,
     this.highPrice, this.lowPrice, this.priceChange,
     this.changePercent, this.volume, this.marketCap,
@@ -52,6 +54,7 @@ class Stock {
         nameAr: json['name_ar'],
         sector: json['sector'],
         industry: json['industry'],
+        iconUrl: json['icon_url'] ?? json['logo_url'] ?? json['icon'],
         currentPrice: parseDouble(json['current_price'] ?? json['price']),
         previousClose: parseDouble(json['previous_close']),
         openPrice: parseDouble(json['open_price'] ?? json['open']),
