@@ -291,7 +291,7 @@ class GLMInvestmentApp extends ConsumerWidget {
         ),
         fontFamily: 'Cairo',
       ),
-      themeMode: ThemeMode.dark,
+      themeMode: isDarkMode ? ThemeMode.dark : ThemeMode.light,
       locale: const Locale('ar', 'EG'),
       supportedLocales: const [Locale('ar', 'EG'), Locale('en', 'US')],
       localizationsDelegates: const [
