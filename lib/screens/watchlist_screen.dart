@@ -11,6 +11,8 @@ import '../services/subscription_service.dart';
 import '../widgets/upgrade_modal.dart';
 import '../widgets/stock_icon.dart';
 import 'stock_history_screen.dart';
+import '../widgets/stock_sparkline.dart';
+import '../core/app_localizations.dart';
 
 class WatchlistScreen extends StatefulWidget {
   const WatchlistScreen({super.key});
@@ -126,6 +128,8 @@ class _WatchlistScreenState extends State<WatchlistScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // i18n helper
+    final isAr = AppLocalizations.isArabic;
     return FutureBuilder<WatchlistResponse>(
       future: _watchlistFuture,
       builder: (context, snapshot) {

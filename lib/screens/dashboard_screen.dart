@@ -12,6 +12,8 @@ import '../api/local_database.dart';
 import '../widgets/app_card.dart';
 import 'stock_history_screen.dart';
 import 'hunter_screen.dart';
+import '../widgets/stock_sparkline.dart';
+import '../core/app_localizations.dart';
 
 class DashboardScreen extends StatefulWidget {
   final int marketVersion;
@@ -181,6 +183,8 @@ class _DashboardScreenState extends State<DashboardScreen>
 
   @override
   Widget build(BuildContext context) {
+    // i18n helper
+    final isAr = AppLocalizations.isArabic;
     super.build(context);
 
     return Scaffold(
