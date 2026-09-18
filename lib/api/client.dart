@@ -417,6 +417,13 @@ class GLMApiClient {
           final response = await _dio.get('/api/crypto');
           debugPrint('[API] Crypto response keys: ${response.data.keys}');
           return response.data;
+        } on DioException catch (e) {
+          if (e.response?.statusCode == 401 || e.response?.statusCode == 404) {
+            debugPrint('[API] getCrypto - ${e.response?.statusCode} (endpoint may require auth or not exist)');
+          } else {
+            debugPrint('[API] getCrypto failed: $e');
+          }
+          return {'coins': [], 'data': []};
         } catch (e) {
           debugPrint('[API] getCrypto failed: $e');
           return {'coins': [], 'data': []};
@@ -1024,6 +1031,13 @@ class GLMApiClient {
     try {
       final response = await _dio.get('/api/crypto/$coinId');
       return response.data;
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 401 || e.response?.statusCode == 404) {
+        debugPrint('[API] getCryptoDetail - ${e.response?.statusCode} for $coinId (expected if endpoint not auth/public)');
+      } else {
+        debugPrint('[API] getCryptoDetail failed: $e');
+      }
+      return {};
     } catch (e) {
       debugPrint('[API] getCryptoDetail failed: $e');
       return {};
@@ -1036,6 +1050,13 @@ class GLMApiClient {
       final response = await _dio.get('/api/crypto/ohlc',
           queryParameters: {'coin_id': coinId, 'days': days});
       return response.data;
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 401 || e.response?.statusCode == 404) {
+        debugPrint('[API] getCryptoOHLC - ${e.response?.statusCode} for $coinId (expected if endpoint not auth/public)');
+      } else {
+        debugPrint('[API] getCryptoOHLC failed: $e');
+      }
+      return {};
     } catch (e) {
       debugPrint('[API] getCryptoOHLC failed: $e');
       return {};
@@ -1263,6 +1284,16 @@ class GLMApiClient {
     try {
       final response = await _dio.get('/api/app/version');
       return response.data;
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 404) {
+        debugPrint('[API] getMinAppVersion - 404 (using fallback)');
+      } else {
+        debugPrint('[API] getMinAppVersion failed: $e');
+      }
+      return {
+        'min_version': '2.4.0',
+        'message_ar': 'يرجى تحديث التطبيق إلى أحدث إصدار للمتابعة.',
+      };
     } catch (_) {
       return {
         'min_version': '2.4.0',
@@ -1932,6 +1963,13 @@ Future<List<dynamic>> getGoldHistory(
     try {
       final response = await _dio.get('/api/market/status');
       return response.data;
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 404) {
+        debugPrint('[API] getMarketStatus - 404 (endpoint may not exist yet)');
+      } else {
+        debugPrint('[API] getMarketStatus failed: $e');
+      }
+      return {};
     } catch (e) {
       debugPrint('[API] getMarketStatus failed: $e');
       return {};
