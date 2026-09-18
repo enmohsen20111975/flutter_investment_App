@@ -118,10 +118,10 @@ class _PortfolioScreenState extends State<PortfolioScreen>
                 Navigator.pop(context);
                 try {
                   await GLMApiClient.instance.addToPortfolio({
-                    'stock_symbol': symbol,
+                    'ticker': symbol,
+                    'avg_price': price,
                     'shares': shares,
-                    'buy_price': price,
-                  });
+                    });
                   _refreshPortfolio();
                 } catch (e) {
                   debugPrint('[Portfolio] Add error: $e');

@@ -249,23 +249,28 @@ class GLMInvestmentApp extends ConsumerWidget {
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         useMaterial3: true,
-        brightness: Brightness.dark,
+        brightness: Brightness.light,
         primaryColor: AppColors.primary,
-        scaffoldBackgroundColor: AppColors.background,
-        colorScheme: const ColorScheme.dark(
+        scaffoldBackgroundColor: const Color(0xFFF8F9FA),
+        colorScheme: ColorScheme.light(
           primary: AppColors.primary,
           secondary: AppColors.secondary,
-          surface: AppColors.surface,
+          surface: Colors.white,
           error: AppColors.danger,
         ),
         appBarTheme: const AppBarTheme(
-          backgroundColor: AppColors.surface,
+          backgroundColor: Colors.white,
           elevation: 0,
           titleTextStyle: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w700,
               fontFamily: 'Cairo',
-              color: AppColors.text),
+              color: Color(0xFF1A1A2E)),
+        ),
+        cardTheme: const CardThemeData(
+          color: Colors.white,
+          elevation: 1,
+          margin: EdgeInsets.zero,
         ),
         fontFamily: 'Cairo',
       ),
@@ -291,7 +296,7 @@ class GLMInvestmentApp extends ConsumerWidget {
         ),
         fontFamily: 'Cairo',
       ),
-      themeMode: ThemeMode.dark,
+      themeMode: isDarkMode ? ThemeMode.dark : ThemeMode.light,
       locale: const Locale('ar', 'EG'),
       supportedLocales: const [Locale('ar', 'EG'), Locale('en', 'US')],
       localizationsDelegates: const [

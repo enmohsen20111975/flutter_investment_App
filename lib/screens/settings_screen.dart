@@ -5,6 +5,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../core/app_localizations.dart';
 import '../theme/colors.dart';
 import '../theme/typography.dart';
 import '../api/client.dart';
@@ -156,6 +157,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 onChanged: (v) {
                   setState(() => _notifications = v);
                   _saveSetting('notifications', v);
+                },
+              ),
+              _buildToggleCard(
+                icon: Icons.language,
+                title: 'English Language',
+                subtitle: 'Switch between Arabic and English',
+                value: _language == 'en',
+                onChanged: (v) {
+                  setState(() => _language = v ? 'en' : 'ar');
+                  _saveSetting('language', _language);
+                  AppLocalizations.setLocale(v ? const Locale('en', 'US') : const Locale('ar', 'EG'));
                 },
               ),
               _buildToggleCard(
