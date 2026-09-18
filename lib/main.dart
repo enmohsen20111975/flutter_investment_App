@@ -30,6 +30,7 @@ import 'services/notification_service.dart';
 import 'services/subscription_service.dart';
 import 'services/version_service.dart';
 import 'services/polling_service.dart';
+import 'core/app_localizations.dart';
 
 final darkModeProvider = StateProvider<bool>((ref) => true);
 

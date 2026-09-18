@@ -458,6 +458,8 @@ class GLMApiClient {
       Map<String, dynamic> data) async {
     try {
       final response = await _dio.post('/api/mobile/portfolio', data: data);
+      // Invalidate cache after mutation
+      _cache.remove('portfolio_data');
       return response.data;
     } catch (e) {
       debugPrint('[API] addToMobilePortfolio failed: $e');
@@ -473,6 +475,8 @@ class GLMApiClient {
     try {
       final response = await _dio
           .delete('/api/mobile/portfolio', queryParameters: {'id': id});
+      // Invalidate cache after mutation
+      _cache.remove('portfolio_data');
       return response.data;
     } catch (e) {
       debugPrint('[API] removeMobilePortfolio failed: $e');
@@ -545,6 +549,8 @@ class GLMApiClient {
   Future<Map<String, dynamic>> addToWatchlist(Map<String, dynamic> data) async {
     try {
       final response = await _dio.post('/api/watchlist', data: data);
+      // Invalidate cache after mutation
+      _cache.remove('watchlist_data');
       return response.data;
     } catch (e) {
       debugPrint('[API] addToWatchlist failed: $e');
@@ -1725,7 +1731,18 @@ Future<List<dynamic>> getGoldHistory(
   // MOBILE Notifications API
   // ============================================================================
   Future<List<dynamic>> getMobileNotifications() async {
-    return [];
+    try {
+      final response = await _dio.get('/api/mobile/notifications');
+      final data = response.data;
+      if (data is List) return data;
+      if (data is Map && data['notifications'] is List) {
+        return data['notifications'];
+      }
+      return [];
+    } catch (e) {
+      debugPrint('[API] getMobileNotifications failed: $e');
+      return [];
+    }
   }
 
   Future<Map<String, dynamic>> markNotificationRead(String id) async {
