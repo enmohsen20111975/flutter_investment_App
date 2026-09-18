@@ -459,7 +459,7 @@ class GLMApiClient {
     try {
       final response = await _dio.post('/api/mobile/portfolio', data: data);
       // Invalidate cache after mutation
-      _cache.remove('portfolio_data');
+      ApiCacheManager.instance.invalidate('portfolio_data');
       return response.data;
     } catch (e) {
       debugPrint('[API] addToMobilePortfolio failed: $e');
@@ -476,7 +476,7 @@ class GLMApiClient {
       final response = await _dio
           .delete('/api/mobile/portfolio', queryParameters: {'id': id});
       // Invalidate cache after mutation
-      _cache.remove('portfolio_data');
+      ApiCacheManager.instance.invalidate('portfolio_data');
       return response.data;
     } catch (e) {
       debugPrint('[API] removeMobilePortfolio failed: $e');
@@ -550,7 +550,8 @@ class GLMApiClient {
     try {
       final response = await _dio.post('/api/watchlist', data: data);
       // Invalidate cache after mutation
-      _cache.remove('watchlist_data');
+      ApiCacheManager.instance.invalidate('watchlist_data');
+      ApiCacheManager.instance.invalidate('watchlist_enhanced');
       return response.data;
     } catch (e) {
       debugPrint('[API] addToWatchlist failed: $e');
