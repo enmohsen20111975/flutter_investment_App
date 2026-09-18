@@ -14,6 +14,7 @@ import '../api/client.dart';
 import '../widgets/state_view.dart';
 import '../widgets/skeleton_loader.dart';
 import 'trading_chart_screen.dart';
+import '../core/app_localizations.dart';
 
 class ScreenerScreen extends StatefulWidget {
   final int marketVersion;
@@ -133,6 +134,7 @@ class _ScreenerScreenState extends State<ScreenerScreen>
 
   @override
   Widget build(BuildContext context) {
+    final isAr = AppLocalizations.isArabic; // i18n
     super.build(context);
     return Directionality(
       textDirection: TextDirection.rtl,

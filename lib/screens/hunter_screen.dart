@@ -19,6 +19,7 @@ import '../api/client.dart';
 import '../widgets/skeleton_loader.dart';
 import '../widgets/state_view.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../core/app_localizations.dart';
 
 class HunterScreen extends StatefulWidget {
   final int marketVersion;
@@ -121,6 +122,7 @@ class _HunterScreenState extends State<HunterScreen>
 
   @override
   Widget build(BuildContext context) {
+    final isAr = AppLocalizations.isArabic; // i18n
     super.build(context);
     return Directionality(
       textDirection: TextDirection.rtl,

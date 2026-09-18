@@ -8,6 +8,7 @@ import '../theme/colors.dart';
 import '../api/client.dart';
 import '../widgets/skeleton_loader.dart';
 import '../widgets/state_view.dart';
+import '../core/app_localizations.dart';
 
 class NotificationsScreen extends StatefulWidget {
   const NotificationsScreen({super.key});
@@ -87,6 +88,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isAr = AppLocalizations.isArabic; // i18n
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(

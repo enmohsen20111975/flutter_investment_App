@@ -10,6 +10,7 @@ import '../theme/typography.dart';
 import '../api/client.dart';
 import '../models/json_helpers.dart';
 import '../widgets/state_view.dart';
+import '../core/app_localizations.dart';
 
 class CryptoDetailScreen extends StatefulWidget {
   final String coinId;
@@ -64,6 +65,7 @@ class _CryptoDetailScreenState extends State<CryptoDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isAr = AppLocalizations.isArabic; // i18n
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(

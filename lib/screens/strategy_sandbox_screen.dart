@@ -5,6 +5,7 @@
 
 import 'package:flutter/material.dart';
 import '../theme/colors.dart';
+import '../core/app_localizations.dart';
 
 class StrategySandboxScreen extends StatefulWidget {
   const StrategySandboxScreen({super.key});
@@ -241,6 +242,7 @@ class _StrategySandboxScreenState extends State<StrategySandboxScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isAr = AppLocalizations.isArabic; // i18n
     final topic = _topics[_selectedTopic];
     final categories = _topics.map((t) => t.category).toSet().toList();
     return Column(

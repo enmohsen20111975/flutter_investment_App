@@ -10,6 +10,7 @@ import '../models/types.dart';
 import '../widgets/tradingview_chart.dart';
 import '../widgets/upgrade_modal.dart';
 import '../services/subscription_service.dart';
+import '../core/app_localizations.dart';
 
 class StockHistoryScreen extends StatefulWidget {
   final String ticker;
@@ -103,6 +104,7 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
 
   @override
   Widget build(BuildContext context) {
+    final isAr = AppLocalizations.isArabic; // i18n
     return FutureBuilder<Map<String, dynamic>>(
       future: _detailsFuture,
       builder: (context, snapshot) {

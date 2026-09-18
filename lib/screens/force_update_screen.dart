@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../theme/colors.dart';
 import '../services/version_service.dart';
+import '../core/app_localizations.dart';
 
 class ForceUpdateScreen extends StatelessWidget {
   final VersionCheckResult result;
@@ -30,6 +31,7 @@ class ForceUpdateScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isAr = AppLocalizations.isArabic; // i18n
     final message = result.messageAr ??
         result.message ??
         'يرجى تحديث التطبيق إلى أحدث إصدار للمتابعة.';

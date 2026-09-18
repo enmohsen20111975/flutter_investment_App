@@ -21,6 +21,8 @@ import '../models/types.dart';
 import '../widgets/state_view.dart';
 import '../widgets/skeleton_loader.dart';
 import '../widgets/freshness_badge.dart';
+import '../core/app_localizations.dart';
+import '../widgets/stock_sparkline.dart';
 
 class RecommendationsScreen extends StatefulWidget {
   const RecommendationsScreen({super.key});
@@ -383,6 +385,7 @@ class _RecommendationsScreenState extends State<RecommendationsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isAr = AppLocalizations.isArabic; // i18n
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(

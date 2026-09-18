@@ -10,6 +10,7 @@ import '../api/client.dart';
 import '../models/json_helpers.dart';
 import '../widgets/state_view.dart';
 import '../widgets/skeleton_loader.dart';
+import '../core/app_localizations.dart';
 
 class AiAnalysisScreen extends StatefulWidget {
   const AiAnalysisScreen({super.key});
@@ -76,6 +77,7 @@ class _AiAnalysisScreenState extends State<AiAnalysisScreen>
 
   @override
   Widget build(BuildContext context) {
+    final isAr = AppLocalizations.isArabic; // i18n
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(

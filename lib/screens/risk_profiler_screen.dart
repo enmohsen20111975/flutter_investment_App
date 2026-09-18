@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../theme/colors.dart';
 import '../api/client.dart';
+import '../core/app_localizations.dart';
 
 class RiskProfilerScreen extends StatefulWidget {
   const RiskProfilerScreen({super.key});
@@ -99,6 +100,7 @@ class _RiskProfilerScreenState extends State<RiskProfilerScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isAr = AppLocalizations.isArabic; // i18n
     if (_completed) {
       final score = _normalizedScore;
       final persona = api.scoreToPersona(score);

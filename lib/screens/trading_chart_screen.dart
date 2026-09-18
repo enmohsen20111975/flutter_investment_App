@@ -11,6 +11,7 @@ import '../widgets/state_view.dart';
 import '../widgets/skeleton_loader.dart';
 import '../widgets/price_chart.dart' as pc;
 import '../models/chart_data_model.dart';
+import '../core/app_localizations.dart';
 
 class TradingChartScreen extends StatefulWidget {
   final String ticker;
@@ -76,6 +77,7 @@ class _TradingChartScreenState extends State<TradingChartScreen>
 
   @override
   Widget build(BuildContext context) {
+    final isAr = AppLocalizations.isArabic; // i18n
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
