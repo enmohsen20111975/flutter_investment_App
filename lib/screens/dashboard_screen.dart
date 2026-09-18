@@ -12,7 +12,6 @@ import '../api/local_database.dart';
 import '../widgets/app_card.dart';
 import 'stock_history_screen.dart';
 import 'hunter_screen.dart';
-import '../widgets/stock_sparkline.dart';
 import '../core/app_localizations.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -44,8 +43,6 @@ class _DashboardScreenState extends State<DashboardScreen>
 
   // Explosive-opportunities preview (GAP 5).
   Future<List<Map<String, dynamic>>>? _explosiveFuture;
-  // 3-persona quick-switch (GAP 5).
-  String _selectedPersona = 'balanced';
 
   @override
   void initState() {
@@ -72,23 +69,40 @@ class _DashboardScreenState extends State<DashboardScreen>
     }
   }
 
+  double? _toDouble(dynamic v) {
+    if (v == null) return null;
+    if (v is double) return v;
+    if (v is int) return v.toDouble();
+    if (v is num) return v.toDouble();
+    if (v is String) return double.tryParse(v);
+    return null;
+  }
+
   Future<void> _loadDashboardData({bool isSilent = false}) async {
     if (!isSilent) {
       setState(() => _isLoading = true);
     }
 
     try {
-      final summaryFuture = api.getMarketSummary();
-      final indicesFuture = api.getMarketIndices();
-      final moversFuture = api.getStockMovementClassification();
-      final goldFuture = api.getGold();
-      final currencyFuture = api.getCurrencyList();
+      final results = await Future.wait([
+        api.getMarketSummary().catchError((_) => <String, dynamic>{}),
+        api.getMarketIndices().catchError((_) => <dynamic>[]),
+        api.getStockMovementClassification().catchError((_) => <String, dynamic>{}),
+        api.getGold().catchError((_) => <String, dynamic>{}),
+        api.getCurrencyList().catchError((_) => <dynamic>[]),
+      ]).timeout(const Duration(seconds: 10));
 
-      final summary = await summaryFuture;
-      final indices = await indicesFuture;
-      final movers = await moversFuture;
-      final goldResult = await goldFuture.catchError((_) => <String, dynamic>{});
-      final currencyResult = await currencyFuture.catchError((_) => <dynamic>[]);
+      final summary = results[0] is Map<String, dynamic>
+          ? results[0] as Map<String, dynamic>
+          : <String, dynamic>{};
+      final indices = results[1] is List ? results[1] as List : <dynamic>[];
+      final movers = results[2] is Map<String, dynamic>
+          ? results[2] as Map<String, dynamic>
+          : <String, dynamic>{};
+      final goldResult = results[3] is Map<String, dynamic>
+          ? results[3] as Map<String, dynamic>
+          : <String, dynamic>{};
+      final currencyResult = results[4] is List ? results[4] as List : <dynamic>[];
 
       List<dynamic> gainers = movers['top_gainers'] ?? movers['gainers'] ?? summary['top_gainers'] ?? summary['gainers'] ?? [];
       List<dynamic> losers = movers['top_losers'] ?? movers['losers'] ?? summary['top_losers'] ?? summary['losers'] ?? [];
@@ -555,8 +569,6 @@ class _DashboardScreenState extends State<DashboardScreen>
             ),
           ]),
           const SizedBox(height: 12),
-          _buildPersonaQuickSwitch(),
-          const SizedBox(height: 12),
           FutureBuilder<List<Map<String, dynamic>>>(
             future: _explosiveFuture,
             builder: (context, snap) {
@@ -617,56 +629,9 @@ class _DashboardScreenState extends State<DashboardScreen>
     );
   }
 
-  Widget _buildPersonaQuickSwitch() {
-    final options = <_PersonaPill>[
-      const _PersonaPill('gambler', '🔥 المضارب', AppColors.danger),
-      const _PersonaPill('balanced', '⚖️ المتوازن', AppColors.warning),
-      const _PersonaPill('conservative', '🛡️ المحافظ', AppColors.info),
-    ];
-    return Container(
-      padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceMuted,
-        borderRadius: BorderRadius.circular(AppRadius.md),
-      ),
-      child: Row(
-        children: options.map((opt) {
-          final selected = _selectedPersona == opt.id;
-          return Expanded(
-            child: GestureDetector(
-              onTap: () => setState(() => _selectedPersona = opt.id),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 180),
-                padding: const EdgeInsets.symmetric(vertical: 6),
-                decoration: BoxDecoration(
-                  color: selected
-                      ? opt.color.withValues(alpha: 0.18)
-                      : Colors.transparent,
-                  borderRadius: BorderRadius.circular(AppRadius.sm),
-                ),
-                child: Text(
-                  opt.label,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    color: selected ? opt.color : AppColors.textMuted,
-                  ),
-                ),
-              ),
-            ),
-          );
-        }).toList(),
-      ),
-    );
-  }
-
   Widget _explosiveRow(Map<String, dynamic> c) {
     final ticker = c['ticker']?.toString() ?? '—';
     final score = _toDouble(c['explosive_score']) ?? 0;
-    final personaMap = c['persona_predictions'] is Map
-        ? Map<String, dynamic>.from(c['persona_predictions'] as Map)
-        : <String, dynamic>{};
     final scoreColor = score >= 85
         ? const Color(0xFFFFD700)
         : score >= 70
@@ -693,11 +658,6 @@ class _DashboardScreenState extends State<DashboardScreen>
                 style: const TextStyle(
                     fontSize: 13, fontWeight: FontWeight.w700)),
           ),
-          _personaDot('gambler', personaMap['gambler']),
-          const SizedBox(width: 6),
-          _personaDot('balanced', personaMap['balanced']),
-          const SizedBox(width: 6),
-          _personaDot('conservative', personaMap['conservative']),
           const SizedBox(width: 8),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
@@ -712,22 +672,6 @@ class _DashboardScreenState extends State<DashboardScreen>
                     color: scoreColor)),
           ),
         ]),
-      ),
-    );
-  }
-
-  Widget _personaDot(String id, dynamic pred) {
-    bool wouldBuy = false;
-    if (pred is Map) {
-      wouldBuy = pred['would_buy'] == true || pred['would_buy'] == 1;
-    }
-    final color = wouldBuy ? AppColors.success : AppColors.textMuted;
-    return Tooltip(
-      message: id,
-      child: Container(
-        width: 10,
-        height: 10,
-        decoration: BoxDecoration(color: color, shape: BoxShape.circle),
       ),
     );
   }
@@ -933,20 +877,4 @@ class _DashboardScreenState extends State<DashboardScreen>
       },
     );
   }
-}
-
-class _PersonaPill {
-  final String id;
-  final String label;
-  final Color color;
-  const _PersonaPill(this.id, this.label, this.color);
-}
-
-double? _toDouble(dynamic v) {
-  if (v == null) return null;
-  if (v is double) return v;
-  if (v is int) return v.toDouble();
-  if (v is num) return v.toDouble();
-  if (v is String) return double.tryParse(v);
-  return null;
 }

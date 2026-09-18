@@ -5,7 +5,6 @@
 
 import 'dart:async';
 import 'package:flutter/foundation.dart';
-import '../api/client.dart';
 import '../api/mobile_api.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -29,13 +28,13 @@ class PollingService {
   static final PollingService _instance = PollingService._privateConstructor();
   static PollingService get instance => _instance;
 
-  final GLMApiClient _api = GLMApiClient.instance;
   final MobileApiService _mobileApi = MobileApiService.instance;
 
   Timer? _dashboardTimer;
   Timer? _marketStatusTimer;
   bool _isMarketOpen = false;
   bool _isPaused = false;
+  bool _disposed = false;
 
   /// Stream controller for dashboard data updates
   final StreamController<Map<String, dynamic>> _dashboardController =
@@ -55,6 +54,7 @@ class PollingService {
 
   /// Start polling dashboard data
   void startDashboardPolling() {
+    if (_disposed) return;
     _dashboardTimer?.cancel();
     _fetchAndAdaptInterval();
   }
@@ -62,12 +62,15 @@ class PollingService {
   /// Stop all polling
   void stopAll() {
     _dashboardTimer?.cancel();
+    _dashboardTimer = null;
     _marketStatusTimer?.cancel();
+    _marketStatusTimer = null;
     _isPaused = true;
   }
 
   /// Resume polling
   void resume() {
+    if (_disposed) return;
     _isPaused = false;
     _fetchAndAdaptInterval();
   }
@@ -76,12 +79,14 @@ class PollingService {
   void pause() {
     _isPaused = true;
     _dashboardTimer?.cancel();
+    _dashboardTimer = null;
     _marketStatusTimer?.cancel();
+    _marketStatusTimer = null;
   }
 
   /// Fetch market status and adapt polling interval
   Future<void> _fetchAndAdaptInterval() async {
-    if (_isPaused) return;
+    if (_isPaused || _disposed) return;
 
     try {
       final status = await _mobileApi.getMarketStatus();
@@ -91,7 +96,7 @@ class PollingService {
       // Keep last known state
     }
 
-    if (_isPaused) return;
+    if (_isPaused || _disposed) return;
 
     final interval =
         _isMarketOpen ? config.openInterval : config.closedInterval;
@@ -100,7 +105,7 @@ class PollingService {
 
     _dashboardTimer?.cancel();
     _dashboardTimer = Timer.periodic(interval, (_) async {
-      if (_isPaused) return;
+      if (_isPaused || _disposed) return;
       await _pollDashboard();
     });
 
@@ -109,7 +114,7 @@ class PollingService {
     _marketStatusTimer = Timer.periodic(
       const Duration(minutes: 3),
       (_) async {
-        if (_isPaused) return;
+        if (_isPaused || _disposed) return;
         await _fetchAndAdaptInterval();
       },
     );
@@ -117,6 +122,7 @@ class PollingService {
 
   /// Poll dashboard endpoint and emit to stream
   Future<void> _pollDashboard() async {
+    if (_disposed) return;
     try {
       SharedPreferences? prefs;
       try {
@@ -124,7 +130,7 @@ class PollingService {
       } catch (_) {}
       final market = prefs?.getString('active_market') ?? 'EGX';
       final data = await _mobileApi.getDashboard(market: market, forceRefresh: true);
-      if (data.isNotEmpty) {
+      if (!_disposed && data.isNotEmpty) {
         _dashboardController.add(data);
       }
     } catch (e) {
@@ -134,8 +140,12 @@ class PollingService {
 
   /// Cleanup resources
   void dispose() {
+    if (_disposed) return;
+    _disposed = true;
     stopAll();
-    _dashboardController.close();
+    if (!_dashboardController.isClosed) {
+      _dashboardController.close();
+    }
   }
 }
 

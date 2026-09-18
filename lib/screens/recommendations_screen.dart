@@ -1,14 +1,7 @@
 // ============================================================================
-// مساعد الاستثمار Flutter - Expert Predictions Screen
-// Shows expert predictions/analysis with stats, persona tabs + status filter,
+// مساعد الاستثمار Flutter - Expert Predictions Screen (Simplified - Balanced Only)
+// Shows expert predictions/analysis with stats, status filter,
 // freshness badge and 60s auto-refresh.
-//
-// Two INDEPENDENT filters:
-//   - _selectedPersona: 'all' | 'gambler' | 'balanced' | 'conservative'
-//   - _statusFilter   : 'all' | 'pending' | 'target_hit' | 'stopped' | 'expired'
-// (NEVER reuse status values as persona — the original bug sent the status
-//  filter value as the persona param, conflating two independent concepts.
-//  This file deliberately keeps persona and status filters fully decoupled.)
 // ============================================================================
 
 import 'dart:async';
@@ -22,7 +15,6 @@ import '../widgets/state_view.dart';
 import '../widgets/skeleton_loader.dart';
 import '../widgets/freshness_badge.dart';
 import '../core/app_localizations.dart';
-import '../widgets/stock_sparkline.dart';
 
 class RecommendationsScreen extends StatefulWidget {
   const RecommendationsScreen({super.key});
@@ -35,18 +27,14 @@ class _RecommendationsScreenState extends State<RecommendationsScreen> {
   Future<RecommendationsData?>? _dataFuture;
   Future<Map<String, dynamic>?>? _freshnessFuture;
 
-  // ── Persona filter (independent of status) ──
-  // Valid values: 'all' | 'gambler' | 'balanced' | 'conservative'
-  // NEVER reuse a status string here.
-  String _selectedPersona = 'all';
+  // Only balanced persona - no filter needed
+  static const String _selectedPersona = 'balanced';
 
-  // ── Status filter (independent of persona) ──
-  // Valid values: 'all' | 'pending' | 'target_hit' | 'stopped' | 'expired'
+  // Status filter
   String _statusFilter = 'all';
 
   String _activeMarket = 'EGX';
 
-  // ── 60s auto-refresh ──
   Timer? _autoRefreshTimer;
 
   @override
@@ -87,18 +75,8 @@ class _RecommendationsScreenState extends State<RecommendationsScreen> {
     'QSE': 'السوق القطري',
   };
 
-  /// Persona filter → API param. `all` → null (no filter).
-  /// Valid values: 'all' | 'gambler' | 'balanced' | 'conservative'.
-  /// NEVER returns a status code — the original code reused the status
-  /// filter value as the persona param (the persona-vs-status conflation
-  /// bug), which broke filtering silently. This file keeps them decoupled.
-  String? get _personaApiParam =>
-      _selectedPersona == 'all' ? null : _selectedPersona;
+  String? get _personaApiParam => _selectedPersona;
 
-  /// Status filter → API param. `all` → null (no filter).
-  /// Uses lowercase canonical status codes; the backend's status endpoint
-  /// accepts case-insensitive values. We deliberately avoid the uppercase
-  /// backend code in source — callers normalize via [_normalizeStatus].
   String? get _statusApiParam {
     switch (_statusFilter) {
       case 'pending':
@@ -114,14 +92,9 @@ class _RecommendationsScreenState extends State<RecommendationsScreen> {
     }
   }
 
-  /// Normalize backend status strings to lowercase canonical form
-  /// (handles 'PENDING', 'Pending', 'pending' → 'pending').
-  /// Also maps the legacy 'CLOSED' code to 'expired' for display parity.
   String _normalizeStatus(String? status) {
     final s = (status ?? '').toLowerCase().trim();
     if (s.isEmpty) return '';
-    // Legacy: backend used to send 'closed' for ended predictions; we
-    // expose it as 'expired' in the UI.
     if (s == 'closed') return 'expired';
     return s;
   }
@@ -134,15 +107,12 @@ class _RecommendationsScreenState extends State<RecommendationsScreen> {
       final persona = _personaApiParam;
       final status = _statusApiParam;
 
-      // Fetch market recommendations and morning reports in parallel.
       List<dynamic> rawRecs = <dynamic>[];
       List<Map<String, dynamic>> reports = <Map<String, dynamic>>[];
 
-      // Status filter is passed separately to the API (it is NOT a persona).
       final recResult = await _fetchRecommendations(market, persona, status);
       rawRecs = recResult;
 
-      // Fetch morning reports in parallel.
       try {
         final reportsResponse = await api.getMorningReports();
         final dynamic reportsRaw = reportsResponse['reports'] ?? reportsResponse['data'];
@@ -157,13 +127,10 @@ class _RecommendationsScreenState extends State<RecommendationsScreen> {
         debugPrint('[Recommendations] getMorningReports failed: $e');
       }
 
-      // If market-specific returned empty, try mobile recommendations
-      // (still passing persona + status separately).
       if (rawRecs.isEmpty) {
         rawRecs = await _fetchMobileRecommendations(market, persona, status);
       }
 
-      // If still empty, try expert recommendations
       List<ExpertRecommendation> recs = <ExpertRecommendation>[];
       List<ExpertStats> stats = <ExpertStats>[];
       if (rawRecs.isEmpty) {
@@ -178,32 +145,16 @@ class _RecommendationsScreenState extends State<RecommendationsScreen> {
         }
       }
 
-      // Filter recommendations locally by active market, persona, and status.
+      // Filter recommendations locally by active market and status only
       List<ExpertRecommendation> filteredRecs = <ExpertRecommendation>[];
       for (final rec in recs) {
         final symbol = rec.stockSymbol ?? '';
         final isNumeric4 = RegExp(r'^\d{4}$').hasMatch(symbol.trim());
-        
-        // 1. Market Filter
+
         if (market == 'TADAWUL' && !isNumeric4) continue;
         if (market == 'EGX' && isNumeric4) continue;
 
-        // 2. Persona Filter
-        if (_selectedPersona != 'all') {
-          final personaStr = '${rec.action ?? ''} ${rec.notes ?? ''} ${rec.recommendationDate ?? ''}'.toLowerCase();
-          if (_selectedPersona == 'gambler') {
-            final isGambler = personaStr.contains('gambler') || personaStr.contains('high') || personaStr.contains('مضارب') || personaStr.contains('t1_buy') || personaStr.contains('سريع');
-            if (!isGambler) continue;
-          } else if (_selectedPersona == 'balanced') {
-            final isBalanced = personaStr.contains('balanced') || personaStr.contains('medium') || personaStr.contains('متوازن') || personaStr.contains('t2_buy');
-            if (!isBalanced) continue;
-          } else if (_selectedPersona == 'conservative') {
-            final isConservative = personaStr.contains('conservative') || personaStr.contains('low') || personaStr.contains('محافظ') || personaStr.contains('investor') || personaStr.contains('احتفاظ');
-            if (!isConservative) continue;
-          }
-        }
-
-        // 3. Status Filter
+        // Status Filter
         if (_statusFilter != 'all') {
           final statusStr = _normalizeStatus(rec.status);
           if (_statusFilter == 'pending') {
@@ -237,8 +188,6 @@ class _RecommendationsScreenState extends State<RecommendationsScreen> {
     }
   }
 
-  /// Pull the freshness_info object from the performance-dashboard endpoint.
-  /// Failures are swallowed — freshness is purely informational.
   Future<Map<String, dynamic>?> _fetchFreshness() async {
     try {
       final dash = await api.getPerformanceDashboard(days: 7);
@@ -279,7 +228,6 @@ class _RecommendationsScreenState extends State<RecommendationsScreen> {
     try {
       Map<String, dynamic> response = {};
       try {
-        // Pass STATUS (not persona) to the status filter param.
         response = await api.getExpertRecommendations(status: status);
       } catch (e) {
         debugPrint('[Recommendations] getExpertRecommendations failed: $e');
@@ -309,264 +257,166 @@ class _RecommendationsScreenState extends State<RecommendationsScreen> {
   }
 
   Future<void> _refresh() async {
-    _dataFuture = _fetchData();
-    _freshnessFuture = _fetchFreshness();
-    if (mounted) setState(() {});
-  }
-
-  Color _actionColor(String? action) {
-    if (action == null) return AppColors.textMuted;
-    final a = action.toUpperCase();
-    if (a == 'BUY' || a == 'STRONG_BUY') return AppColors.success;
-    if (a == 'SELL' || a == 'STRONG_SELL') return AppColors.danger;
-    return AppColors.warning;
-  }
-
-  IconData _actionIcon(String? action) {
-    if (action == null) return Icons.remove_circle_outline;
-    final a = action.toUpperCase();
-    if (a == 'BUY' || a == 'STRONG_BUY') return Icons.trending_up;
-    if (a == 'SELL' || a == 'STRONG_SELL') return Icons.trending_down;
-    return Icons.swap_horiz;
-  }
-
-  String _actionAr(String? action) {
-    if (action == null || action.isEmpty) return 'انتظار';
-    final a = action.toUpperCase().replaceAll(' ', '_');
-    switch (a) {
-      case 'STRONG_BUY':
-        return 'شراء قوي';
-      case 'BUY':
-        return 'شراء';
-      case 'STRONG_SELL':
-        return 'بيع قوي';
-      case 'SELL':
-        return 'بيع';
-      case 'HOLD':
-        return 'احتفاظ';
-      case 'AVOID':
-        return 'تجنب';
-      case 'ACCUMULATE':
-        return 'تجميع';
-      case 'REDUCE':
-        return 'تخفيف';
-      default:
-        return action;
-    }
-  }
-
-  Color _statusColor(String? status) {
-    switch (_normalizeStatus(status)) {
-      case 'target_hit':
-        return AppColors.success;
-      case 'stopped':
-        return AppColors.danger;
-      case 'expired':
-        return AppColors.textMuted;
-      default:
-        return AppColors.info;
-    }
-  }
-
-  String _statusAr(String? status) {
-    switch (_normalizeStatus(status)) {
-      case 'target_hit':
-        return 'حقق الهدف';
-      case 'stopped':
-        return 'توقف';
-      case 'expired':
-        return 'مغلق';
-      case 'pending':
-        return 'قيد الانتظار';
-      default:
-        return status ?? 'غير معروف';
-    }
+    setState(() {
+      _dataFuture = _fetchData();
+      _freshnessFuture = _fetchFreshness();
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    final isAr = AppLocalizations.isArabic; // i18n
+    final isAr = AppLocalizations.isArabic;
+    const Color personaColor = AppColors.warning;
+
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
         backgroundColor: AppColors.background,
-        body: FutureBuilder<RecommendationsData?>(
-          future: _dataFuture,
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const SkeletonRecommendations();
-            }
-            if (snapshot.hasError || snapshot.data == null) {
-              return StateView(
-                  error: snapshot.hasError
-                      ? snapshot.error.toString()
-                      : 'فشل تحميل التوقعات',
-                  onRetry: _refresh);
-            }
+        appBar: AppBar(
+          backgroundColor: AppColors.surface,
+          elevation: 0,
+          title: const Text('توقعات الخبراء',
+              style: TextStyle(fontWeight: FontWeight.w800)),
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            onPressed: () => Navigator.pop(context),
+          ),
+        ),
+        body: RefreshIndicator(
+          color: personaColor,
+          onRefresh: _refresh,
+          child: FutureBuilder<RecommendationsData?>(
+            future: _dataFuture,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const SkeletonList(itemCount: 5);
+              }
+              if (snapshot.hasError) {
+                return StateView(
+                    error: 'فشل تحميل التوقعات',
+                    onRetry: _refresh);
+              }
+              final data = snapshot.data;
+              if (data == null || data.recommendations.isEmpty) {
+                return const StateView(
+                    empty: true, emptyMessage: 'لا توجد توقعات متاحة');
+              }
 
-            final data = snapshot.data!;
-            return RefreshIndicator(
-              color: AppColors.primary,
-              onRefresh: _refresh,
-              child: SingleChildScrollView(
+              final recs = data.recommendations;
+              final stats = data.expertStats;
+              final reports = data.morningReports;
+
+              return SingleChildScrollView(
                 physics: const AlwaysScrollableScrollPhysics(),
                 padding: const EdgeInsets.all(16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    HeaderCard(
-                      icon: Icons.lightbulb_outline,
-                      title: 'توقعات الخبراء',
-                      subtitle:
-                          'تابع توقعات الخبراء — ${_marketNames[_activeMarket] ?? _activeMarket}',
-                    ),
+                    _buildMarketHeader(personaColor),
                     const SizedBox(height: 12),
-                    // ── Freshness badge (auto-refreshes every 60s) ──
-                    _buildFreshnessRow(),
-                    const SizedBox(height: 12),
-                    // ── Persona selector (3 tabs + all) ──
-                    _buildPersonaSelector(),
-                    const SizedBox(height: 12),
-                    // ── Status filter chips ──
-                    SizedBox(
-                      height: 40,
-                      child: ListView(
-                        scrollDirection: Axis.horizontal,
-                        children: [
-                          _buildStatusChip('الكل', 'all'),
-                          _buildStatusChip('قيد الانتظار', 'pending'),
-                          _buildStatusChip('حقق الهدف', 'target_hit'),
-                          _buildStatusChip('توقف', 'stopped'),
-                          _buildStatusChip('منتهي', 'expired'),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    // Expert Stats
-                    if (data.expertStats.isNotEmpty) ...[
-                      const SectionHeader(
-                          title: 'إحصائيات الخبراء', icon: Icons.bar_chart),
-                      const SizedBox(height: 8),
-                      ...data.expertStats
-                          .map((stat) => _buildExpertStatCard(stat)),
+                    if (stats.isNotEmpty) ...[
+                      _buildStatsRow(stats),
                       const SizedBox(height: 16),
                     ],
-                    // Recommendations
-                    const SectionHeader(title: 'التوقعات', icon: Icons.list),
-                    const SizedBox(height: 8),
-                    if (data.recommendations.isEmpty)
-                      const StateView(empty: true, emptyMessage: 'لا توجد توقعات')
-                    else
-                      ...data.recommendations
-                          .map((rec) => _buildRecommendationCard(rec)),
-                    // Morning Reports
-                    if (data.morningReports.isNotEmpty) ...[
-                      const SizedBox(height: 20),
-                      const SectionHeader(
-                          title: 'التقارير الصباحية', icon: Icons.newspaper),
+                    _buildStatusFilter(),
+                    const SizedBox(height: 12),
+                    ...recs.map((rec) => _buildRecommendationCard(rec)),
+                    if (reports.isNotEmpty) ...[
+                      const SizedBox(height: 24),
+                      _buildSectionHeader('التقارير الصباحية', Icons.newspaper),
                       const SizedBox(height: 8),
-                      ...data.morningReports
-                          .take(5)
-                          .map((r) => _buildMorningReportCard(r)),
+                      ...reports.map((r) => _buildMorningReportCard(r)),
                     ],
-                    const SizedBox(height: 90),
+                    const SizedBox(height: 100),
                   ],
                 ),
-              ),
-            );
-          },
+              );
+            },
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildFreshnessRow() {
+  Widget _buildMarketHeader(Color personaColor) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(colors: [personaColor, personaColor.withValues(alpha: 0.7)]),
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: AppColors.white.withValues(alpha: 0.2),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.balance_rounded, color: AppColors.white, size: 24),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('المتوازن',
+                    style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.white)),
+                const SizedBox(height: 2),
+                Text(_marketNames[_activeMarket] ?? _activeMarket,
+                    style: TextStyle(
+                        fontSize: 12,
+                        color: AppColors.white.withValues(alpha: 0.9))),
+              ],
+            ),
+          ),
+          _buildFreshnessBadge(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFreshnessBadge() {
     return FutureBuilder<Map<String, dynamic>?>(
       future: _freshnessFuture,
       builder: (context, snap) {
-        final info = snap.data;
-        return Row(
-          children: [
-            const Text('آخر تحديث: ',
-                style: TextStyle(fontSize: 12, color: AppColors.textMuted)),
-            const SizedBox(width: 6),
-            Flexible(
-              child: FreshnessBadge.fromInfo(info, compact: true),
-            ),
-            const Spacer(),
-            // 60s auto-refresh indicator
-            Icon(Icons.autorenew_rounded,
-                size: 14, color: AppColors.textMuted.withValues(alpha: 0.7)),
-            const SizedBox(width: 4),
-            Text('تحديث تلقائي كل 60 ثانية',
-                style: TextStyle(
-                    fontSize: 10, color: AppColors.textMuted.withValues(alpha: 0.7))),
-          ],
-        );
+        if (snap.hasData && snap.data != null) {
+          return FreshnessBadge.fromInfo(snap.data, compact: true);
+        }
+        return const SizedBox.shrink();
       },
     );
   }
 
-  /// Persona selector — segmented control with 4 options.
-  /// All / 🔥 المضارب / ⚖️ المتوازن / 🛡️ المحافظ
-  Widget _buildPersonaSelector() {
-    final options = <_PersonaOption>[
-      _PersonaOption(id: 'all', label: 'الكل', icon: Icons.list_alt_rounded, color: AppColors.textMuted),
-      _PersonaOption(id: 'gambler', label: 'المضارب', icon: Icons.local_fire_department_rounded, color: AppColors.danger),
-      _PersonaOption(id: 'balanced', label: 'المتوازن', icon: Icons.balance_rounded, color: AppColors.warning),
-      _PersonaOption(id: 'conservative', label: 'المحافظ', icon: Icons.shield_rounded, color: AppColors.info),
-    ];
-    return Container(
-      padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(AppRadius.md),
-        border: Border.all(color: AppColors.border),
+  Widget _buildStatsRow(List<ExpertStats> stats) {
+    return SizedBox(
+      height: 100,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: stats.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 12),
+        itemBuilder: (context, index) {
+          final stat = stats[index];
+          return _buildExpertStatCard(stat);
+        },
       ),
-      child: Row(
-        children: options.map((opt) {
-          final selected = _selectedPersona == opt.id;
-          return Expanded(
-            child: GestureDetector(
-              onTap: () {
-                setState(() => _selectedPersona = opt.id);
-                _refresh();
-              },
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 180),
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                decoration: BoxDecoration(
-                  color: selected
-                      ? opt.color.withValues(alpha: 0.18)
-                      : Colors.transparent,
-                  borderRadius: BorderRadius.circular(AppRadius.sm),
-                  border: Border.all(
-                    color: selected ? opt.color : Colors.transparent,
-                    width: 1,
-                  ),
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(opt.icon,
-                        size: 16,
-                        color: selected ? opt.color : AppColors.textMuted),
-                    const SizedBox(height: 2),
-                    Text(
-                      opt.label,
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        color: selected ? opt.color : AppColors.textSecondary,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          );
-        }).toList(),
-      ),
+    );
+  }
+
+  Widget _buildStatusFilter() {
+    return Row(
+      children: [
+        const Text('الحالة: ',
+            style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+        _buildStatusChip('الكل', 'all'),
+        _buildStatusChip('قيد الانتظار', 'pending'),
+        _buildStatusChip('هدف محقق', 'target_hit'),
+        _buildStatusChip('موقوف', 'stopped'),
+        _buildStatusChip('منتهي', 'expired'),
+      ],
     );
   }
 
@@ -594,110 +444,112 @@ class _RecommendationsScreenState extends State<RecommendationsScreen> {
 
   Widget _buildExpertStatCard(ExpertStats stat) {
     return Container(
+      width: 150,
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
           color: AppColors.surface,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: AppColors.border)),
-      child: Column(children: [
-        Row(children: [
-          Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                  color: AppColors.primaryMuted,
-                  borderRadius: BorderRadius.circular(8)),
-              child:
-                  const Icon(Icons.person, color: AppColors.primary, size: 18)),
-          const SizedBox(width: 10),
-          Expanded(
-              child: Text(stat.expertName, style: AppTypography.titleSmall)),
-          Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(
-                  color: stat.successRate >= 60
-                      ? AppColors.successLight
-                      : AppColors.warningLight,
-                  borderRadius: BorderRadius.circular(12)),
-              child: Text('${stat.successRate.toStringAsFixed(0)}% نجاح',
-                  style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: stat.successRate >= 60
-                          ? AppColors.success
-                          : AppColors.warning))),
-        ]),
-        const SizedBox(height: 10),
-        Row(children: [
-          Expanded(
-              child:
-                  _buildStatItem('التوقعات', '${stat.totalRecommendations}')),
-          Expanded(
-              child:
-                  _buildStatItem('ناجحة', '${stat.successfulRecommendations}')),
-          Expanded(
-              child: _buildStatItem(
-                  'متوسط العائد', '${stat.avgReturn.toStringAsFixed(1)}%')),
-        ]),
-      ]),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(stat.expertName ?? 'خبير',
+              style: AppTypography.bodySmall,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis),
+          const SizedBox(height: 4),
+          Row(
+            children: [
+              _buildStatItem('إجمالي', stat.totalRecommendations.toString()),
+              const SizedBox(width: 16),
+              _buildStatItem('محقق', stat.successfulRecommendations.toString()),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Row(
+            children: [
+              _buildStatItem('نسبة', '${stat.successRate?.toStringAsFixed(0) ?? 0}%'),
+              const SizedBox(width: 16),
+              _buildStatItem('عائد', '${stat.avgReturn?.toStringAsFixed(1) ?? 0}%'),
+            ],
+          ),
+        ],
+      ),
     );
   }
 
   Widget _buildStatItem(String label, String value) {
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Text(label, style: AppTypography.bodySmall),
-      const SizedBox(height: 2),
-      Text(value, style: AppTypography.titleSmall)
-    ]);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: AppTypography.bodySmall.copyWith(color: AppColors.textMuted)),
+        Text(value, style: AppTypography.bodyMedium.copyWith(fontWeight: FontWeight.w700)),
+      ],
+    );
+  }
+
+  Widget _buildSectionHeader(String title, IconData icon) {
+    return Row(
+      children: [
+        Icon(icon, size: 18, color: AppColors.primary),
+        const SizedBox(width: 8),
+        Text(title, style: AppTypography.titleSmall),
+      ],
+    );
+  }
+
+  Color _statusColor(String? status) {
+    final s = _normalizeStatus(status);
+    if (s == 'target_hit' || s == 'success') return AppColors.success;
+    if (s == 'stopped' || s == 'sl_hit') return AppColors.danger;
+    if (s == 'expired' || s == 'closed') return AppColors.textMuted;
+    return AppColors.info;
+  }
+
+  String _statusAr(String? status) {
+    final s = _normalizeStatus(status);
+    switch (s) {
+      case 'pending': return 'قيد الانتظار';
+      case 'target_hit': return 'هدف محقق';
+      case 'success': return 'ناجح';
+      case 'stopped': return 'موقوف';
+      case 'sl_hit': return 'وقف خسارة';
+      case 'expired': return 'منتهي';
+      case 'closed': return 'مغلق';
+      default: return status ?? '—';
+    }
   }
 
   Widget _buildRecommendationCard(ExpertRecommendation rec) {
-    final actionColor = _actionColor(rec.action);
+    final actionColor = _getActionColor(rec.action);
+    final actionIcon = _getActionIcon(rec.action);
+
     return Container(
-      margin: const EdgeInsets.only(bottom: 10),
+      margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
           color: AppColors.surface,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: AppColors.border)),
-      child: Column(children: [
-        Row(children: [
-          Container(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(children: [
+            Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
                   color: actionColor.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8)),
-              child:
-                  Icon(_actionIcon(rec.action), color: actionColor, size: 20)),
-          const SizedBox(width: 10),
-          Expanded(
-              child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                Row(children: [
-                  Flexible(
-                    child: Text(
-                      (rec.stockSymbol != null &&
-                              rec.stockSymbol!.isNotEmpty)
-                          ? rec.stockSymbol!
-                          : '—',
-                      style: AppTypography.titleSmall,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 2),
-                      decoration: BoxDecoration(
-                          color: actionColor.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(8)),
-                      child: Text(_actionAr(rec.action),
-                          style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                              color: actionColor))),
-                ]),
+              child: Icon(actionIcon, color: actionColor, size: 18),
+            ),
+            const SizedBox(width: 10),
+            Expanded(child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(rec.stockSymbol ?? '—',
+                    style: AppTypography.titleSmall.copyWith(fontWeight: FontWeight.w800)),
                 const SizedBox(height: 2),
                 Text(
                   [
@@ -712,7 +564,7 @@ class _RecommendationsScreenState extends State<RecommendationsScreen> {
                   overflow: TextOverflow.ellipsis,
                 ),
               ])),
-          Container(
+            Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
                   color: _statusColor(rec.status).withValues(alpha: 0.1),
@@ -722,48 +574,49 @@ class _RecommendationsScreenState extends State<RecommendationsScreen> {
                       fontSize: 10,
                       fontWeight: FontWeight.w600,
                       color: _statusColor(rec.status)))),
-        ]),
-        const Divider(height: 16),
-        Row(children: [
-          Expanded(child: _buildPriceItem('الدخول', rec.entryPrice)),
-          Expanded(child: _buildPriceItem('الهدف', rec.targetPrice)),
-          Expanded(child: _buildPriceItem('وقف الخسارة', rec.stopLoss)),
-          if (rec.profitLossPercent != null)
-            Expanded(
-                child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                  const Text('النتيجة', style: AppTypography.bodySmall),
-                  const SizedBox(height: 2),
-                  Text(
-                      '${rec.profitLossPercent! >= 0 ? '+' : ''}${rec.profitLossPercent!.toStringAsFixed(1)}%',
-                      style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: rec.profitLossPercent! >= 0
-                              ? AppColors.success
-                              : AppColors.danger)),
-                ])),
-        ]),
-        if (rec.notes != null && rec.notes!.isNotEmpty) ...[
-          const SizedBox(height: 8),
-          Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                  color: AppColors.surfaceMuted,
-                  borderRadius: BorderRadius.circular(8)),
-              child: Text(rec.notes!, style: AppTypography.bodySmall)),
-        ],
-        if (rec.recommendationDate != null) ...[
-          const SizedBox(height: 6),
-          Row(mainAxisAlignment: MainAxisAlignment.end, children: [
-            const Icon(Icons.calendar_today,
-                size: 12, color: AppColors.textMuted),
-            const SizedBox(width: 4),
-            Text(rec.recommendationDate!, style: AppTypography.bodySmall)
           ]),
+          const Divider(height: 16),
+          Row(children: [
+            Expanded(child: _buildPriceItem('الدخول', rec.entryPrice)),
+            Expanded(child: _buildPriceItem('الهدف', rec.targetPrice)),
+            Expanded(child: _buildPriceItem('وقف الخسارة', rec.stopLoss)),
+            if (rec.profitLossPercent != null)
+              Expanded(
+                  child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                    const Text('النتيجة', style: AppTypography.bodySmall),
+                    const SizedBox(height: 2),
+                    Text(
+                        '${rec.profitLossPercent! >= 0 ? '+' : ''}${rec.profitLossPercent!.toStringAsFixed(1)}%',
+                        style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: rec.profitLossPercent! >= 0
+                                ? AppColors.success
+                                : AppColors.danger)),
+                  ])),
+          ]),
+          if (rec.notes != null && rec.notes!.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                    color: AppColors.surfaceMuted,
+                    borderRadius: BorderRadius.circular(8)),
+                child: Text(rec.notes!, style: AppTypography.bodySmall)),
+          ],
+          if (rec.recommendationDate != null) ...[
+            const SizedBox(height: 6),
+            Row(mainAxisAlignment: MainAxisAlignment.end, children: [
+              const Icon(Icons.calendar_today,
+                  size: 12, color: AppColors.textMuted),
+              const SizedBox(width: 4),
+              Text(rec.recommendationDate!, style: AppTypography.bodySmall)
+            ]),
+          ],
         ],
-      ]),
+      ),
     );
   }
 
@@ -775,6 +628,20 @@ class _RecommendationsScreenState extends State<RecommendationsScreen> {
     ]);
   }
 
+  Color _getActionColor(String? action) {
+    final a = (action ?? '').toLowerCase();
+    if (a.contains('buy') || a.contains('شراء')) return AppColors.success;
+    if (a.contains('sell') || a.contains('بيع')) return AppColors.danger;
+    if (a.contains('hold') || a.contains('احتفاظ')) return AppColors.warning;
+    return AppColors.info;
+  }
+
+  IconData _getActionIcon(String? action) {
+    final a = (action ?? '').toLowerCase();
+    if (a.contains('buy') || a.contains('شراء')) return Icons.trending_up;
+    if (a.contains('sell') || a.contains('بيع')) return Icons.trending_down;
+    return Icons.remove;
+  }
 
   Widget _buildMorningReportCard(Map<String, dynamic> report) {
     final text = report['report_text'] ?? report['content'] ?? '';
@@ -802,19 +669,6 @@ class _RecommendationsScreenState extends State<RecommendationsScreen> {
       ]),
     );
   }
-}
-
-class _PersonaOption {
-  final String id;
-  final String label;
-  final IconData icon;
-  final Color color;
-  const _PersonaOption({
-    required this.id,
-    required this.label,
-    required this.icon,
-    required this.color,
-  });
 }
 
 class RecommendationsData {
