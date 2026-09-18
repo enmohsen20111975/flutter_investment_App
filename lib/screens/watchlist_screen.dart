@@ -53,7 +53,7 @@ class _WatchlistScreenState extends State<WatchlistScreen> {
     }
 
     try {
-      await GLMApiClient.instance.addToWatchlist({'symbol': ticker.toUpperCase()});
+      await GLMApiClient.instance.addToWatchlist({'ticker': ticker.toUpperCase()});
       _refreshWatchlist();
     } catch (e) {
       debugPrint('[Watchlist] Add failed: $e');
@@ -200,7 +200,7 @@ class _WatchlistScreenState extends State<WatchlistScreen> {
                         final item = items[index];
                         final ticker = item.ticker;
                         final name = item.nameAr ?? item.name ?? ticker;
-                        final price = item.currentPrice ?? 29.50;
+                        final price = item.currentPrice ?? 0.0;
                         final change = item.changePercent ?? item.priceChange ?? 0.0;
                         final bool isUp = change >= 0;
 

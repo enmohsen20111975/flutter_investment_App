@@ -107,7 +107,7 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
       future: _detailsFuture,
       builder: (context, snapshot) {
         final name = _stockQuote?['name_ar'] ?? _stockQuote?['name'] ?? widget.ticker;
-        final price = (_stockQuote?['price'] ?? _stockQuote?['current_price'] ?? 29.50);
+        final price = (_stockQuote?['price'] ?? _stockQuote?['current_price'] ?? 0.0);
         final change = (_stockQuote?['change_percent'] ?? _stockQuote?['price_change'] ?? 1.85);
         final double changeNum = change is num ? change.toDouble() : double.tryParse(change.toString()) ?? 0.0;
         final bool isUp = changeNum >= 0;
