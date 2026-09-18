@@ -5,6 +5,7 @@ import '../api/client.dart';
 import '../config/google_auth_config.dart';
 import '../services/subscription_service.dart';
 import '../theme/colors.dart';
+import '../core/app_localizations.dart';
 
 class AuthScreen extends StatefulWidget {
   const AuthScreen({super.key});
@@ -230,6 +231,7 @@ class _AuthScreenState extends State<AuthScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isAr = AppLocalizations.isArabic; // i18n
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(

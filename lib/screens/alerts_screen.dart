@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import '../theme/colors.dart';
 import '../api/client.dart';
 import '../models/types.dart';
+import '../core/app_localizations.dart';
 
 class AlertsScreen extends StatefulWidget {
   const AlertsScreen({super.key});
@@ -168,6 +169,7 @@ class _AlertsScreenState extends State<AlertsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isAr = AppLocalizations.isArabic; // i18n
     return FutureBuilder<List<PriceAlert>>(
       future: _alertsFuture,
       builder: (context, snapshot) {

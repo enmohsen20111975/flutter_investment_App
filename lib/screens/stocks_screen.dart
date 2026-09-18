@@ -9,6 +9,8 @@ import '../theme/colors.dart';
 import '../api/client.dart';
 import '../models/types.dart';
 import 'stock_history_screen.dart';
+import '../core/app_localizations.dart';
+import '../widgets/stock_sparkline.dart';
 
 class StocksScreen extends StatefulWidget {
   const StocksScreen({super.key, this.marketVersion = 0});
@@ -164,6 +166,7 @@ class _StocksScreenState extends State<StocksScreen>
 
   @override
   Widget build(BuildContext context) {
+    final isAr = AppLocalizations.isArabic; // i18n
     super.build(context);
     return Directionality(
       textDirection: TextDirection.rtl,

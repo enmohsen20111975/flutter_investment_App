@@ -10,6 +10,7 @@ import '../theme/colors.dart';
 import '../api/client.dart';
 import '../widgets/state_view.dart';
 import '../widgets/skeleton_loader.dart';
+import '../core/app_localizations.dart';
 
 class SmartConfluenceScreen extends StatefulWidget {
   const SmartConfluenceScreen({super.key});
@@ -160,6 +161,7 @@ class _SmartConfluenceScreenState extends State<SmartConfluenceScreen>
 
   @override
   Widget build(BuildContext context) {
+    final isAr = AppLocalizations.isArabic; // i18n
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(

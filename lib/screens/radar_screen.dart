@@ -18,6 +18,8 @@ import '../api/client.dart';
 import '../widgets/loading_widget.dart';
 import '../widgets/empty_state_widget.dart';
 import 'stock_history_screen.dart';
+import '../core/app_localizations.dart';
+import '../widgets/stock_sparkline.dart';
 
 // ─── Provider: Radar Data ─────────────────────────────────────────────────
 final radarDataProvider = FutureProvider.autoDispose<Map<String, dynamic>>((ref) async {
@@ -57,6 +59,7 @@ class _RadarScreenState extends ConsumerState<RadarScreen> with SingleTickerProv
 
   @override
   Widget build(BuildContext context) {
+    final isAr = AppLocalizations.isArabic; // i18n
     final radarAsync = ref.watch(radarDataProvider);
 
     return Scaffold(

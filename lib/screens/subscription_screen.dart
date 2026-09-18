@@ -9,6 +9,7 @@ import '../theme/typography.dart';
 import '../api/client.dart';
 import '../widgets/state_view.dart';
 import 'webview_screen.dart';
+import '../core/app_localizations.dart';
 
 class SubscriptionScreen extends StatefulWidget {
   const SubscriptionScreen({super.key});
@@ -429,6 +430,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isAr = AppLocalizations.isArabic; // i18n
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(

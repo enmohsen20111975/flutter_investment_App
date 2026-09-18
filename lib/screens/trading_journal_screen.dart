@@ -12,6 +12,7 @@ import '../theme/typography.dart';
 import '../api/client.dart';
 import '../widgets/state_view.dart';
 import '../widgets/skeleton_loader.dart';
+import '../core/app_localizations.dart';
 
 class TradingJournalScreen extends StatefulWidget {
   const TradingJournalScreen({super.key});
@@ -335,6 +336,7 @@ class _TradingJournalScreenState extends State<TradingJournalScreen>
 
   @override
   Widget build(BuildContext context) {
+    final isAr = AppLocalizations.isArabic; // i18n
     return FutureBuilder<List<_JournalEntry>>(
       future: _journalFuture,
       builder: (context, snapshot) {

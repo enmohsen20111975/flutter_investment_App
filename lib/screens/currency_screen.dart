@@ -8,6 +8,7 @@ import '../theme/typography.dart';
 import '../api/client.dart';
 import '../models/types.dart';
 import '../widgets/state_view.dart';
+import '../core/app_localizations.dart';
 
 class CurrencyScreen extends StatefulWidget {
   const CurrencyScreen({super.key});
@@ -71,6 +72,7 @@ class _CurrencyScreenState extends State<CurrencyScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isAr = AppLocalizations.isArabic; // i18n
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(

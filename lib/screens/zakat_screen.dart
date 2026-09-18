@@ -5,6 +5,7 @@
 
 import 'package:flutter/material.dart';
 import '../theme/colors.dart';
+import '../core/app_localizations.dart';
 
 class ZakatScreen extends StatefulWidget {
   const ZakatScreen({super.key});
@@ -94,6 +95,7 @@ class _ZakatScreenState extends State<ZakatScreen> with SingleTickerProviderStat
 
   @override
   Widget build(BuildContext context) {
+    final isAr = AppLocalizations.isArabic; // i18n
     return Scaffold(
       backgroundColor: AppColors.quantumBg,
       appBar: AppBar(

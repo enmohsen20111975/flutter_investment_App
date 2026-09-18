@@ -40,6 +40,16 @@ class GLMApiClient {
         }
         return handler.next(options);
       },
+      onResponse: (response, handler) async {
+        // 401 handling: token expired
+        if (response.statusCode == 401) {
+          _authToken = null;
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.remove('auth_token');
+          debugPrint('[API] Token expired (401) — cleared');
+        }
+        return handler.next(response);
+      },
       onError: (error, handler) {
         debugPrint(
             '[API Error] ${error.response?.statusCode} - ${error.message}');
@@ -580,20 +590,8 @@ class GLMApiClient {
       return OrderBook.fromJson(data);
     } catch (e) {
       debugPrint('[API] getStockOrderBook failed: $e');
-      // Dummy / Fallback OrderBook for Offline or 404
-      return OrderBook(
-        symbol: symbol,
-        bids: [
-          OrderBookEntry(price: 29.50, volume: 15000, ordersCount: 5),
-          OrderBookEntry(price: 29.45, volume: 12000, ordersCount: 3),
-          OrderBookEntry(price: 29.40, volume: 25000, ordersCount: 8),
-        ],
-        asks: [
-          OrderBookEntry(price: 29.55, volume: 18000, ordersCount: 4),
-          OrderBookEntry(price: 29.60, volume: 22000, ordersCount: 6),
-          OrderBookEntry(price: 29.65, volume: 30000, ordersCount: 9),
-        ],
-      );
+      // Return empty OrderBook (no fake data)
+      return OrderBook(symbol: symbol, bids: [], asks: []);
     }
   }
 
@@ -672,18 +670,7 @@ class GLMApiClient {
       return raw is List ? raw : (raw['news'] as List? ?? []);
     } catch (e) {
       debugPrint('[API] getLatestNews failed: $e');
-      return [
-        {
-          'title': 'البنك المركزي المصري يبقي أسعار الفائدة دون تغيير في اجتماعه الأخير',
-          'source': 'الاقتصاد المصري',
-          'published_at': 'منذ ساعة واحدة',
-        },
-        {
-          'title': 'مؤشر EGX30 يحقق أرباحاً قياسية مدعوماً بمشتريات المؤسسات المالية',
-          'source': 'البورصة المصرية',
-          'published_at': 'منذ 3 ساعات',
-        },
-      ];
+      return <Map<String, dynamic>>[];
     }
   }
 
@@ -1272,10 +1259,15 @@ class GLMApiClient {
   }
 
   Future<Map<String, dynamic>> getMinAppVersion() async {
-    return {
-      'min_version': '2.4.0',
-      'message_ar': 'يرجى تحديث التطبيق إلى أحدث إصدار للمتابعة.',
-    };
+    try {
+      final response = await _dio.get('/api/app/version');
+      return response.data;
+    } catch (_) {
+      return {
+        'min_version': '2.4.0',
+        'message_ar': 'يرجى تحديث التطبيق إلى أحدث إصدار للمتابعة.',
+      };
+    }
   }
 
   // ============================================================================
@@ -2147,7 +2139,7 @@ Future<List<dynamic>> getGoldHistory(
 
   Future<Map<String, dynamic>> getMarketIncrementalSync() async {
     try {
-      final response = await _dio.get('/api/market/incremental-sync');
+      final response = await _dio.post('/api/market/incremental-sync');
       return response.data;
     } catch (e) {
       debugPrint('[API] getMarketIncrementalSync failed: $e');

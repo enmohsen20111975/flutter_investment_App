@@ -10,6 +10,7 @@ import '../theme/typography.dart';
 import '../api/client.dart';
 import '../widgets/state_view.dart';
 import '../widgets/skeleton_loader.dart';
+import '../core/app_localizations.dart';
 
 class ReportsScreen extends StatefulWidget {
   const ReportsScreen({super.key});
@@ -54,6 +55,7 @@ class _ReportsScreenState extends State<ReportsScreen>
 
   @override
   Widget build(BuildContext context) {
+    final isAr = AppLocalizations.isArabic; // i18n
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
