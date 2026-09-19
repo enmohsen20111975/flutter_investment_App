@@ -19,7 +19,6 @@ import '../widgets/loading_widget.dart';
 import '../widgets/empty_state_widget.dart';
 import 'stock_history_screen.dart';
 import '../core/app_localizations.dart';
-import '../widgets/stock_sparkline.dart';
 
 // ─── Provider: Radar Data ─────────────────────────────────────────────────
 final radarDataProvider = FutureProvider.autoDispose<Map<String, dynamic>>((ref) async {

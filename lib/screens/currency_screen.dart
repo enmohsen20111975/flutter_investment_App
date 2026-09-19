@@ -2,10 +2,12 @@
 // مساعد الاستثمار Flutter - Currency Converter Screen
 // ============================================================================
 
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../theme/colors.dart';
 import '../theme/typography.dart';
 import '../api/client.dart';
+import '../api/cache_manager.dart';
 import '../models/types.dart';
 import '../widgets/state_view.dart';
 import '../core/app_localizations.dart';
@@ -18,6 +20,8 @@ class CurrencyScreen extends StatefulWidget {
 
 class _CurrencyScreenState extends State<CurrencyScreen> {
   Future<List<Currency>>? _currenciesFuture;
+  List<Currency> _cachedCurrencies = [];
+  StreamSubscription<String>? _cacheSubscription;
 
   String _amount = '1';
   String _fromCurrency = 'USD';
@@ -29,17 +33,32 @@ class _CurrencyScreenState extends State<CurrencyScreen> {
   void initState() {
     super.initState();
     _currenciesFuture = _fetchCurrencies();
+    _cacheSubscription = ApiCacheManager.instance.updates
+        .where((key) => key == 'currency_data')
+        .listen((_) {
+      if (mounted) _refresh();
+    });
+  }
+
+  @override
+  void dispose() {
+    _cacheSubscription?.cancel();
+    super.dispose();
   }
 
   Future<List<Currency>> _fetchCurrencies() async {
     try {
       final response = await api.getCurrency();
       if (response is Map) {
-        final rawList = response['data'] ?? response['rates'] ?? response['currencies'];
+        final rawList =
+            response['data'] ?? response['rates'] ?? response['currencies'];
         if (rawList is List) {
-          return rawList
-              .map((e) => Currency.fromJson(Map<String, dynamic>.from(e as Map)))
+          final currencies = rawList
+              .map(
+                  (e) => Currency.fromJson(Map<String, dynamic>.from(e as Map)))
               .toList();
+          _cachedCurrencies = currencies;
+          return currencies;
         }
       }
       return [];
@@ -200,42 +219,34 @@ class _CurrencyScreenState extends State<CurrencyScreen> {
   }
 
   Widget _buildCurrencyDropdown(String value, ValueChanged<String?> onChanged) {
-    final currenciesSnapshot = _currenciesFuture;
-
-    return FutureBuilder<List<Currency>>(
-      future: currenciesSnapshot,
-      builder: (context, snapshot) {
-        final currencies = snapshot.data ?? [];
-        if (currencies.isEmpty) {
-          return Container(
-            height: 60,
-            alignment: Alignment.centerRight,
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            decoration: BoxDecoration(
-                color: AppColors.surfaceMuted,
-                borderRadius: BorderRadius.circular(8)),
-            child: const Text('اختر العملة',
-                style: TextStyle(color: AppColors.textSecondary)),
-          );
-        }
-        final validValue =
-            currencies.any((c) => c.code == value) ? value : null;
-        return DropdownButtonFormField<String>(
-          initialValue: validValue,
-          decoration: InputDecoration(
-              filled: true,
-              fillColor: AppColors.surfaceMuted,
-              border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: BorderSide.none)),
-          items: currencies
-              .map((c) => DropdownMenuItem(
-                  value: c.code,
-                  child: Text(c.code, style: const TextStyle(fontSize: 14))))
-              .toList(),
-          onChanged: onChanged,
-        );
-      },
+    final currencies = _cachedCurrencies;
+    if (currencies.isEmpty) {
+      return Container(
+        height: 60,
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        decoration: BoxDecoration(
+            color: AppColors.surfaceMuted,
+            borderRadius: BorderRadius.circular(8)),
+        child: const Text('اختر العملة',
+            style: TextStyle(color: AppColors.textSecondary)),
+      );
+    }
+    final validValue = currencies.any((c) => c.code == value) ? value : null;
+    return DropdownButtonFormField<String>(
+      initialValue: validValue,
+      decoration: InputDecoration(
+          filled: true,
+          fillColor: AppColors.surfaceMuted,
+          border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide.none)),
+      items: currencies
+          .map((c) => DropdownMenuItem(
+              value: c.code,
+              child: Text(c.code, style: const TextStyle(fontSize: 14))))
+          .toList(),
+      onChanged: onChanged,
     );
   }
 }

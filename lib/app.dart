@@ -1,4 +1,4 @@
-﻿// ============================================================================
+// ============================================================================
 // مساعد الاستثمار Flutter - App Root with Navigation
 // Bottom Tab Navigator + AppBar + Drawer + Command Bar
 // ============================================================================
@@ -43,6 +43,10 @@ import 'screens/academy_encyclopedia_screen.dart';
 import 'screens/candle_simulator_screen.dart';
 import 'screens/risk_profiler_screen.dart';
 import 'screens/persona_screen.dart';
+import 'screens/radar_hub_screen.dart';
+import 'screens/tools_hub_screen.dart';
+import 'screens/investors_screen.dart';
+import 'widgets/stock_search_dialog.dart';
 import 'api/client.dart';
 import 'models/types.dart';
 import 'services/notification_service.dart';
@@ -76,21 +80,43 @@ class _MainNavigatorState extends State<MainNavigator> {
     _MarketOption('BSE', 'البحرين'),
   ];
 
-  List<Widget> get _screens => [
-        DashboardScreen(
+  final Set<int> _loadedTabs = {0};
+
+  void _setTabIndex(int index) {
+    if (_currentIndex == index && _loadedTabs.contains(index)) return;
+    setState(() {
+      _currentIndex = index;
+      _loadedTabs.add(index);
+    });
+  }
+
+  Widget _buildTabScreen(int index) {
+    if (!_loadedTabs.contains(index)) {
+      return const SizedBox.shrink();
+    }
+    switch (index) {
+      case 0:
+        return DashboardScreen(
           key: _dashboardKey,
           marketVersion: _marketVersion,
-        ),
-        StocksScreen(
+        );
+      case 1:
+        return StocksScreen(
           key: _stocksKey,
           marketVersion: _marketVersion,
-        ),
-        HunterScreen(
+        );
+      case 2:
+        return RadarHubScreen(
           marketVersion: _marketVersion,
-        ),
-        const CryptoScreen(),
-        const PortfolioScreen(),
-      ];
+        );
+      case 3:
+        return const PortfolioScreen();
+      case 4:
+        return const ToolsHubScreen();
+      default:
+        return const SizedBox.shrink();
+    }
+  }
 
   Stream<int> get _notificationCountStream async* {
     yield _notificationCount;
@@ -469,7 +495,7 @@ class _MainNavigatorState extends State<MainNavigator> {
         ),
         body: IndexedStack(
           index: _currentIndex,
-          children: _screens,
+          children: List.generate(5, (index) => _buildTabScreen(index)),
         ),
         floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
         floatingActionButton: Container(
@@ -513,40 +539,39 @@ class _MainNavigatorState extends State<MainNavigator> {
           ),
           child: BottomNavigationBar(
             currentIndex: _currentIndex,
-            onTap: (index) => setState(() => _currentIndex = index),
+            onTap: _setTabIndex,
+            type: BottomNavigationBarType.fixed,
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            selectedItemColor: AppColors.primaryGlow,
+            unselectedItemColor: AppColors.textMuted,
+            selectedFontSize: 11,
+            unselectedFontSize: 10,
             items: const [
               BottomNavigationBarItem(
-                icon: Icon(Icons.home_rounded, color: AppColors.textMuted),
+                icon: Icon(Icons.home_rounded),
                 activeIcon: Icon(Icons.home, color: AppColors.primaryGlow),
                 label: 'الرئيسية',
               ),
               BottomNavigationBarItem(
-                icon:
-                    Icon(Icons.trending_up_rounded, color: AppColors.textMuted),
-                activeIcon:
-                    Icon(Icons.trending_up, color: AppColors.primaryGlow),
+                icon: Icon(Icons.trending_up_rounded),
+                activeIcon: Icon(Icons.trending_up, color: AppColors.primaryGlow),
                 label: 'الأسهم',
               ),
               BottomNavigationBarItem(
-                icon:
-                    Icon(Icons.visibility_rounded, color: AppColors.textMuted),
-                activeIcon:
-                    Icon(Icons.visibility, color: AppColors.primaryGlow),
-                label: 'الفرص',
+                icon: Icon(Icons.local_fire_department_rounded),
+                activeIcon: Icon(Icons.local_fire_department, color: AppColors.quantumCrimson),
+                label: 'الرادار والفرص',
               ),
               BottomNavigationBarItem(
-                icon: Icon(Icons.currency_bitcoin_rounded,
-                    color: AppColors.textMuted),
-                activeIcon:
-                    Icon(Icons.currency_bitcoin, color: AppColors.primaryGlow),
-                label: 'الكريبتو',
-              ),
-              BottomNavigationBarItem(
-                icon: Icon(Icons.account_balance_wallet_rounded,
-                    color: AppColors.textMuted),
-                activeIcon: Icon(Icons.account_balance_wallet,
-                    color: AppColors.primaryGlow),
+                icon: Icon(Icons.account_balance_wallet_rounded),
+                activeIcon: Icon(Icons.account_balance_wallet, color: AppColors.primaryGlow),
                 label: 'المحفظة',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(Icons.grid_view_rounded),
+                activeIcon: Icon(Icons.grid_view, color: AppColors.quantumGold),
+                label: 'الأدوات',
               ),
             ],
           ),
@@ -568,7 +593,7 @@ void _showCommandBar() {
         },
         onSwitchTab: (index) {
           Navigator.pop(ctx);
-          setState(() => _currentIndex = index);
+          _setTabIndex(index);
         },
       ),
     );
@@ -752,10 +777,10 @@ void _showCommandBar() {
               accentColor: AppColors.quantumEmerald,
               children: [
                 _buildTreeSubItem(Icons.domain_rounded, 'الأسهم المصرية والخليجية', () {
-                  setState(() => _currentIndex = 1);
+                  _setTabIndex(1);
                 }),
                 _buildTreeSubItem(Icons.currency_bitcoin_rounded, 'الكريبتو والعملات الرقمية', () {
-                  setState(() => _currentIndex = 3);
+                  _setTabIndex(3);
                 }),
                 _buildTreeSubItem(Icons.diamond_rounded, 'الذهب والمعادن وعيار 21', () => _navigateTo(const MetalsScreen())),
                 _buildTreeSubItem(Icons.currency_exchange_rounded, 'أسعار صرف العملات الأجنبية', () => _navigateTo(const CurrencyScreen())),
@@ -772,7 +797,7 @@ void _showCommandBar() {
               accentColor: AppColors.quantumGold,
               children: [
                 _buildTreeSubItem(Icons.local_fire_department_rounded, 'صائد الفرص الانفجارية', () {
-                  setState(() => _currentIndex = 2);
+                  _setTabIndex(2);
                 }),
                 _buildTreeSubItem(Icons.hub_rounded, 'التلاقي الذكي (Confluence)', () => _navigateTo(const SmartConfluenceScreen())),
                 _buildTreeSubItem(Icons.psychology_rounded, 'تحليل ومحرك AI', () => _navigateTo(const AiAnalysisScreen())),
@@ -821,7 +846,7 @@ void _showCommandBar() {
               accentColor: AppColors.quantumEmerald,
               children: [
                 _buildTreeSubItem(Icons.account_balance_wallet_rounded, 'المحفظة وتوزيع الأصول', () {
-                  setState(() => _currentIndex = 4);
+                  _setTabIndex(4);
                 }),
                 _buildTreeSubItem(Icons.visibility_rounded, 'قائمة المراقبة والمتابعة', () => _navigateTo(const WatchlistScreen())),
                 _buildTreeSubItem(Icons.tune_rounded, 'إدارة التنبيهات والأسعار', () => _navigateTo(const AlertsScreen())),
@@ -958,33 +983,45 @@ void _showCommandBar() {
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
               crossAxisCount: 3,
-              mainAxisSpacing: 12,
-              crossAxisSpacing: 12,
+              mainAxisSpacing: 10,
+              crossAxisSpacing: 10,
               childAspectRatio: 1.1,
               children: [
-                _buildQuickHubTile(Icons.local_fire_department_rounded, 'صائد الفرص', AppColors.danger, () {
+                _buildQuickHubTile(Icons.search_rounded, 'فحص سهم', AppColors.quantumEmerald, () {
                   Navigator.pop(ctx);
-                  setState(() => _currentIndex = 2);
+                  StockSearchDialog.show(context);
                 }),
-                _buildQuickHubTile(Icons.hub_rounded, 'التلاقي الذكي', AppColors.quantumGold, () {
+                _buildQuickHubTile(Icons.candlestick_chart_rounded, 'TradingView', AppColors.quantumGold, () {
                   Navigator.pop(ctx);
-                  _navigateTo(const SmartConfluenceScreen());
+                  _navigateTo(const TradingChartScreen(ticker: 'EGX30', displayName: 'مؤشر EGX 30'));
                 }),
-                _buildQuickHubTile(Icons.stacked_line_chart_rounded, 'الشارت التفاعلي', AppColors.info, () {
+                _buildQuickHubTile(Icons.local_fire_department_rounded, 'الفرص الانفجارية', AppColors.danger, () {
                   Navigator.pop(ctx);
-                  _navigateTo(const TradingChartScreen(ticker: 'EGX'));
+                  _setTabIndex(2);
                 }),
-                _buildQuickHubTile(Icons.diamond_rounded, 'الذهب والعملات', AppColors.quantumEmerald, () {
+                _buildQuickHubTile(Icons.radar_rounded, 'رادار السيولة', Colors.tealAccent, () {
+                  Navigator.pop(ctx);
+                  _navigateTo(const RadarScreen());
+                }),
+                _buildQuickHubTile(Icons.groups_rounded, 'المستثمرون', AppColors.info, () {
+                  Navigator.pop(ctx);
+                  _navigateTo(const InvestorsScreen());
+                }),
+                _buildQuickHubTile(Icons.diamond_rounded, 'أسعار الذهب', AppColors.warning, () {
                   Navigator.pop(ctx);
                   _navigateTo(const MetalsScreen());
+                }),
+                _buildQuickHubTile(Icons.currency_exchange_rounded, 'أسعار العملات', Colors.lightGreenAccent, () {
+                  Navigator.pop(ctx);
+                  _navigateTo(const CurrencyScreen());
                 }),
                 _buildQuickHubTile(Icons.psychology_rounded, 'تحليل AI', Colors.purpleAccent, () {
                   Navigator.pop(ctx);
                   _navigateTo(const AiAnalysisScreen());
                 }),
-                _buildQuickHubTile(Icons.calculate_rounded, 'حاسبة الزكاة', AppColors.quantumGold, () {
+                _buildQuickHubTile(Icons.filter_alt_rounded, 'المسح Screener', Colors.cyanAccent, () {
                   Navigator.pop(ctx);
-                  _navigateTo(const ZakatScreen());
+                  _navigateTo(const ScreenerScreen());
                 }),
               ],
             ),

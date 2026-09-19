@@ -5,12 +5,13 @@
 
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:async';
 import '../theme/colors.dart';
 import '../api/client.dart';
+import '../api/cache_manager.dart';
 import '../models/types.dart';
 import 'stock_history_screen.dart';
 import '../core/app_localizations.dart';
-import '../widgets/stock_sparkline.dart';
 
 class StocksScreen extends StatefulWidget {
   const StocksScreen({super.key, this.marketVersion = 0});
@@ -31,6 +32,9 @@ class _StocksScreenState extends State<StocksScreen>
 
   final TextEditingController _searchCtrl = TextEditingController();
   String _query = '';
+  String _debouncedQuery = '';
+  Timer? _debounceTimer;
+  StreamSubscription<String>? _cacheSubscription;
   bool _showMovers = true;
   String _activeMarket = 'EGX';
   String _movementFilter = 'gainers';
@@ -40,6 +44,11 @@ class _StocksScreenState extends State<StocksScreen>
     super.initState();
     _refreshData();
     _loadActiveMarketAndData();
+    _cacheSubscription = ApiCacheManager.instance.updates.where((key) {
+      return key.startsWith('stocks_') || key.startsWith('stock_movement_');
+    }).listen((_) {
+      if (mounted) _refreshData();
+    });
   }
 
   @override
@@ -53,6 +62,8 @@ class _StocksScreenState extends State<StocksScreen>
   @override
   void dispose() {
     _searchCtrl.dispose();
+    _debounceTimer?.cancel();
+    _cacheSubscription?.cancel();
     super.dispose();
   }
 
@@ -69,18 +80,22 @@ class _StocksScreenState extends State<StocksScreen>
 
   void _refreshData() {
     setState(() {
-      _stocksFuture = _fetchStocks(_query, _activeMarket);
+      _stocksFuture = _fetchStocks(_debouncedQuery, _activeMarket);
       _movementFuture = _fetchMovement(_activeMarket);
     });
   }
 
   Future<List<Stock>> _fetchStocks([String? search, String? market]) async {
     final targetMarket = market ?? _activeMarket;
-    final response = await api.getStocks(search: search ?? '', market: targetMarket);
-    final list = (response['stocks'] as List?)
-            ?.map((e) => Stock.fromJson(e))
-            .toList() ??
-        <Stock>[];
+    final response =
+        await api.getStocks(search: search ?? '', market: targetMarket);
+    final rawStocks = response is Map ? response['stocks'] : null;
+    final list = (rawStocks is List)
+        ? rawStocks
+            .whereType<Map>()
+            .map((e) => Stock.fromJson(Map<String, dynamic>.from(e)))
+            .toList()
+        : <Stock>[];
     if (targetMarket == 'ALL') return list;
     return list.where((s) {
       final isNumeric = RegExp(r'^\d{4}$').hasMatch(s.ticker);
@@ -96,9 +111,12 @@ class _StocksScreenState extends State<StocksScreen>
   Future<Map<String, dynamic>?> _fetchMovement([String? market]) async {
     try {
       final data = await api.getStockMovementClassification(market: market);
-      final rawWrapper = data['data'];
-      final wrapper = rawWrapper is Map ? Map<String, dynamic>.from(rawWrapper) : null;
-      if (wrapper != null || data.isNotEmpty) return wrapper ?? data;
+      final payload = data is Map ? Map<String, dynamic>.from(data as Map) : <String, dynamic>{};
+      final rawWrapper = payload['data'];
+      final wrapper =
+          rawWrapper is Map ? Map<String, dynamic>.from(rawWrapper) : null;
+      if (wrapper != null && wrapper.isNotEmpty) return wrapper;
+      if (payload.isNotEmpty) return payload;
       return await _fetchMovementFallback(market ?? 'EGX');
     } catch (e) {
       debugPrint('[Stocks] Movement classification error: $e');
@@ -159,8 +177,13 @@ class _StocksScreenState extends State<StocksScreen>
 
   void _onSearchChanged(String value) {
     _query = value;
-    setState(() {
-      _stocksFuture = _fetchStocks(_query, _activeMarket);
+    _debounceTimer?.cancel();
+    _debounceTimer = Timer(const Duration(milliseconds: 300), () {
+      if (!mounted) return;
+      setState(() {
+        _debouncedQuery = _query;
+        _stocksFuture = _fetchStocks(_debouncedQuery, _activeMarket);
+      });
     });
   }
 
@@ -256,14 +279,15 @@ class _StocksScreenState extends State<StocksScreen>
 
   Widget _buildMoversSliver() {
     return FutureBuilder<Map<String, dynamic>?>(
-      future: _movementFuture ??= _fetchMovement(_activeMarket),
+      future: _movementFuture,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const SliverToBoxAdapter(
             child: Padding(
               padding: EdgeInsets.all(16),
               child: Center(
-                child: CircularProgressIndicator(color: AppColors.primary, strokeWidth: 2),
+                child: CircularProgressIndicator(
+                    color: AppColors.primary, strokeWidth: 2),
               ),
             ),
           );
@@ -290,7 +314,8 @@ class _StocksScreenState extends State<StocksScreen>
                     : _movementFilter == 'losers'
                         ? 'لا توجد أسهم منخفضة حالياً'
                         : 'لا توجد بيانات نشاط حالياً',
-                style: const TextStyle(color: AppColors.textMuted, fontSize: 12),
+                style:
+                    const TextStyle(color: AppColors.textMuted, fontSize: 12),
                 textAlign: TextAlign.center,
               ),
             ),
@@ -309,11 +334,12 @@ class _StocksScreenState extends State<StocksScreen>
                 final m = movers[i] is Map ? movers[i] as Map : {};
                 final ticker =
                     m['ticker']?.toString() ?? m['symbol']?.toString() ?? '';
-                final price =
-                    double.tryParse((m['price'] ?? m['last'] ?? '0').toString()) ??
-                        0;
+                final price = double.tryParse(
+                        (m['price'] ?? m['last'] ?? '0').toString()) ??
+                    0;
                 final change =
-                    double.tryParse((m['change_percent'] ?? '0').toString()) ?? 0;
+                    double.tryParse((m['change_percent'] ?? '0').toString()) ??
+                        0;
                 final isUp = change >= 0;
                 return Container(
                   width: 120,
@@ -348,7 +374,8 @@ class _StocksScreenState extends State<StocksScreen>
                           style: TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.w600,
-                              color: isUp ? AppColors.success : AppColors.danger),
+                              color:
+                                  isUp ? AppColors.success : AppColors.danger),
                           overflow: TextOverflow.ellipsis,
                           maxLines: 1,
                         ),
@@ -366,7 +393,7 @@ class _StocksScreenState extends State<StocksScreen>
 
   Widget _buildStocksListSliver() {
     return FutureBuilder<List<Stock>>(
-      future: _stocksFuture ??= _fetchStocks(_query, _activeMarket),
+      future: _stocksFuture,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const SliverToBoxAdapter(
@@ -386,9 +413,11 @@ class _StocksScreenState extends State<StocksScreen>
                 padding: const EdgeInsets.all(32),
                 child: Column(
                   children: [
-                    const Icon(Icons.error_outline, size: 48, color: AppColors.danger),
+                    const Icon(Icons.error_outline,
+                        size: 48, color: AppColors.danger),
                     const SizedBox(height: 12),
-                    const Text('حدث خطأ في جلب بيانات الأسهم', style: TextStyle(color: AppColors.textMuted)),
+                    const Text('حدث خطأ في جلب بيانات الأسهم',
+                        style: TextStyle(color: AppColors.textMuted)),
                     const SizedBox(height: 12),
                     ElevatedButton(
                       onPressed: _refreshData,

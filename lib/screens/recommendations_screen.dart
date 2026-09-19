@@ -10,6 +10,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../theme/colors.dart';
 import '../theme/typography.dart';
 import '../api/client.dart';
+import '../api/cache_manager.dart';
 import '../models/types.dart';
 import '../widgets/state_view.dart';
 import '../widgets/skeleton_loader.dart';
@@ -36,6 +37,7 @@ class _RecommendationsScreenState extends State<RecommendationsScreen> {
   String _activeMarket = 'EGX';
 
   Timer? _autoRefreshTimer;
+  StreamSubscription<String>? _cacheSubscription;
 
   @override
   void initState() {
@@ -43,17 +45,26 @@ class _RecommendationsScreenState extends State<RecommendationsScreen> {
     _dataFuture = _fetchData();
     _freshnessFuture = _fetchFreshness();
     _startAutoRefresh();
+    _cacheSubscription = ApiCacheManager.instance.updates.where((key) {
+      return key.startsWith('market_recommendations_') ||
+          key.startsWith('mobile_recommendations_') ||
+          key == 'morning_reports' ||
+          key.startsWith('performance_dashboard_7_');
+    }).listen((_) {
+      if (mounted) _refresh();
+    });
   }
 
   @override
   void dispose() {
     _autoRefreshTimer?.cancel();
+    _cacheSubscription?.cancel();
     super.dispose();
   }
 
   void _startAutoRefresh() {
     _autoRefreshTimer?.cancel();
-    _autoRefreshTimer = Timer.periodic(const Duration(seconds: 60), (_) {
+    _autoRefreshTimer = Timer.periodic(const Duration(minutes: 5), (_) {
       if (!mounted) return;
       _refresh();
     });
@@ -110,22 +121,16 @@ class _RecommendationsScreenState extends State<RecommendationsScreen> {
       List<dynamic> rawRecs = <dynamic>[];
       List<Map<String, dynamic>> reports = <Map<String, dynamic>>[];
 
-      final recResult = await _fetchRecommendations(market, persona, status);
-      rawRecs = recResult;
-
-      try {
-        final reportsResponse = await api.getMorningReports();
-        final dynamic reportsRaw = reportsResponse['reports'] ?? reportsResponse['data'];
-        if (reportsRaw is List) {
-          for (final e in reportsRaw) {
-            if (e is Map) {
-              reports.add(Map<String, dynamic>.from(e));
-            }
-          }
-        }
-      } catch (e) {
-        debugPrint('[Recommendations] getMorningReports failed: $e');
-      }
+      final results = await Future.wait([
+        _fetchRecommendations(market, persona, status),
+        _fetchMorningReports(),
+      ]).timeout(const Duration(seconds: 15));
+      rawRecs = List<dynamic>.from(results[0]);
+      reports = List<Map<String, dynamic>>.from(
+        results[1]
+            .whereType<Map>()
+            .map((e) => Map<String, dynamic>.from(e)),
+      );
 
       if (rawRecs.isEmpty) {
         rawRecs = await _fetchMobileRecommendations(market, persona, status);
@@ -140,7 +145,8 @@ class _RecommendationsScreenState extends State<RecommendationsScreen> {
       } else {
         for (final e in rawRecs) {
           if (e is Map) {
-            recs.add(ExpertRecommendation.fromJson(Map<String, dynamic>.from(e)));
+            recs.add(
+                ExpertRecommendation.fromJson(Map<String, dynamic>.from(e)));
           }
         }
       }
@@ -158,16 +164,30 @@ class _RecommendationsScreenState extends State<RecommendationsScreen> {
         if (_statusFilter != 'all') {
           final statusStr = _normalizeStatus(rec.status);
           if (_statusFilter == 'pending') {
-            final isPending = statusStr == 'pending' || statusStr.contains('انتظار') || statusStr == 'open' || statusStr == 'active' || (rec.hitTarget != true && rec.hitStopLoss != true && statusStr != 'expired');
+            final isPending = statusStr == 'pending' ||
+                statusStr.contains('انتظار') ||
+                statusStr == 'open' ||
+                statusStr == 'active' ||
+                (rec.hitTarget != true &&
+                    rec.hitStopLoss != true &&
+                    statusStr != 'expired');
             if (!isPending) continue;
           } else if (_statusFilter == 'target_hit') {
-            final isTargetHit = statusStr == 'target_hit' || statusStr.contains('هدف') || statusStr == 'success' || rec.hitTarget == true;
+            final isTargetHit = statusStr == 'target_hit' ||
+                statusStr.contains('هدف') ||
+                statusStr == 'success' ||
+                rec.hitTarget == true;
             if (!isTargetHit) continue;
           } else if (_statusFilter == 'stopped') {
-            final isStopped = statusStr == 'stopped' || statusStr.contains('توقف') || statusStr == 'sl_hit' || rec.hitStopLoss == true;
+            final isStopped = statusStr == 'stopped' ||
+                statusStr.contains('توقف') ||
+                statusStr == 'sl_hit' ||
+                rec.hitStopLoss == true;
             if (!isStopped) continue;
           } else if (_statusFilter == 'expired') {
-            final isExpired = statusStr == 'expired' || statusStr.contains('منتهي') || statusStr == 'closed';
+            final isExpired = statusStr == 'expired' ||
+                statusStr.contains('منتهي') ||
+                statusStr == 'closed';
             if (!isExpired) continue;
           }
         }
@@ -200,6 +220,23 @@ class _RecommendationsScreenState extends State<RecommendationsScreen> {
     }
   }
 
+  Future<List<Map<String, dynamic>>> _fetchMorningReports() async {
+    try {
+      final reportsResponse = await api.getMorningReports();
+      final dynamic reportsRaw =
+          reportsResponse['reports'] ?? reportsResponse['data'];
+      if (reportsRaw is List) {
+        return reportsRaw
+            .whereType<Map>()
+            .map((e) => Map<String, dynamic>.from(e))
+            .toList();
+      }
+    } catch (e) {
+      debugPrint('[Recommendations] getMorningReports failed: $e');
+    }
+    return <Map<String, dynamic>>[];
+  }
+
   Future<List<dynamic>> _fetchRecommendations(
       String market, String? persona, String? status) async {
     try {
@@ -214,15 +251,16 @@ class _RecommendationsScreenState extends State<RecommendationsScreen> {
   Future<List<dynamic>> _fetchMobileRecommendations(
       String market, String? persona, String? status) async {
     try {
-      return await api.getMobileRecommendations(persona: persona, market: market);
+      return await api.getMobileRecommendations(
+          persona: persona, market: market);
     } catch (e) {
       debugPrint('[Recommendations] getMobileRecommendations failed: $e');
       return <dynamic>[];
     }
   }
 
-  Future<(List<ExpertRecommendation>, List<ExpertStats>)> _fetchExpertRecommendations(
-      String? persona, String? status) async {
+  Future<(List<ExpertRecommendation>, List<ExpertStats>)>
+      _fetchExpertRecommendations(String? persona, String? status) async {
     List<ExpertRecommendation> recs = <ExpertRecommendation>[];
     List<ExpertStats> stats = <ExpertStats>[];
     try {
@@ -237,7 +275,8 @@ class _RecommendationsScreenState extends State<RecommendationsScreen> {
       if (recsRaw is List) {
         for (final e in recsRaw) {
           if (e is Map) {
-            recs.add(ExpertRecommendation.fromJson(Map<String, dynamic>.from(e)));
+            recs.add(
+                ExpertRecommendation.fromJson(Map<String, dynamic>.from(e)));
           }
         }
       }
@@ -293,8 +332,7 @@ class _RecommendationsScreenState extends State<RecommendationsScreen> {
               }
               if (snapshot.hasError) {
                 return StateView(
-                    error: 'فشل تحميل التوقعات',
-                    onRetry: _refresh);
+                    error: 'فشل تحميل التوقعات', onRetry: _refresh);
               }
               final data = snapshot.data;
               if (data == null || data.recommendations.isEmpty) {
@@ -342,7 +380,8 @@ class _RecommendationsScreenState extends State<RecommendationsScreen> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        gradient: LinearGradient(colors: [personaColor, personaColor.withValues(alpha: 0.7)]),
+        gradient: LinearGradient(
+            colors: [personaColor, personaColor.withValues(alpha: 0.7)]),
         borderRadius: BorderRadius.circular(AppRadius.lg),
       ),
       child: Row(
@@ -353,7 +392,8 @@ class _RecommendationsScreenState extends State<RecommendationsScreen> {
               color: AppColors.white.withValues(alpha: 0.2),
               shape: BoxShape.circle,
             ),
-            child: const Icon(Icons.balance_rounded, color: AppColors.white, size: 24),
+            child: const Icon(Icons.balance_rounded,
+                color: AppColors.white, size: 24),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -470,9 +510,11 @@ class _RecommendationsScreenState extends State<RecommendationsScreen> {
           const SizedBox(height: 4),
           Row(
             children: [
-              _buildStatItem('نسبة', '${stat.successRate?.toStringAsFixed(0) ?? 0}%'),
+              _buildStatItem(
+                  'نسبة', '${stat.successRate?.toStringAsFixed(0) ?? 0}%'),
               const SizedBox(width: 16),
-              _buildStatItem('عائد', '${stat.avgReturn?.toStringAsFixed(1) ?? 0}%'),
+              _buildStatItem(
+                  'عائد', '${stat.avgReturn?.toStringAsFixed(1) ?? 0}%'),
             ],
           ),
         ],
@@ -484,8 +526,12 @@ class _RecommendationsScreenState extends State<RecommendationsScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: AppTypography.bodySmall.copyWith(color: AppColors.textMuted)),
-        Text(value, style: AppTypography.bodyMedium.copyWith(fontWeight: FontWeight.w700)),
+        Text(label,
+            style:
+                AppTypography.bodySmall.copyWith(color: AppColors.textMuted)),
+        Text(value,
+            style:
+                AppTypography.bodyMedium.copyWith(fontWeight: FontWeight.w700)),
       ],
     );
   }
@@ -511,14 +557,22 @@ class _RecommendationsScreenState extends State<RecommendationsScreen> {
   String _statusAr(String? status) {
     final s = _normalizeStatus(status);
     switch (s) {
-      case 'pending': return 'قيد الانتظار';
-      case 'target_hit': return 'هدف محقق';
-      case 'success': return 'ناجح';
-      case 'stopped': return 'موقوف';
-      case 'sl_hit': return 'وقف خسارة';
-      case 'expired': return 'منتهي';
-      case 'closed': return 'مغلق';
-      default: return status ?? '—';
+      case 'pending':
+        return 'قيد الانتظار';
+      case 'target_hit':
+        return 'هدف محقق';
+      case 'success':
+        return 'ناجح';
+      case 'stopped':
+        return 'موقوف';
+      case 'sl_hit':
+        return 'وقف خسارة';
+      case 'expired':
+        return 'منتهي';
+      case 'closed':
+        return 'مغلق';
+      default:
+        return status ?? '—';
     }
   }
 
@@ -545,35 +599,37 @@ class _RecommendationsScreenState extends State<RecommendationsScreen> {
               child: Icon(actionIcon, color: actionColor, size: 18),
             ),
             const SizedBox(width: 10),
-            Expanded(child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(rec.stockSymbol ?? '—',
-                    style: AppTypography.titleSmall.copyWith(fontWeight: FontWeight.w800)),
-                const SizedBox(height: 2),
-                Text(
-                  [
-                    if (rec.nameAr != null && rec.nameAr!.isNotEmpty)
-                      rec.nameAr
-                    else if (rec.name != null && rec.name!.isNotEmpty)
-                      rec.name,
-                    if (rec.expertName != null && rec.expertName!.isNotEmpty)
-                      rec.expertName
-                  ].join(' • '),
-                  style: AppTypography.bodySmall,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ])),
+            Expanded(
+                child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                  Text(rec.stockSymbol ?? '—',
+                      style: AppTypography.titleSmall
+                          .copyWith(fontWeight: FontWeight.w800)),
+                  const SizedBox(height: 2),
+                  Text(
+                    [
+                      if (rec.nameAr != null && rec.nameAr!.isNotEmpty)
+                        rec.nameAr
+                      else if (rec.name != null && rec.name!.isNotEmpty)
+                        rec.name,
+                      if (rec.expertName != null && rec.expertName!.isNotEmpty)
+                        rec.expertName
+                    ].join(' • '),
+                    style: AppTypography.bodySmall,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ])),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                  color: _statusColor(rec.status).withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(8)),
-              child: Text(_statusAr(rec.status),
-                  style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w600,
-                      color: _statusColor(rec.status)))),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                    color: _statusColor(rec.status).withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8)),
+                child: Text(_statusAr(rec.status),
+                    style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
+                        color: _statusColor(rec.status)))),
           ]),
           const Divider(height: 16),
           Row(children: [

@@ -3,9 +3,11 @@
 // Quantum Luxury Dark Theme with Live Chart, Orderbook, Disclosures & Fundamentals
 // ============================================================================
 
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../theme/colors.dart';
 import '../api/client.dart';
+import '../api/cache_manager.dart';
 import '../models/types.dart';
 import '../widgets/tradingview_chart.dart';
 import '../widgets/upgrade_modal.dart';
@@ -31,16 +33,47 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
   List<CompanyDisclosure> _disclosures = [];
   Map<String, dynamic>? _fundamentals;
   Map<String, dynamic>? _recommendation;
+  Future<dynamic>? _newsFuture;
+  StreamSubscription<String>? _cacheSubscription;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 5, vsync: this);
+    _tabController.addListener(_onTabChanged);
     _refreshDetails();
+    _cacheSubscription = ApiCacheManager.instance.updates.where((key) {
+      return key == 'stock_news_${widget.ticker}' ||
+          key.startsWith('stock_detail_${widget.ticker}') ||
+          key.startsWith('stock_orderbook_${widget.ticker}') ||
+          key.startsWith('stock_disclosures_${widget.ticker}') ||
+          key.startsWith('stock_fundamentals_${widget.ticker}') ||
+          key.startsWith('stock_recommendation_${widget.ticker}');
+    }).listen((key) {
+      if (mounted) {
+        if (key == 'stock_news_${widget.ticker}' && _newsFuture != null) {
+          setState(() {
+            _newsFuture = GLMApiClient.instance.getStockNews(widget.ticker);
+          });
+        } else {
+          _refreshDetails();
+        }
+      }
+    });
+  }
+
+  void _onTabChanged() {
+    if (_tabController.index == 3 && _newsFuture == null && mounted) {
+      setState(() {
+        _newsFuture = GLMApiClient.instance.getStockNews(widget.ticker);
+      });
+    }
   }
 
   @override
   void dispose() {
+    _cacheSubscription?.cancel();
+    _tabController.removeListener(_onTabChanged);
     _tabController.dispose();
     super.dispose();
   }
@@ -53,11 +86,36 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
 
   Future<Map<String, dynamic>> _loadStockDetailsData() async {
     try {
-      final quote = await GLMApiClient.instance.getStockDetail(widget.ticker);
-      final orderbook = await GLMApiClient.instance.getStockOrderBook(widget.ticker);
-      final disclosures = await GLMApiClient.instance.getCompanyDisclosures(widget.ticker);
-      final fundamentals = await GLMApiClient.instance.getStockFundamentals(widget.ticker);
-      final rec = await GLMApiClient.instance.getStockRecommendation(widget.ticker);
+      final results = await Future.wait([
+        GLMApiClient.instance
+            .getStockDetail(widget.ticker)
+            .catchError((_) => <String, dynamic>{}),
+        GLMApiClient.instance.getStockOrderBook(widget.ticker).catchError(
+            (_) => OrderBook(symbol: widget.ticker, bids: [], asks: [])),
+        GLMApiClient.instance
+            .getCompanyDisclosures(widget.ticker)
+            .catchError((_) => <CompanyDisclosure>[]),
+        GLMApiClient.instance
+            .getStockFundamentals(widget.ticker)
+            .catchError((_) => <String, dynamic>{}),
+        GLMApiClient.instance
+            .getStockRecommendation(widget.ticker)
+            .catchError((_) => <String, dynamic>{}),
+      ]).timeout(const Duration(seconds: 12));
+
+      final quote = results[0] is Map
+          ? results[0] as Map<String, dynamic>
+          : <String, dynamic>{};
+      final orderbook = results[1] as OrderBook;
+      final disclosures = results[2] is List
+          ? results[2] as List<CompanyDisclosure>
+          : <CompanyDisclosure>[];
+      final fundamentals = results[3] is Map
+          ? results[3] as Map<String, dynamic>
+          : <String, dynamic>{};
+      final rec = results[4] is Map
+          ? results[4] as Map<String, dynamic>
+          : <String, dynamic>{};
 
       _stockQuote = quote;
       _orderBook = orderbook;
@@ -81,7 +139,9 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
   Future<void> _toggleWatchlist() async {
     final canAdd = SubscriptionService.instance.canAddToWatchlist(1);
     if (!canAdd) {
-      UpgradeModal.show(context, feature: 'watchlist_unlimited', reason: 'إضافة أكثر من 3 أسهم لمتابعة المحفظة');
+      UpgradeModal.show(context,
+          feature: 'watchlist_unlimited',
+          reason: 'إضافة أكثر من 3 أسهم لمتابعة المحفظة');
       return;
     }
     setState(() => _isInWatchlist = !_isInWatchlist);
@@ -108,10 +168,16 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
     return FutureBuilder<Map<String, dynamic>>(
       future: _detailsFuture,
       builder: (context, snapshot) {
-        final name = _stockQuote?['name_ar'] ?? _stockQuote?['name'] ?? widget.ticker;
-        final price = (_stockQuote?['price'] ?? _stockQuote?['current_price'] ?? 0.0);
-        final change = (_stockQuote?['change_percent'] ?? _stockQuote?['price_change'] ?? 1.85);
-        final double changeNum = change is num ? change.toDouble() : double.tryParse(change.toString()) ?? 0.0;
+        final name =
+            _stockQuote?['name_ar'] ?? _stockQuote?['name'] ?? widget.ticker;
+        final price =
+            (_stockQuote?['price'] ?? _stockQuote?['current_price'] ?? 0.0);
+        final change = (_stockQuote?['change_percent'] ??
+            _stockQuote?['price_change'] ??
+            1.85);
+        final double changeNum = change is num
+            ? change.toDouble()
+            : double.tryParse(change.toString()) ?? 0.0;
         final bool isUp = changeNum >= 0;
 
         return Scaffold(
@@ -128,11 +194,17 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
               children: [
                 Text(
                   name,
-                  style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                  style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold),
                 ),
                 Text(
                   widget.ticker,
-                  style: const TextStyle(color: AppColors.quantumGold, fontSize: 12, fontWeight: FontWeight.bold),
+                  style: const TextStyle(
+                      color: AppColors.quantumGold,
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold),
                 ),
               ],
             ),
@@ -140,7 +212,8 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
               IconButton(
                 icon: Icon(
                   _isInWatchlist ? Icons.star : Icons.star_border,
-                  color: _isInWatchlist ? AppColors.quantumGold : Colors.white70,
+                  color:
+                      _isInWatchlist ? AppColors.quantumGold : Colors.white70,
                 ),
                 onPressed: _toggleWatchlist,
               ),
@@ -148,7 +221,9 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
           ),
           body: () {
             if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(child: CircularProgressIndicator(color: AppColors.quantumEmerald));
+              return const Center(
+                  child: CircularProgressIndicator(
+                      color: AppColors.quantumEmerald));
             }
 
             if (snapshot.hasError) {
@@ -156,12 +231,16 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Icon(Icons.error_outline, size: 48, color: AppColors.quantumCrimson),
+                    const Icon(Icons.error_outline,
+                        size: 48, color: AppColors.quantumCrimson),
                     const SizedBox(height: 12),
-                    const Text('حدث خطأ في تحميل تفاصيل السهم', style: TextStyle(color: Colors.white70)),
+                    const Text('حدث خطأ في تحميل تفاصيل السهم',
+                        style: TextStyle(color: Colors.white70)),
                     const SizedBox(height: 12),
                     ElevatedButton(
-                      style: ElevatedButton.styleFrom(backgroundColor: AppColors.quantumEmerald, foregroundColor: Colors.black),
+                      style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.quantumEmerald,
+                          foregroundColor: Colors.black),
                       onPressed: _refreshDetails,
                       child: const Text('إعادة المحاولة'),
                     ),
@@ -180,7 +259,9 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
                         padding: const EdgeInsets.all(16),
                         decoration: const BoxDecoration(
                           color: AppColors.quantumSurface,
-                          border: Border(bottom: BorderSide(color: AppColors.quantumGlassBorder)),
+                          border: Border(
+                              bottom: BorderSide(
+                                  color: AppColors.quantumGlassBorder)),
                         ),
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -198,22 +279,32 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
                                 ),
                                 const SizedBox(height: 4),
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 8, vertical: 4),
                                   decoration: BoxDecoration(
-                                    color: (isUp ? AppColors.quantumEmerald : AppColors.quantumCrimson).withValues(alpha: 0.2),
+                                    color: (isUp
+                                            ? AppColors.quantumEmerald
+                                            : AppColors.quantumCrimson)
+                                        .withValues(alpha: 0.2),
                                     borderRadius: BorderRadius.circular(6),
                                   ),
                                   child: Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
                                       Icon(
-                                        isUp ? Icons.arrow_drop_up : Icons.arrow_drop_down,
-                                        color: isUp ? AppColors.quantumEmerald : AppColors.quantumCrimson,
+                                        isUp
+                                            ? Icons.arrow_drop_up
+                                            : Icons.arrow_drop_down,
+                                        color: isUp
+                                            ? AppColors.quantumEmerald
+                                            : AppColors.quantumCrimson,
                                       ),
                                       Text(
                                         '${isUp ? '+' : ''}${changeNum.toStringAsFixed(2)}%',
                                         style: TextStyle(
-                                          color: isUp ? AppColors.quantumEmerald : AppColors.quantumCrimson,
+                                          color: isUp
+                                              ? AppColors.quantumEmerald
+                                              : AppColors.quantumCrimson,
                                           fontWeight: FontWeight.bold,
                                           fontSize: 12,
                                         ),
@@ -226,11 +317,14 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
                             // Quick metrics
                             Row(
                               children: [
-                                _buildQuickMetric('الأعلى', '${_stockQuote?['high'] ?? 30.10}'),
+                                _buildQuickMetric('الأعلى',
+                                    '${_stockQuote?['high'] ?? 30.10}'),
                                 const SizedBox(width: 12),
-                                _buildQuickMetric('الأدنى', '${_stockQuote?['low'] ?? 28.90}'),
+                                _buildQuickMetric('الأدنى',
+                                    '${_stockQuote?['low'] ?? 28.90}'),
                                 const SizedBox(width: 12),
-                                _buildQuickMetric('الحجم', '${_stockQuote?['volume'] ?? '1.2M'}'),
+                                _buildQuickMetric('الحجم',
+                                    '${_stockQuote?['volume'] ?? '1.2M'}'),
                               ],
                             ),
                           ],
@@ -254,7 +348,8 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
                       indicatorColor: AppColors.quantumEmerald,
                       labelColor: AppColors.quantumEmerald,
                       unselectedLabelColor: Colors.white60,
-                      labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                      labelStyle: const TextStyle(
+                          fontWeight: FontWeight.bold, fontSize: 13),
                       tabs: const [
                         Tab(text: 'عمق السوق'),
                         Tab(text: 'البيانات المالية'),
@@ -287,9 +382,15 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
-        Text(label, style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 11)),
+        Text(label,
+            style:
+                TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 11)),
         const SizedBox(height: 2),
-        Text(value, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
+        Text(value,
+            style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 13)),
       ],
     );
   }
@@ -309,7 +410,10 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
               children: [
                 const Padding(
                   padding: EdgeInsets.all(8.0),
-                  child: Text('طلبات الشراء (Bids)', style: TextStyle(color: AppColors.quantumEmerald, fontWeight: FontWeight.bold)),
+                  child: Text('طلبات الشراء (Bids)',
+                      style: TextStyle(
+                          color: AppColors.quantumEmerald,
+                          fontWeight: FontWeight.bold)),
                 ),
                 Expanded(
                   child: ListView.builder(
@@ -317,7 +421,8 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
                     itemBuilder: (context, index) {
                       final item = bids[index];
                       return Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 6),
                         margin: const EdgeInsets.only(bottom: 4),
                         decoration: BoxDecoration(
                           color: AppColors.quantumEmerald.withOpacity(0.1),
@@ -326,8 +431,12 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Text('${item.price} ج.م', style: const TextStyle(color: AppColors.quantumEmerald, fontWeight: FontWeight.bold)),
-                            Text('${item.volume}', style: const TextStyle(color: Colors.white70)),
+                            Text('${item.price} ج.م',
+                                style: const TextStyle(
+                                    color: AppColors.quantumEmerald,
+                                    fontWeight: FontWeight.bold)),
+                            Text('${item.volume}',
+                                style: const TextStyle(color: Colors.white70)),
                           ],
                         ),
                       );
@@ -345,7 +454,10 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
               children: [
                 const Padding(
                   padding: EdgeInsets.all(8.0),
-                  child: Text('عروض البيع (Asks)', style: TextStyle(color: AppColors.quantumCrimson, fontWeight: FontWeight.bold)),
+                  child: Text('عروض البيع (Asks)',
+                      style: TextStyle(
+                          color: AppColors.quantumCrimson,
+                          fontWeight: FontWeight.bold)),
                 ),
                 Expanded(
                   child: ListView.builder(
@@ -353,7 +465,8 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
                     itemBuilder: (context, index) {
                       final item = asks[index];
                       return Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 6),
                         margin: const EdgeInsets.only(bottom: 4),
                         decoration: BoxDecoration(
                           color: AppColors.quantumCrimson.withOpacity(0.1),
@@ -362,8 +475,12 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Text('${item.price} ج.م', style: const TextStyle(color: AppColors.quantumCrimson, fontWeight: FontWeight.bold)),
-                            Text('${item.volume}', style: const TextStyle(color: Colors.white70)),
+                            Text('${item.price} ج.م',
+                                style: const TextStyle(
+                                    color: AppColors.quantumCrimson,
+                                    fontWeight: FontWeight.bold)),
+                            Text('${item.volume}',
+                                style: const TextStyle(color: Colors.white70)),
                           ],
                         ),
                       );
@@ -411,8 +528,13 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(title, style: const TextStyle(color: Colors.white70, fontSize: 13)),
-          Text(value, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
+          Text(title,
+              style: const TextStyle(color: Colors.white70, fontSize: 13)),
+          Text(value,
+              style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14)),
         ],
       ),
     );
@@ -420,7 +542,9 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
 
   Widget _buildDisclosuresTab() {
     if (_disclosures.isEmpty) {
-      return Center(child: Text('لا توجد إفصاحات مسجلة', style: TextStyle(color: Colors.white.withOpacity(0.5))));
+      return Center(
+          child: Text('لا توجد إفصاحات مسجلة',
+              style: TextStyle(color: Colors.white.withOpacity(0.5))));
     }
     return ListView.builder(
       padding: const EdgeInsets.all(12),
@@ -442,24 +566,36 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                     decoration: BoxDecoration(
                       color: AppColors.quantumGold.withOpacity(0.2),
                       borderRadius: BorderRadius.circular(4),
                     ),
-                    child: Text(d.category, style: const TextStyle(color: AppColors.quantumGold, fontSize: 11, fontWeight: FontWeight.bold)),
+                    child: Text(d.category,
+                        style: const TextStyle(
+                            color: AppColors.quantumGold,
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold)),
                   ),
                   Text(
                     '${d.date.day}/${d.date.month}/${d.date.year}',
-                    style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 11),
+                    style: TextStyle(
+                        color: Colors.white.withOpacity(0.5), fontSize: 11),
                   ),
                 ],
               ),
               const SizedBox(height: 8),
-              Text(d.title, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
+              Text(d.title,
+                  style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14)),
               if (d.summary != null) ...[
                 const SizedBox(height: 4),
-                Text(d.summary!, style: const TextStyle(color: Colors.white70, fontSize: 12)),
+                Text(d.summary!,
+                    style:
+                        const TextStyle(color: Colors.white70, fontSize: 12)),
               ],
             ],
           ),
@@ -470,8 +606,11 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
 
   /// تبويب أخبار السهم — آخر الأخبار + الإفصاحات الخاصة بالسهم
   Widget _buildStockNewsTab() {
+    if (_newsFuture == null) {
+      return const Center(child: Text('اضغط على تبويب الأخبار لتحميلها'));
+    }
     return FutureBuilder<dynamic>(
-      future: GLMApiClient.instance.getStockNews(widget.ticker),
+      future: _newsFuture,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
@@ -484,7 +623,8 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
         if (raw is List) {
           news = raw;
         } else if (raw is Map) {
-          final listCandidate = raw['news'] ?? raw['data'] ?? raw['articles'] ?? raw['items'];
+          final listCandidate =
+              raw['news'] ?? raw['data'] ?? raw['articles'] ?? raw['items'];
           if (listCandidate is List) {
             news = listCandidate;
           }
@@ -510,20 +650,27 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
             final item = news[index] is Map
                 ? Map<String, dynamic>.from(news[index] as Map)
                 : <String, dynamic>{};
-            final title = item['title']?.toString() ?? item['headline']?.toString() ?? 'خبر';
+            final title = item['title']?.toString() ??
+                item['headline']?.toString() ??
+                'خبر';
             final source = item['source']?.toString() ?? '';
             final date = item['published_at']?.toString() ??
                 item['date']?.toString() ??
                 item['created_at']?.toString() ??
                 '';
-            final summary = item['summary']?.toString() ?? item['description']?.toString() ?? '';
-            final url = item['url']?.toString() ?? item['link']?.toString() ?? '';
+            final summary = item['summary']?.toString() ??
+                item['description']?.toString() ??
+                '';
+            final url =
+                item['url']?.toString() ?? item['link']?.toString() ?? '';
 
             return Card(
               margin: const EdgeInsets.symmetric(vertical: 4),
               child: ListTile(
                 leading: const Icon(Icons.article_outlined, color: Colors.blue),
-                title: Text(title, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                title: Text(title,
+                    style: const TextStyle(
+                        fontSize: 13, fontWeight: FontWeight.bold)),
                 subtitle: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -531,7 +678,8 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
                       Padding(
                         padding: const EdgeInsets.only(top: 4),
                         child: Text(summary,
-                            maxLines: 2, overflow: TextOverflow.ellipsis,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
                             style: const TextStyle(fontSize: 11)),
                       ),
                     if (source.isNotEmpty || date.isNotEmpty)
@@ -540,11 +688,19 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
                         child: Row(
                           children: [
                             if (source.isNotEmpty)
-                              Flexible(child: Text(source, style: const TextStyle(fontSize: 10, color: Colors.grey))),
+                              Flexible(
+                                  child: Text(source,
+                                      style: const TextStyle(
+                                          fontSize: 10, color: Colors.grey))),
                             if (source.isNotEmpty && date.isNotEmpty)
-                              const Text(' • ', style: TextStyle(fontSize: 10, color: Colors.grey)),
+                              const Text(' • ',
+                                  style: TextStyle(
+                                      fontSize: 10, color: Colors.grey)),
                             if (date.isNotEmpty)
-                              Flexible(child: Text(date.split('T').first, style: const TextStyle(fontSize: 10, color: Colors.grey))),
+                              Flexible(
+                                  child: Text(date.split('T').first,
+                                      style: const TextStyle(
+                                          fontSize: 10, color: Colors.grey))),
                           ],
                         ),
                       ),
@@ -570,20 +726,27 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.lock_outline, color: AppColors.quantumGold, size: 48),
+            const Icon(Icons.lock_outline,
+                color: AppColors.quantumGold, size: 48),
             const SizedBox(height: 12),
             const Text(
               'توصيات الـ AI والتحليل الاحترافي مخصصة للمشتركين',
-              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
+              style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 15),
             ),
             const SizedBox(height: 16),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.quantumEmerald,
                 foregroundColor: Colors.black,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20)),
               ),
-              onPressed: () => UpgradeModal.show(context, feature: 'recommendations', reason: 'عرض توصيات الأسهم المتقدمة'),
+              onPressed: () => UpgradeModal.show(context,
+                  feature: 'recommendations',
+                  reason: 'عرض توصيات الأسهم المتقدمة'),
               child: const Text('ترقية الحساب الآن'),
             ),
           ],
@@ -594,7 +757,8 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
     final action = _recommendation?['action'] ?? 'BUY';
     final target = _recommendation?['target_price'] ?? 34.00;
     final stopLoss = _recommendation?['stop_loss'] ?? 27.00;
-    final reasons = _recommendation?['reasons'] as List? ?? ['مؤشرات فنية إيجابية', 'نمو الأرباح الربع سنوي'];
+    final reasons = _recommendation?['reasons'] as List? ??
+        ['مؤشرات فنية إيجابية', 'نمو الأرباح الربع سنوي'];
 
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -611,14 +775,20 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text('توصية الذكاء الاصطناعي:', style: TextStyle(color: Colors.white70, fontSize: 14)),
+                  const Text('توصية الذكاء الاصطناعي:',
+                      style: TextStyle(color: Colors.white70, fontSize: 14)),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
                       color: AppColors.quantumEmerald,
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: Text(action, style: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 14)),
+                    child: Text(action,
+                        style: const TextStyle(
+                            color: Colors.black,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14)),
                   ),
                 ],
               ),
@@ -626,23 +796,32 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
-                  _buildRecPriceMetric('السعر المستهدف', '$target ج.م', AppColors.quantumEmerald),
-                  _buildRecPriceMetric('إيقاف الخسارة', '$stopLoss ج.م', AppColors.quantumCrimson),
+                  _buildRecPriceMetric('السعر المستهدف', '$target ج.م',
+                      AppColors.quantumEmerald),
+                  _buildRecPriceMetric('إيقاف الخسارة', '$stopLoss ج.م',
+                      AppColors.quantumCrimson),
                 ],
               ),
             ],
           ),
         ),
         const SizedBox(height: 16),
-        const Text('أسباب التوصية:', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15)),
+        const Text('أسباب التوصية:',
+            style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 15)),
         const SizedBox(height: 8),
         ...reasons.map((r) => Padding(
               padding: const EdgeInsets.only(bottom: 6.0),
               child: Row(
                 children: [
-                  const Icon(Icons.check_circle, color: AppColors.quantumEmerald, size: 16),
+                  const Icon(Icons.check_circle,
+                      color: AppColors.quantumEmerald, size: 16),
                   const SizedBox(width: 8),
-                  Text(r.toString(), style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 13)),
+                  Text(r.toString(),
+                      style: TextStyle(
+                          color: Colors.white.withOpacity(0.8), fontSize: 13)),
                 ],
               ),
             )),
@@ -653,9 +832,13 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
   Widget _buildRecPriceMetric(String title, String val, Color col) {
     return Column(
       children: [
-        Text(title, style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 12)),
+        Text(title,
+            style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.5), fontSize: 12)),
         const SizedBox(height: 4),
-        Text(val, style: TextStyle(color: col, fontWeight: FontWeight.bold, fontSize: 16)),
+        Text(val,
+            style: TextStyle(
+                color: col, fontWeight: FontWeight.bold, fontSize: 16)),
       ],
     );
   }
@@ -672,7 +855,8 @@ class _SliverTabBarDelegate extends SliverPersistentHeaderDelegate {
   double get maxExtent => tabBar.preferredSize.height;
 
   @override
-  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
+  Widget build(
+      BuildContext context, double shrinkOffset, bool overlapsContent) {
     return Container(
       color: AppColors.quantumSurface,
       child: tabBar,

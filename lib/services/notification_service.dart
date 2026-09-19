@@ -7,7 +7,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../api/client.dart';
 
 @pragma('vm:entry-point')
 void notificationTapBackground(NotificationResponse notificationResponse) {
@@ -21,7 +20,6 @@ class NotificationService {
 
   final FlutterLocalNotificationsPlugin _notificationsPlugin =
       FlutterLocalNotificationsPlugin();
-  final GLMApiClient _api = GLMApiClient.instance;
 
   static const String _recommendationsChannel = 'recommendations';
   static const String _analysisChannel = 'daily_analysis';
@@ -125,10 +123,10 @@ class NotificationService {
         body: 'تم تحميل التحليل اليومي للسوق والأسهم',
         repeatInterval: RepeatInterval.daily,
         notificationDetails: notificationDetails,
-        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+        androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
       );
     } catch (e) {
-      debugPrint('Failed to schedule periodic notification: $e');
+      debugPrint('Failed to schedule periodic notification (inexact fallback): $e');
     }
   }
 

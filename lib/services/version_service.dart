@@ -126,7 +126,7 @@ class VersionService {
     }
 
     // Offline / Fallback check using cached info or compile-time constant
-    final String fallbackMin = cachedMinVersion ?? '2.4.0';
+    final String fallbackMin = cachedMinVersion ?? '2.0.0';
     final bool needsUpdate = cachedUpdateRequired || _isVersionLower(currentVersion, fallbackMin);
 
     return VersionCheckResult(

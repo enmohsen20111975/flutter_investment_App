@@ -11,6 +11,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'theme/colors.dart';
 import 'app.dart';
 import 'api/client.dart';
+import 'api/local_database.dart';
 import 'screens/auth_screen.dart';
 import 'screens/portfolio_screen.dart';
 import 'screens/watchlist_screen.dart';
@@ -61,9 +62,8 @@ Future<void> main() async {
   // Initialize notification service non-blocking (skip if it takes too long)
   unawaited(NotificationService().init());
   unawaited(SubscriptionService.instance.init());
-
-  // BRIEF-048: ابدأ مراقبة المحفظة (TP/SL/Trailing/Whale alerts كل 5 دقايق)
-  unawaited(NotificationService().startPortfolioMonitoring());
+  // Evict stale SQLite api_cache entries (non-blocking, background)
+  unawaited(LocalDatabase.instance.evictExpiredApiCache());
 
   runApp(
     ProviderScope(
@@ -105,8 +105,11 @@ class _AppRootState extends State<_AppRoot> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(NotificationService().startPortfolioMonitoring());
+    });
     _checkForcedUpdate();
-    _splashTimeout = Timer(const Duration(seconds: 10), () {
+    _splashTimeout = Timer(const Duration(seconds: 2), () {
       if (mounted && _checking) {
         setState(() {
           _checking = false;
@@ -136,7 +139,7 @@ class _AppRootState extends State<_AppRoot> with WidgetsBindingObserver {
   Future<void> _checkForcedUpdate() async {
     try {
       final result = await VersionService.instance.checkVersion().timeout(
-        const Duration(seconds: 8),
+        const Duration(seconds: 2),
       );
       if (mounted) {
         setState(() {
@@ -146,7 +149,7 @@ class _AppRootState extends State<_AppRoot> with WidgetsBindingObserver {
         });
       }
     } on TimeoutException {
-      debugPrint('[AppRoot] Version check timed out — letting user in');
+      debugPrint('[AppRoot] Version check timed out — letting user in immediately');
       if (mounted) {
         setState(() {
           _checking = false;

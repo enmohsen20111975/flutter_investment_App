@@ -1,6 +1,6 @@
 // ============================================================================
 // مساعد الاستثمار Flutter - Polling Service
-// Smart live polling for market data with battery optimization
+// Smart live polling with adaptive intervals, backoff, and battery awareness
 // ============================================================================
 
 import 'dart:async';
@@ -10,142 +10,162 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 /// Polling frequency configuration
 class PollingConfig {
-  /// Interval when market is open (default: 5 minutes)
+  /// Interval when market is open
   final Duration openInterval;
 
-  /// Interval when market is closed (default: 30 minutes)
+  /// Interval when market is closed
   final Duration closedInterval;
 
   const PollingConfig({
-    this.openInterval = const Duration(minutes: 5),
+    this.openInterval  = const Duration(minutes: 7),   // was 5 min
     this.closedInterval = const Duration(minutes: 30),
   });
 }
 
-/// Service that manages smart polling for market data
+/// Service that manages smart polling for market data.
+///
+/// Key improvements over previous version:
+/// - Market status check is merged INTO dashboard poll (not a separate timer)
+/// - Exponential backoff on consecutive failures (up to 30-min cap)
+/// - Guard flag prevents overlapping polls
+/// - Pauses automatically when app is backgrounded (caller's responsibility)
 class PollingService {
-  PollingService._privateConstructor();
-  static final PollingService _instance = PollingService._privateConstructor();
+  PollingService._();
+  static final PollingService _instance = PollingService._();
   static PollingService get instance => _instance;
 
   final MobileApiService _mobileApi = MobileApiService.instance;
 
   Timer? _dashboardTimer;
-  Timer? _marketStatusTimer;
   bool _isMarketOpen = false;
   bool _isPaused = false;
   bool _disposed = false;
+  bool _pollRunning = false;
+
+  /// Consecutive failure count (for backoff)
+  int _failureCount = 0;
+  static const int _maxBackoffMinutes = 30;
+
+  PollingConfig config = const PollingConfig();
 
   /// Stream controller for dashboard data updates
   final StreamController<Map<String, dynamic>> _dashboardController =
       StreamController<Map<String, dynamic>>.broadcast();
 
-  /// Stream that emits new dashboard data on each poll
-  Stream<Map<String, dynamic>> get dashboardStream =>
-      _dashboardController.stream;
+  /// Stream that emits new dashboard data on each successful poll
+  Stream<Map<String, dynamic>> get dashboardStream => _dashboardController.stream;
 
-  /// Whether the market is currently open (latest known state)
   bool get isMarketOpen => _isMarketOpen;
-
-  /// Whether polling is currently paused
   bool get isPaused => _isPaused;
 
-  PollingConfig config = const PollingConfig();
+  // ---------------------------------------------------------------------------
+  // Lifecycle
+  // ---------------------------------------------------------------------------
 
-  /// Start polling dashboard data
+  /// Start polling. Fetches immediately then schedules the first timer.
   void startDashboardPolling() {
     if (_disposed) return;
+    _failureCount = 0;
     _dashboardTimer?.cancel();
-    _fetchAndAdaptInterval();
+    // Kick off immediately (no artificial delay)
+    _runPoll();
   }
 
-  /// Stop all polling
   void stopAll() {
     _dashboardTimer?.cancel();
     _dashboardTimer = null;
-    _marketStatusTimer?.cancel();
-    _marketStatusTimer = null;
     _isPaused = true;
   }
 
-  /// Resume polling
-  void resume() {
-    if (_disposed) return;
-    _isPaused = false;
-    _fetchAndAdaptInterval();
-  }
-
-  /// Pause polling (e.g., when app goes to background)
   void pause() {
+    if (_isPaused) return;
     _isPaused = true;
     _dashboardTimer?.cancel();
     _dashboardTimer = null;
-    _marketStatusTimer?.cancel();
-    _marketStatusTimer = null;
+    debugPrint('[Polling] Paused');
   }
 
-  /// Fetch market status and adapt polling interval
-  Future<void> _fetchAndAdaptInterval() async {
-    if (_isPaused || _disposed) return;
+  void resume() {
+    if (_disposed || !_isPaused) return;
+    _isPaused = false;
+    debugPrint('[Polling] Resumed');
+    _runPoll();
+  }
 
+  // ---------------------------------------------------------------------------
+  // Core poll logic
+  // ---------------------------------------------------------------------------
+
+  /// Execute one poll cycle, then schedule the next timer.
+  Future<void> _runPoll() async {
+    if (_isPaused || _disposed || _pollRunning) return;
+    _pollRunning = true;
+
+    try {
+      await _doPoll();
+      _failureCount = 0;          // reset backoff on success
+    } catch (e) {
+      _failureCount++;
+      debugPrint('[Polling] Poll failed (attempt #$_failureCount): $e');
+    } finally {
+      _pollRunning = false;
+    }
+
+    if (!_isPaused && !_disposed) {
+      _scheduleNext();
+    }
+  }
+
+  Future<void> _doPoll() async {
+    // 1. Fetch market status (included in this same poll, not a separate timer)
     try {
       final status = await _mobileApi.getMarketStatus();
       final statusStr = status['status']?.toString().toLowerCase() ?? '';
       _isMarketOpen = statusStr == 'open' || statusStr == 'مفتوح';
     } catch (_) {
-      // Keep last known state
+      // Keep last known state — non-fatal
     }
 
-    if (_isPaused || _disposed) return;
+    // 2. Fetch dashboard data
+    SharedPreferences? prefs;
+    try { prefs = await SharedPreferences.getInstance(); } catch (_) {}
+    final market = prefs?.getString('active_market') ?? 'EGX';
 
-    final interval =
-        _isMarketOpen ? config.openInterval : config.closedInterval;
-    debugPrint(
-        '[Polling] Market ${_isMarketOpen ? "OPEN" : "CLOSED"} - Polling every ${interval.inMinutes}min');
+    final data = await _mobileApi.getDashboard(market: market, forceRefresh: true);
+    if (!_disposed && data.isNotEmpty) {
+      _dashboardController.add(data);
+    }
+  }
 
+  void _scheduleNext() {
     _dashboardTimer?.cancel();
-    _dashboardTimer = Timer.periodic(interval, (_) async {
-      if (_isPaused || _disposed) return;
-      await _pollDashboard();
-    });
 
-    // Also poll market status less frequently to detect open/close changes
-    _marketStatusTimer?.cancel();
-    _marketStatusTimer = Timer.periodic(
-      const Duration(minutes: 3),
-      (_) async {
-        if (_isPaused || _disposed) return;
-        await _fetchAndAdaptInterval();
-      },
-    );
-  }
-
-  /// Poll dashboard endpoint and emit to stream
-  Future<void> _pollDashboard() async {
-    if (_disposed) return;
-    try {
-      SharedPreferences? prefs;
-      try {
-        prefs = await SharedPreferences.getInstance();
-      } catch (_) {}
-      final market = prefs?.getString('active_market') ?? 'EGX';
-      final data = await _mobileApi.getDashboard(market: market, forceRefresh: true);
-      if (!_disposed && data.isNotEmpty) {
-        _dashboardController.add(data);
-      }
-    } catch (e) {
-      debugPrint('[Polling] Dashboard poll failed: $e');
+    // Apply exponential backoff on failures (capped)
+    Duration interval;
+    if (_failureCount > 0) {
+      final backoffMinutes = (1 << _failureCount).clamp(1, _maxBackoffMinutes);
+      interval = Duration(minutes: backoffMinutes);
+      debugPrint('[Polling] Backoff active — next poll in ${interval.inMinutes} min');
+    } else {
+      interval = _isMarketOpen ? config.openInterval : config.closedInterval;
+      debugPrint(
+        '[Polling] Market ${_isMarketOpen ? "OPEN" : "CLOSED"}'
+        ' — next poll in ${interval.inMinutes} min',
+      );
     }
+
+    _dashboardTimer = Timer(interval, _runPoll);
   }
 
-  /// Cleanup resources
+  // ---------------------------------------------------------------------------
+  // Cleanup
+  // ---------------------------------------------------------------------------
+
   void dispose() {
     if (_disposed) return;
     _disposed = true;
     stopAll();
-    if (!_dashboardController.isClosed) {
-      _dashboardController.close();
-    }
+    if (!_dashboardController.isClosed) _dashboardController.close();
   }
 }
 

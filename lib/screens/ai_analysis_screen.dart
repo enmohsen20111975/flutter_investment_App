@@ -3,10 +3,12 @@
 // Shows AI-powered market analysis with live insights
 // ============================================================================
 
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../theme/colors.dart';
 import '../theme/typography.dart';
 import '../api/client.dart';
+import '../api/cache_manager.dart';
 import '../models/json_helpers.dart';
 import '../widgets/state_view.dart';
 import '../widgets/skeleton_loader.dart';
@@ -24,17 +26,38 @@ class _AiAnalysisScreenState extends State<AiAnalysisScreen>
   late TabController _tabController;
   Future<Map<String, dynamic>?>? _analysisFuture;
   Future<Map<String, dynamic>?>? _predictionsFuture;
+  Future<Map<String, dynamic>?>? _globalPredictionsFuture;
+  StreamSubscription<String>? _cacheSubscription;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
-    _analysisFuture = _fetchAnalysis();
-    _predictionsFuture = _fetchPredictions();
+    _tabController.addListener(_onTabChanged);
+    _refresh();
+    _cacheSubscription = ApiCacheManager.instance.updates.where((key) {
+      return key == 'live_analysis' ||
+          key.startsWith('mobile_predictions_') ||
+          key == 'global_predictions';
+    }).listen((_) {
+      if (mounted) _refresh();
+    });
+  }
+
+  void _onTabChanged() {
+    if (_tabController.index == 2 &&
+        _globalPredictionsFuture == null &&
+        mounted) {
+      setState(() {
+        _globalPredictionsFuture = _fetchGlobalPredictions();
+      });
+    }
   }
 
   @override
   void dispose() {
+    _cacheSubscription?.cancel();
+    _tabController.removeListener(_onTabChanged);
     _tabController.dispose();
     super.dispose();
   }
@@ -69,9 +92,13 @@ class _AiAnalysisScreenState extends State<AiAnalysisScreen>
   }
 
   Future<void> _refresh() async {
+    if (!mounted) return;
     setState(() {
       _analysisFuture = _fetchAnalysis();
       _predictionsFuture = _fetchPredictions();
+      if (_tabController.index == 2) {
+        _globalPredictionsFuture = _fetchGlobalPredictions();
+      }
     });
   }
 
@@ -188,23 +215,31 @@ class _AiAnalysisScreenState extends State<AiAnalysisScreen>
         final data = snapshot.data!;
         final market = data['market'] is Map ? data['market'] as Map : {};
         final live = data['_live'] is Map ? data['_live'] as Map : {};
-        final recs = market['recommendations'] is Map ? market['recommendations'] as Map : {};
+        final recs = market['recommendations'] is Map
+            ? market['recommendations'] as Map
+            : {};
 
         final regime = market['regime']?.toString() ?? 'neutral';
-        final regimeText = regime == 'bull' ? 'صاعد 📈' : regime == 'bear' ? 'هابط 📉' : 'محايد ⚖️';
-        
+        final regimeText = regime == 'bull'
+            ? 'صاعد 📈'
+            : regime == 'bear'
+                ? 'هابط 📉'
+                : 'محايد ⚖️';
+
         final marketSummaryStr = 'اتجاه السوق الحالي: $regimeText\n'
             'إجمالي الأسهم التي تم تحليلها: ${market['totalStocksAnalyzed'] ?? 0}\n'
             'الأسهم المجتازة لفلتر الأمان المالي: ${market['passedSafetyFilter'] ?? 0}';
 
-        final recsStr = '${live['aiCommentary'] ?? 'تحليل التوقعات الذكي للمحفظة والأسهم.'}\n\n'
+        final recsStr =
+            '${live['aiCommentary'] ?? 'تحليل التوقعات الذكي للمحفظة والأسهم.'}\n\n'
             'شراء قوي: ${recs['strongBuy'] ?? 0} | شراء: ${recs['buy'] ?? 0}\n'
             'احتفاظ: ${recs['hold'] ?? 0} | تجنب: ${recs['avoid'] ?? 0} | تجنب قوي: ${recs['strongAvoid'] ?? 0}';
 
-        final riskIssues = market['diversificationIssues'] is List 
+        final riskIssues = market['diversificationIssues'] is List
             ? (market['diversificationIssues'] as List).join('\n')
             : '';
-        final riskStr = 'نسبة السيولة النقدية المقترحة: ${parseDouble(market['fearCashPercent'])?.toStringAsFixed(0) ?? '20'}%\n'
+        final riskStr =
+            'نسبة السيولة النقدية المقترحة: ${parseDouble(market['fearCashPercent'])?.toStringAsFixed(0) ?? '20'}%\n'
             '${riskIssues.isNotEmpty ? '\nتنبيهات المحفظة والتنويع:\n$riskIssues' : 'المحفظة متنوعة بشكل جيد ولا توجد تنبيهات مخاطر.'}';
 
         return ListView(
@@ -214,8 +249,7 @@ class _AiAnalysisScreenState extends State<AiAnalysisScreen>
                 'مؤشرات السوق والاتجاه', Icons.show_chart, marketSummaryStr),
             _buildMetricCard(
                 'توقعات وقراءة الذكاء الاصطناعي', Icons.lightbulb, recsStr),
-            _buildMetricCard(
-                'تحليل المخاطر والسيولة', Icons.warning, riskStr),
+            _buildMetricCard('تحليل المخاطر والسيولة', Icons.warning, riskStr),
           ],
         );
       },
@@ -224,7 +258,7 @@ class _AiAnalysisScreenState extends State<AiAnalysisScreen>
 
   Widget _buildGlobalPredictionsTab() {
     return FutureBuilder<Map<String, dynamic>?>(
-      future: _fetchGlobalPredictions(),
+      future: _globalPredictionsFuture,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const SkeletonAiAnalysis();
@@ -252,7 +286,8 @@ class _AiAnalysisScreenState extends State<AiAnalysisScreen>
 
   Widget _buildPredictionCard(Map<String, dynamic> pred) {
     final ticker = pred['ticker'] ?? pred['symbol'] ?? '';
-    final signal = (pred['signal'] ?? pred['signal_type'])?.toString().toUpperCase() ?? '';
+    final signal =
+        (pred['signal'] ?? pred['signal_type'])?.toString().toUpperCase() ?? '';
     final confidence = parseDouble(pred['confidence']) ?? 0;
     final entryPrice = parseDouble(pred['entry_price']);
     final targetPrice = parseDouble(pred['target_price']);

@@ -3,15 +3,16 @@
 // Optimistic UI Updates, SQLite Caching & Tier Limit Enforcement
 // ============================================================================
 
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../theme/colors.dart';
 import '../api/client.dart';
+import '../api/cache_manager.dart';
 import '../models/types.dart';
 import '../services/subscription_service.dart';
 import '../widgets/upgrade_modal.dart';
 import '../widgets/stock_icon.dart';
 import 'stock_history_screen.dart';
-import '../widgets/stock_sparkline.dart';
 import '../core/app_localizations.dart';
 
 class WatchlistScreen extends StatefulWidget {
@@ -22,17 +23,25 @@ class WatchlistScreen extends StatefulWidget {
 }
 
 class _WatchlistScreenState extends State<WatchlistScreen> {
-  late Future<WatchlistResponse> _watchlistFuture = GLMApiClient.instance.getWatchlistEnhanced();
+  late Future<WatchlistResponse> _watchlistFuture =
+      GLMApiClient.instance.getWatchlistEnhanced();
   final TextEditingController _searchController = TextEditingController();
+  StreamSubscription<String>? _cacheSubscription;
 
   @override
   void initState() {
     super.initState();
     _refreshWatchlist();
+    _cacheSubscription = ApiCacheManager.instance.updates.where((key) {
+      return key == 'watchlist_enhanced' || key == 'user_watchlist_data';
+    }).listen((_) {
+      if (mounted) _refreshWatchlist();
+    });
   }
 
   @override
   void dispose() {
+    _cacheSubscription?.cancel();
     _searchController.dispose();
     super.dispose();
   }
@@ -56,13 +65,16 @@ class _WatchlistScreenState extends State<WatchlistScreen> {
     }
 
     try {
-      await GLMApiClient.instance.addToWatchlist({'ticker': ticker.toUpperCase()});
+      await GLMApiClient.instance
+          .addToWatchlist({'ticker': ticker.toUpperCase()});
       _refreshWatchlist();
     } catch (e) {
       debugPrint('[Watchlist] Add failed: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('فشل إضافة السهم: $e'), backgroundColor: AppColors.quantumCrimson),
+          SnackBar(
+              content: Text('فشل إضافة السهم: $e'),
+              backgroundColor: AppColors.quantumCrimson),
         );
       }
     }
@@ -87,7 +99,8 @@ class _WatchlistScreenState extends State<WatchlistScreen> {
           borderRadius: BorderRadius.circular(16),
           side: const BorderSide(color: AppColors.quantumGlassBorder),
         ),
-        title: const Text('إضافة سهم للمتابعة', style: TextStyle(color: Colors.white)),
+        title: const Text('إضافة سهم للمتابعة',
+            style: TextStyle(color: Colors.white)),
         content: TextField(
           controller: _searchController,
           style: const TextStyle(color: Colors.white),
@@ -105,7 +118,8 @@ class _WatchlistScreenState extends State<WatchlistScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text('إلغاء', style: TextStyle(color: Colors.white.withOpacity(0.5))),
+            child: Text('إلغاء',
+                style: TextStyle(color: Colors.white.withOpacity(0.5))),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -140,17 +154,22 @@ class _WatchlistScreenState extends State<WatchlistScreen> {
           appBar: AppBar(
             backgroundColor: AppColors.quantumSurface,
             elevation: 0,
-            title: const Text('قائمة المتابعة', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            title: const Text('قائمة المتابعة',
+                style: TextStyle(
+                    color: Colors.white, fontWeight: FontWeight.bold)),
             actions: [
               IconButton(
-                icon: const Icon(Icons.add_circle_outline, color: AppColors.quantumEmerald, size: 28),
+                icon: const Icon(Icons.add_circle_outline,
+                    color: AppColors.quantumEmerald, size: 28),
                 onPressed: () => _showAddDialog(items.length),
               ),
             ],
           ),
           body: () {
             if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(child: CircularProgressIndicator(color: AppColors.quantumEmerald));
+              return const Center(
+                  child: CircularProgressIndicator(
+                      color: AppColors.quantumEmerald));
             }
 
             if (snapshot.hasError) {
@@ -158,12 +177,16 @@ class _WatchlistScreenState extends State<WatchlistScreen> {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Icon(Icons.error_outline, size: 48, color: AppColors.quantumCrimson),
+                    const Icon(Icons.error_outline,
+                        size: 48, color: AppColors.quantumCrimson),
                     const SizedBox(height: 12),
-                    const Text('حدث خطأ في تحميل قائمة المتابعة', style: TextStyle(color: Colors.white70)),
+                    const Text('حدث خطأ في تحميل قائمة المتابعة',
+                        style: TextStyle(color: Colors.white70)),
                     const SizedBox(height: 12),
                     ElevatedButton(
-                      style: ElevatedButton.styleFrom(backgroundColor: AppColors.quantumEmerald, foregroundColor: Colors.black),
+                      style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.quantumEmerald,
+                          foregroundColor: Colors.black),
                       onPressed: _refreshWatchlist,
                       child: const Text('إعادة المحاولة'),
                     ),
@@ -181,15 +204,20 @@ class _WatchlistScreenState extends State<WatchlistScreen> {
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(Icons.star_border_purple500_outlined, size: 64, color: AppColors.quantumGold.withOpacity(0.5)),
+                          Icon(Icons.star_border_purple500_outlined,
+                              size: 64,
+                              color: AppColors.quantumGold.withOpacity(0.5)),
                           const SizedBox(height: 16),
-                          const Text('قائمة المتابعة فارغة حالياً', style: TextStyle(color: Colors.white70, fontSize: 16)),
+                          const Text('قائمة المتابعة فارغة حالياً',
+                              style: TextStyle(
+                                  color: Colors.white70, fontSize: 16)),
                           const SizedBox(height: 8),
                           ElevatedButton.icon(
                             style: ElevatedButton.styleFrom(
                               backgroundColor: AppColors.quantumEmerald,
                               foregroundColor: Colors.black,
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(20)),
                             ),
                             icon: const Icon(Icons.add),
                             label: const Text('إضافة أسهم قائمة المتابعة'),
@@ -206,7 +234,8 @@ class _WatchlistScreenState extends State<WatchlistScreen> {
                         final ticker = item.ticker;
                         final name = item.nameAr ?? item.name ?? ticker;
                         final price = item.currentPrice ?? 0.0;
-                        final change = item.changePercent ?? item.priceChange ?? 0.0;
+                        final change =
+                            item.changePercent ?? item.priceChange ?? 0.0;
                         final bool isUp = change >= 0;
 
                         return Padding(
@@ -218,10 +247,12 @@ class _WatchlistScreenState extends State<WatchlistScreen> {
                               alignment: Alignment.centerLeft,
                               padding: const EdgeInsets.only(left: 20),
                               decoration: BoxDecoration(
-                                color: AppColors.quantumCrimson.withOpacity(0.8),
+                                color:
+                                    AppColors.quantumCrimson.withOpacity(0.8),
                                 borderRadius: BorderRadius.circular(14),
                               ),
-                              child: const Icon(Icons.delete, color: Colors.white),
+                              child:
+                                  const Icon(Icons.delete, color: Colors.white),
                             ),
                             onDismissed: (_) => _removeItem(item.id, ticker),
                             child: Material(
@@ -231,7 +262,8 @@ class _WatchlistScreenState extends State<WatchlistScreen> {
                                   Navigator.push(
                                     context,
                                     MaterialPageRoute(
-                                      builder: (context) => StockHistoryScreen(ticker: ticker),
+                                      builder: (context) =>
+                                          StockHistoryScreen(ticker: ticker),
                                     ),
                                   );
                                 },
@@ -241,43 +273,66 @@ class _WatchlistScreenState extends State<WatchlistScreen> {
                                   decoration: BoxDecoration(
                                     color: AppColors.quantumGlass,
                                     borderRadius: BorderRadius.circular(14),
-                                    border: Border.all(color: AppColors.quantumGlassBorder),
+                                    border: Border.all(
+                                        color: AppColors.quantumGlassBorder),
                                   ),
                                   child: Row(
                                     children: [
-StockIcon(
-                                         ticker: ticker,
-                                         sector: item.sector,
-                                         iconUrl: item.iconUrl,
-                                         size: 44,
-                                         iconSize: 22,
-                                       ),
-                                       const SizedBox(width: 12),
+                                      StockIcon(
+                                        ticker: ticker,
+                                        sector: item.sector,
+                                        iconUrl: item.iconUrl,
+                                        size: 44,
+                                        iconSize: 22,
+                                      ),
+                                      const SizedBox(width: 12),
                                       Expanded(
                                         child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
                                           children: [
-                                            Text(name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
+                                            Text(name,
+                                                style: const TextStyle(
+                                                    color: Colors.white,
+                                                    fontWeight: FontWeight.bold,
+                                                    fontSize: 14)),
                                             const SizedBox(height: 2),
-                                            Text(ticker, style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 11)),
+                                            Text(ticker,
+                                                style: TextStyle(
+                                                    color: Colors.white
+                                                        .withOpacity(0.5),
+                                                    fontSize: 11)),
                                           ],
                                         ),
                                       ),
                                       Column(
-                                        crossAxisAlignment: CrossAxisAlignment.end,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.end,
                                         children: [
-                                          Text('$price ج.م', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
+                                          Text('$price ج.م',
+                                              style: const TextStyle(
+                                                  color: Colors.white,
+                                                  fontWeight: FontWeight.bold,
+                                                  fontSize: 14)),
                                           const SizedBox(height: 4),
                                           Container(
-                                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                            padding: const EdgeInsets.symmetric(
+                                                horizontal: 6, vertical: 2),
                                             decoration: BoxDecoration(
-                                              color: (isUp ? AppColors.quantumEmerald : AppColors.quantumCrimson).withOpacity(0.2),
-                                              borderRadius: BorderRadius.circular(4),
+                                              color: (isUp
+                                                      ? AppColors.quantumEmerald
+                                                      : AppColors
+                                                          .quantumCrimson)
+                                                  .withOpacity(0.2),
+                                              borderRadius:
+                                                  BorderRadius.circular(4),
                                             ),
                                             child: Text(
                                               '${isUp ? '+' : ''}${change.toStringAsFixed(2)}%',
                                               style: TextStyle(
-                                                color: isUp ? AppColors.quantumEmerald : AppColors.quantumCrimson,
+                                                color: isUp
+                                                    ? AppColors.quantumEmerald
+                                                    : AppColors.quantumCrimson,
                                                 fontWeight: FontWeight.bold,
                                                 fontSize: 11,
                                               ),

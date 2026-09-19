@@ -3,13 +3,14 @@
 // Total P&L, Sector Allocation, Transaction CRUD, and Subscription Gates
 // ============================================================================
 
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../theme/colors.dart';
 import '../api/client.dart';
+import '../api/cache_manager.dart';
 import '../models/types.dart';
 import '../services/subscription_service.dart';
 import '../widgets/upgrade_modal.dart';
-import '../widgets/stock_sparkline.dart';
 import '../core/app_localizations.dart';
 
 class PortfolioScreen extends StatefulWidget {
@@ -24,8 +25,11 @@ class _PortfolioScreenState extends State<PortfolioScreen>
   @override
   bool get wantKeepAlive => true;
 
-  late Future<PortfolioResponse> _portfolioFuture = GLMApiClient.instance.getMobilePortfolio();
-  late Future<Map<String, dynamic>> _analysisFuture = GLMApiClient.instance.analyzePortfolio();
+  late Future<PortfolioResponse> _portfolioFuture =
+      GLMApiClient.instance.getMobilePortfolio();
+  late Future<Map<String, dynamic>> _analysisFuture =
+      GLMApiClient.instance.analyzePortfolio();
+  StreamSubscription<String>? _cacheSubscription;
 
   final TextEditingController _symbolController = TextEditingController();
   final TextEditingController _sharesController = TextEditingController();
@@ -35,10 +39,20 @@ class _PortfolioScreenState extends State<PortfolioScreen>
   void initState() {
     super.initState();
     _refreshPortfolio();
+    _cacheSubscription = ApiCacheManager.instance.updates.where((key) {
+      return key == 'portfolio_data' || key == 'user_portfolio_data';
+    }).listen((_) {
+      if (mounted) {
+        setState(() {
+          _portfolioFuture = GLMApiClient.instance.getMobilePortfolio();
+        });
+      }
+    });
   }
 
   @override
   void dispose() {
+    _cacheSubscription?.cancel();
     _symbolController.dispose();
     _sharesController.dispose();
     _priceController.dispose();
@@ -58,17 +72,20 @@ class _PortfolioScreenState extends State<PortfolioScreen>
     'SCTS': 675.00,
   };
 
-  void _refreshPortfolio() {
+  void _refreshPortfolio({bool refreshAnalysis = true}) {
     setState(() {
       _portfolioFuture = GLMApiClient.instance.getMobilePortfolio();
-      _analysisFuture = GLMApiClient.instance.analyzePortfolio();
+      if (refreshAnalysis) {
+        _analysisFuture = GLMApiClient.instance.analyzePortfolio();
+      }
     });
   }
 
   void _showAddTransactionDialog() async {
     final res = await _portfolioFuture;
     final positionsCount = res.positions.length;
-    final canAdd = SubscriptionService.instance.canAddToPortfolio(positionsCount);
+    final canAdd =
+        SubscriptionService.instance.canAddToPortfolio(positionsCount);
     if (!canAdd && mounted) {
       UpgradeModal.show(
         context,
@@ -90,7 +107,8 @@ class _PortfolioScreenState extends State<PortfolioScreen>
           borderRadius: BorderRadius.circular(16),
           side: const BorderSide(color: AppColors.quantumGlassBorder),
         ),
-        title: const Text('إضافة صفقة شراء جديدة', style: TextStyle(color: Colors.white)),
+        title: const Text('إضافة صفقة شراء جديدة',
+            style: TextStyle(color: Colors.white)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -98,13 +116,15 @@ class _PortfolioScreenState extends State<PortfolioScreen>
             const SizedBox(height: 10),
             _buildDialogInput(_sharesController, 'عدد الأسهم', isNumber: true),
             const SizedBox(height: 10),
-            _buildDialogInput(_priceController, 'سعر الشراء (ج.م)', isNumber: true),
+            _buildDialogInput(_priceController, 'سعر الشراء (ج.م)',
+                isNumber: true),
           ],
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text('إلغاء', style: TextStyle(color: Colors.white.withOpacity(0.5))),
+            child: Text('إلغاء',
+                style: TextStyle(color: Colors.white.withOpacity(0.5))),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -123,8 +143,8 @@ class _PortfolioScreenState extends State<PortfolioScreen>
                     'ticker': symbol,
                     'avg_price': price,
                     'shares': shares,
-                    });
-                  _refreshPortfolio();
+                  });
+                  _refreshPortfolio(refreshAnalysis: false);
                 } catch (e) {
                   debugPrint('[Portfolio] Add error: $e');
                 }
@@ -137,10 +157,13 @@ class _PortfolioScreenState extends State<PortfolioScreen>
     );
   }
 
-  Widget _buildDialogInput(TextEditingController controller, String hint, {bool isNumber = false}) {
+  Widget _buildDialogInput(TextEditingController controller, String hint,
+      {bool isNumber = false}) {
     return TextField(
       controller: controller,
-      keyboardType: isNumber ? const TextInputType.numberWithOptions(decimal: true) : TextInputType.text,
+      keyboardType: isNumber
+          ? const TextInputType.numberWithOptions(decimal: true)
+          : TextInputType.text,
       style: const TextStyle(color: Colors.white),
       decoration: InputDecoration(
         hintText: hint,
@@ -167,7 +190,8 @@ class _PortfolioScreenState extends State<PortfolioScreen>
         final portfolio = snapshot.data;
         final totalValue = portfolio?.summary?.totalMarketValue ?? 0.00;
         final totalGain = portfolio?.summary?.totalUnrealizedPnl ?? 0.00;
-        final totalGainPercent = portfolio?.summary?.totalUnrealizedPnlPercent ?? 0.00;
+        final totalGainPercent =
+            portfolio?.summary?.totalUnrealizedPnlPercent ?? 0.00;
         final isUp = totalGain >= 0;
 
         return Scaffold(
@@ -175,17 +199,22 @@ class _PortfolioScreenState extends State<PortfolioScreen>
           appBar: AppBar(
             backgroundColor: AppColors.quantumSurface,
             elevation: 0,
-            title: const Text('إدارة المحفظة الاستثمارية', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            title: const Text('إدارة المحفظة الاستثمارية',
+                style: TextStyle(
+                    color: Colors.white, fontWeight: FontWeight.bold)),
             actions: [
               IconButton(
-                icon: const Icon(Icons.add_chart_sharp, color: AppColors.quantumEmerald),
+                icon: const Icon(Icons.add_chart_sharp,
+                    color: AppColors.quantumEmerald),
                 onPressed: _showAddTransactionDialog,
               ),
             ],
           ),
           body: () {
             if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(child: CircularProgressIndicator(color: AppColors.quantumEmerald));
+              return const Center(
+                  child: CircularProgressIndicator(
+                      color: AppColors.quantumEmerald));
             }
 
             if (snapshot.hasError) {
@@ -193,12 +222,16 @@ class _PortfolioScreenState extends State<PortfolioScreen>
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Icon(Icons.error_outline, size: 48, color: AppColors.quantumCrimson),
+                    const Icon(Icons.error_outline,
+                        size: 48, color: AppColors.quantumCrimson),
                     const SizedBox(height: 12),
-                    const Text('حدث خطأ في تحميل بيانات المحفظة', style: TextStyle(color: Colors.white70)),
+                    const Text('حدث خطأ في تحميل بيانات المحفظة',
+                        style: TextStyle(color: Colors.white70)),
                     const SizedBox(height: 12),
                     ElevatedButton(
-                      style: ElevatedButton.styleFrom(backgroundColor: AppColors.quantumEmerald, foregroundColor: Colors.black),
+                      style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.quantumEmerald,
+                          foregroundColor: Colors.black),
                       onPressed: _refreshPortfolio,
                       child: const Text('إعادة المحاولة'),
                     ),
@@ -235,17 +268,25 @@ class _PortfolioScreenState extends State<PortfolioScreen>
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            const Text('إجمالي قيمة المحفظة', style: TextStyle(color: Colors.white70, fontSize: 13)),
+                            const Text('إجمالي قيمة المحفظة',
+                                style: TextStyle(
+                                    color: Colors.white70, fontSize: 13)),
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 4),
                               decoration: BoxDecoration(
-                                color: (isUp ? AppColors.quantumEmerald : AppColors.quantumCrimson).withOpacity(0.2),
+                                color: (isUp
+                                        ? AppColors.quantumEmerald
+                                        : AppColors.quantumCrimson)
+                                    .withOpacity(0.2),
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: Text(
                                 '${isUp ? '+' : ''}${totalGainPercent.toStringAsFixed(2)}%',
                                 style: TextStyle(
-                                  color: isUp ? AppColors.quantumEmerald : AppColors.quantumCrimson,
+                                  color: isUp
+                                      ? AppColors.quantumEmerald
+                                      : AppColors.quantumCrimson,
                                   fontWeight: FontWeight.bold,
                                   fontSize: 12,
                                 ),
@@ -256,16 +297,24 @@ class _PortfolioScreenState extends State<PortfolioScreen>
                         const SizedBox(height: 8),
                         Text(
                           '${totalValue.toStringAsFixed(2)} ج.م',
-                          style: const TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold),
+                          style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 28,
+                              fontWeight: FontWeight.bold),
                         ),
                         const SizedBox(height: 12),
                         Row(
                           children: [
-                            Text('إجمالي الأرباح/الخسائر: ', style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 12)),
+                            Text('إجمالي الأرباح/الخسائر: ',
+                                style: TextStyle(
+                                    color: Colors.white.withOpacity(0.5),
+                                    fontSize: 12)),
                             Text(
                               '${isUp ? '+' : ''}${totalGain.toStringAsFixed(2)} ج.م',
                               style: TextStyle(
-                                color: isUp ? AppColors.quantumEmerald : AppColors.quantumCrimson,
+                                color: isUp
+                                    ? AppColors.quantumEmerald
+                                    : AppColors.quantumCrimson,
                                 fontWeight: FontWeight.bold,
                                 fontSize: 13,
                               ),
@@ -283,28 +332,41 @@ class _PortfolioScreenState extends State<PortfolioScreen>
                     future: _analysisFuture,
                     builder: (context, analysisSnap) {
                       final analysis = analysisSnap.data;
-                      if (analysis == null || analysis['diversification'] == null) {
+                      if (analysis == null ||
+                          analysis['diversification'] == null) {
                         return const SizedBox.shrink();
                       }
                       return Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text('توزيع الأصول حسب القطاع', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+                          const Text('توزيع الأصول حسب القطاع',
+                              style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16)),
                           const SizedBox(height: 10),
                           Container(
                             padding: const EdgeInsets.all(14),
                             decoration: BoxDecoration(
                               color: AppColors.quantumGlass,
                               borderRadius: BorderRadius.circular(14),
-                              border: Border.all(color: AppColors.quantumGlassBorder),
+                              border: Border.all(
+                                  color: AppColors.quantumGlassBorder),
                             ),
                             child: Column(
                               children: [
                                 Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
                                   children: const [
-                                    Text('البنوك والخدمات المالية', style: TextStyle(color: Colors.white70, fontSize: 12)),
-                                    Text('45%', style: TextStyle(color: AppColors.quantumGold, fontWeight: FontWeight.bold)),
+                                    Text('البنوك والخدمات المالية',
+                                        style: TextStyle(
+                                            color: Colors.white70,
+                                            fontSize: 12)),
+                                    Text('45%',
+                                        style: TextStyle(
+                                            color: AppColors.quantumGold,
+                                            fontWeight: FontWeight.bold)),
                                   ],
                                 ),
                                 const SizedBox(height: 6),
@@ -330,10 +392,18 @@ class _PortfolioScreenState extends State<PortfolioScreen>
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text('أسهم المحفظة الحالية', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+                      const Text('أسهم المحفظة الحالية',
+                          style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16)),
                       TextButton.icon(
-                        icon: const Icon(Icons.add, color: AppColors.quantumEmerald, size: 18),
-                        label: const Text('صفقة جديدة', style: TextStyle(color: AppColors.quantumEmerald, fontWeight: FontWeight.bold)),
+                        icon: const Icon(Icons.add,
+                            color: AppColors.quantumEmerald, size: 18),
+                        label: const Text('صفقة جديدة',
+                            style: TextStyle(
+                                color: AppColors.quantumEmerald,
+                                fontWeight: FontWeight.bold)),
                         onPressed: _showAddTransactionDialog,
                       ),
                     ],
@@ -352,9 +422,11 @@ class _PortfolioScreenState extends State<PortfolioScreen>
                       ),
                       child: Column(
                         children: [
-                          const Icon(Icons.account_balance_wallet_outlined, size: 48, color: Colors.white38),
+                          const Icon(Icons.account_balance_wallet_outlined,
+                              size: 48, color: Colors.white38),
                           const SizedBox(height: 12),
-                          const Text('لا توجد أسهم في المحفظة حالياً', style: TextStyle(color: Colors.white70)),
+                          const Text('لا توجد أسهم في المحفظة حالياً',
+                              style: TextStyle(color: Colors.white70)),
                           const SizedBox(height: 12),
                           ElevatedButton(
                             style: ElevatedButton.styleFrom(
@@ -373,10 +445,15 @@ class _PortfolioScreenState extends State<PortfolioScreen>
                       final symbol = pos.stockSymbol;
                       final shares = pos.shares;
                       final buyPrice = pos.avgCost;
-                      final liveP = _liveStockPrices[symbol] ?? (pos.currentPrice > 0 ? pos.currentPrice : (buyPrice * 1.085));
+                      final liveP = _liveStockPrices[symbol] ??
+                          (pos.currentPrice > 0
+                              ? pos.currentPrice
+                              : (buyPrice * 1.085));
                       final currentPrice = liveP;
                       final gain = (currentPrice - buyPrice) * shares;
-                      final gainPercent = buyPrice > 0 ? ((currentPrice - buyPrice) / buyPrice) * 100 : 0.0;
+                      final gainPercent = buyPrice > 0
+                          ? ((currentPrice - buyPrice) / buyPrice) * 100
+                          : 0.0;
                       final bool posUp = gain >= 0;
 
                       return Container(
@@ -385,7 +462,8 @@ class _PortfolioScreenState extends State<PortfolioScreen>
                         decoration: BoxDecoration(
                           color: AppColors.quantumGlass,
                           borderRadius: BorderRadius.circular(14),
-                          border: Border.all(color: AppColors.quantumGlassBorder),
+                          border:
+                              Border.all(color: AppColors.quantumGlassBorder),
                         ),
                         child: Row(
                           children: [
@@ -395,12 +473,16 @@ class _PortfolioScreenState extends State<PortfolioScreen>
                               decoration: BoxDecoration(
                                 color: AppColors.quantumSurface,
                                 borderRadius: BorderRadius.circular(10),
-                                border: Border.all(color: AppColors.quantumGlassBorder),
+                                border: Border.all(
+                                    color: AppColors.quantumGlassBorder),
                               ),
                               alignment: Alignment.center,
                               child: Text(
                                 symbol,
-                                style: const TextStyle(color: AppColors.quantumGold, fontWeight: FontWeight.bold, fontSize: 12),
+                                style: const TextStyle(
+                                    color: AppColors.quantumGold,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12),
                               ),
                             ),
                             const SizedBox(width: 12),
@@ -408,21 +490,36 @@ class _PortfolioScreenState extends State<PortfolioScreen>
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text(name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
+                                  Text(name,
+                                      style: const TextStyle(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 14)),
                                   const SizedBox(height: 2),
-                                  Text('$shares سهم • متوسط الشراء $buyPrice ج.م', style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 11)),
+                                  Text(
+                                      '$shares سهم • متوسط الشراء $buyPrice ج.م',
+                                      style: TextStyle(
+                                          color: Colors.white.withOpacity(0.5),
+                                          fontSize: 11)),
                                 ],
                               ),
                             ),
                             Column(
                               crossAxisAlignment: CrossAxisAlignment.end,
                               children: [
-                                Text('${(shares * currentPrice).toStringAsFixed(2)} ج.م', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
+                                Text(
+                                    '${(shares * currentPrice).toStringAsFixed(2)} ج.م',
+                                    style: const TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 14)),
                                 const SizedBox(height: 2),
                                 Text(
                                   '${posUp ? '+' : ''}${gain.toStringAsFixed(2)} (${gainPercent.toStringAsFixed(2)}%)',
                                   style: TextStyle(
-                                    color: posUp ? AppColors.quantumEmerald : AppColors.quantumCrimson,
+                                    color: posUp
+                                        ? AppColors.quantumEmerald
+                                        : AppColors.quantumCrimson,
                                     fontWeight: FontWeight.bold,
                                     fontSize: 11,
                                   ),

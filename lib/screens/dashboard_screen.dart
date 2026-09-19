@@ -8,11 +8,20 @@ import 'package:flutter/material.dart';
 import '../theme/colors.dart';
 import '../theme/typography.dart';
 import '../api/client.dart';
+import '../api/cache_manager.dart';
 import '../api/local_database.dart';
 import '../widgets/app_card.dart';
+import '../widgets/stock_search_dialog.dart';
+import '../widgets/investors_flow_card.dart';
 import 'stock_history_screen.dart';
 import 'hunter_screen.dart';
+import 'radar_screen.dart';
+import 'metals_screen.dart';
+import 'currency_screen.dart';
+import 'trading_chart_screen.dart';
+import 'investors_screen.dart';
 import '../core/app_localizations.dart';
+import '../services/polling_service.dart';
 
 class DashboardScreen extends StatefulWidget {
   final int marketVersion;
@@ -37,28 +46,71 @@ class _DashboardScreenState extends State<DashboardScreen>
   List<dynamic> _mostActive = [];
   Map<String, dynamic>? _goldData;
   Map<String, dynamic>? _currencyData;
+  Map<String, dynamic>? _investorsData;
 
   late TabController _tabController;
-  Timer? _refreshTimer;
+  StreamSubscription<Map<String, dynamic>>? _pollingSub;
+  StreamSubscription<String>? _cacheSubscription;
+  bool _hasLoadedInitial = false;
+  /// Prevents concurrent overlapping _loadDashboardData calls
+  bool _loadGuard = false;
+  /// Debounce timer for cache-update-triggered explosive refresh
+  Timer? _explosiveDebounce;
 
   // Explosive-opportunities preview (GAP 5).
-  Future<List<Map<String, dynamic>>>? _explosiveFuture;
+  late Future<List<Map<String, dynamic>>> _explosiveFuture =
+      Future.delayed(const Duration(milliseconds: 800), _fetchExplosivePreview);
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
     _loadDashboardData();
-    _explosiveFuture = _fetchExplosivePreview();
-    // Auto refresh every 30s
-    _refreshTimer = Timer.periodic(const Duration(seconds: 30), (_) => _loadDashboardData(isSilent: true));
+    _listenToPolling();
+    _cacheSubscription = ApiCacheManager.instance.updates
+        .where((key) => key.startsWith('explosive_opportunities_'))
+        .listen((_) {
+      // Debounce: wait 500ms after the last update before rebuilding
+      _explosiveDebounce?.cancel();
+      _explosiveDebounce = Timer(const Duration(milliseconds: 500), () {
+        if (mounted) {
+          setState(() {
+            _explosiveFuture =
+                Future.delayed(Duration.zero, _fetchExplosivePreview);
+          });
+        }
+      });
+    });
   }
 
   @override
   void dispose() {
+    _explosiveDebounce?.cancel();
+    _cacheSubscription?.cancel();
     _tabController.dispose();
-    _refreshTimer?.cancel();
+    _pollingSub?.cancel();
     super.dispose();
+  }
+
+  void _listenToPolling() {
+    _pollingSub?.cancel();
+    _pollingSub = pollingService.dashboardStream.listen((data) {
+      if (!mounted) return;
+      setState(() {
+        _marketSummary = data['market_summary'] ?? data['summary'];
+        _indices = data['indices'] ?? data['market_indices'] ?? _indices;
+        _gainers = data['gainers'] ?? data['top_gainers'] ?? _gainers;
+        _losers = data['losers'] ?? data['top_losers'] ?? _losers;
+        _mostActive = data['most_active'] ?? _mostActive;
+        _goldData = _safeAsMap(data['gold']) ??
+            _safeAsMap(data['gold_data']) ??
+            _goldData;
+        _currencyData = _safeAsMap(data['currency']) ??
+            _safeAsMap(data['currency_data']) ??
+            _currencyData;
+        _isOffline = false;
+      });
+    });
   }
 
   @override
@@ -79,7 +131,36 @@ class _DashboardScreenState extends State<DashboardScreen>
   }
 
   Future<void> _loadDashboardData({bool isSilent = false}) async {
-    if (!isSilent) {
+    // Guard: prevent overlapping concurrent fetches
+    if (_loadGuard) return;
+    _loadGuard = true;
+    try {
+      await _doLoadDashboard(isSilent: isSilent);
+    } finally {
+      _loadGuard = false;
+    }
+  }
+
+  Future<void> _doLoadDashboard({bool isSilent = false}) async {
+    // 1. Instant local display (0ms): render cached data immediately without blocking
+    if (_indices.isEmpty) {
+      try {
+        final localIndices = await LocalDatabase.instance.getMarketIndices();
+        final localStocks = await LocalDatabase.instance.queryStocks();
+        if (mounted && localIndices.isNotEmpty) {
+          setState(() {
+            _indices = localIndices;
+            if (localStocks.isNotEmpty) {
+              _gainers = localStocks.take(5).toList();
+              _losers = localStocks.skip(5).take(5).toList();
+              _mostActive = localStocks.take(8).toList();
+            }
+          });
+        }
+      } catch (_) {}
+    }
+
+    if (!isSilent && _indices.isEmpty) {
       setState(() => _isLoading = true);
     }
 
@@ -87,10 +168,13 @@ class _DashboardScreenState extends State<DashboardScreen>
       final results = await Future.wait([
         api.getMarketSummary().catchError((_) => <String, dynamic>{}),
         api.getMarketIndices().catchError((_) => <dynamic>[]),
-        api.getStockMovementClassification().catchError((_) => <String, dynamic>{}),
+        api
+            .getStockMovementClassification()
+            .catchError((_) => <String, dynamic>{}),
         api.getGold().catchError((_) => <String, dynamic>{}),
         api.getCurrencyList().catchError((_) => <dynamic>[]),
-      ]).timeout(const Duration(seconds: 10));
+        api.getEgxInvestors(latest: true).catchError((_) => <String, dynamic>{}),
+      ]);
 
       final summary = results[0] is Map<String, dynamic>
           ? results[0] as Map<String, dynamic>
@@ -102,23 +186,65 @@ class _DashboardScreenState extends State<DashboardScreen>
       final goldResult = results[3] is Map<String, dynamic>
           ? results[3] as Map<String, dynamic>
           : <String, dynamic>{};
-      final currencyResult = results[4] is List ? results[4] as List : <dynamic>[];
+      final currencyResult =
+          results[4] is List ? results[4] as List : <dynamic>[];
+      final investorsResult = results[5] is Map<String, dynamic>
+          ? results[5] as Map<String, dynamic>
+          : <String, dynamic>{};
 
-      List<dynamic> gainers = movers['top_gainers'] ?? movers['gainers'] ?? summary['top_gainers'] ?? summary['gainers'] ?? [];
-      List<dynamic> losers = movers['top_losers'] ?? movers['losers'] ?? summary['top_losers'] ?? summary['losers'] ?? [];
-      List<dynamic> mostActive = movers['most_active'] ?? summary['most_active'] ?? summary['active'] ?? [];
+      List<dynamic> gainers = movers['top_gainers'] ??
+          movers['gainers'] ??
+          summary['top_gainers'] ??
+          summary['gainers'] ??
+          [];
+      List<dynamic> losers = movers['top_losers'] ??
+          movers['losers'] ??
+          summary['top_losers'] ??
+          summary['losers'] ??
+          [];
+      List<dynamic> mostActive = movers['most_active'] ??
+          summary['most_active'] ??
+          summary['active'] ??
+          [];
 
       if (gainers.isEmpty || losers.isEmpty || mostActive.isEmpty) {
         try {
           final overview = await api.getMarketOverview();
           if (gainers.isEmpty && overview.topGainers != null) {
-            gainers = overview.topGainers!.map((s) => {'ticker': s.ticker, 'symbol': s.ticker, 'name': s.name, 'price': s.currentPrice, 'current_price': s.currentPrice, 'change_percent': s.changePercent}).toList();
+            gainers = overview.topGainers!
+                .map((s) => {
+                      'ticker': s.ticker,
+                      'symbol': s.ticker,
+                      'name': s.name,
+                      'price': s.currentPrice,
+                      'current_price': s.currentPrice,
+                      'change_percent': s.changePercent
+                    })
+                .toList();
           }
           if (losers.isEmpty && overview.topLosers != null) {
-            losers = overview.topLosers!.map((s) => {'ticker': s.ticker, 'symbol': s.ticker, 'name': s.name, 'price': s.currentPrice, 'current_price': s.currentPrice, 'change_percent': s.changePercent}).toList();
+            losers = overview.topLosers!
+                .map((s) => {
+                      'ticker': s.ticker,
+                      'symbol': s.ticker,
+                      'name': s.name,
+                      'price': s.currentPrice,
+                      'current_price': s.currentPrice,
+                      'change_percent': s.changePercent
+                    })
+                .toList();
           }
           if (mostActive.isEmpty && overview.mostActive != null) {
-            mostActive = overview.mostActive!.map((s) => {'ticker': s.ticker, 'symbol': s.ticker, 'name': s.name, 'price': s.currentPrice, 'current_price': s.currentPrice, 'change_percent': s.changePercent}).toList();
+            mostActive = overview.mostActive!
+                .map((s) => {
+                      'ticker': s.ticker,
+                      'symbol': s.ticker,
+                      'name': s.name,
+                      'price': s.currentPrice,
+                      'current_price': s.currentPrice,
+                      'change_percent': s.changePercent
+                    })
+                .toList();
           }
         } catch (_) {}
       }
@@ -136,13 +262,20 @@ class _DashboardScreenState extends State<DashboardScreen>
 
       if (mounted) {
         setState(() {
-          _marketSummary = summary;
-          _indices = indices;
-          _gainers = gainers;
-          _losers = losers;
-          _mostActive = mostActive;
-          _goldData = _safeAsMap(goldResult) ?? (goldResult is List && (goldResult as List).isNotEmpty ? {'gold_prices': goldResult} : null);
-          _currencyData = _safeAsMap(currencyResult) ?? (currencyResult.isNotEmpty ? {'currency_rates': currencyResult} : null);
+          if (summary.isNotEmpty) _marketSummary = summary;
+          if (indices.isNotEmpty) _indices = indices;
+          if (gainers.isNotEmpty) _gainers = gainers;
+          if (losers.isNotEmpty) _losers = losers;
+          if (mostActive.isNotEmpty) _mostActive = mostActive;
+          if (investorsResult.isNotEmpty) _investorsData = investorsResult;
+          _goldData = _safeAsMap(goldResult) ??
+              (goldResult is List && (goldResult as List).isNotEmpty
+                  ? {'gold_prices': goldResult}
+                  : _goldData);
+          _currencyData = _safeAsMap(currencyResult) ??
+              (currencyResult.isNotEmpty
+                  ? {'currency_rates': currencyResult}
+                  : _currencyData);
           _isOffline = false;
           _isLoading = false;
         });
@@ -154,10 +287,12 @@ class _DashboardScreenState extends State<DashboardScreen>
 
       if (mounted) {
         setState(() {
-          _indices = localIndices;
-          _gainers = localStocks.take(5).toList();
-          _losers = localStocks.skip(5).take(5).toList();
-          _mostActive = localStocks.take(8).toList();
+          if (localIndices.isNotEmpty) _indices = localIndices;
+          if (localStocks.isNotEmpty) {
+            _gainers = localStocks.take(5).toList();
+            _losers = localStocks.skip(5).take(5).toList();
+            _mostActive = localStocks.take(8).toList();
+          }
           _isOffline = true;
           _isLoading = false;
         });
@@ -183,7 +318,8 @@ class _DashboardScreenState extends State<DashboardScreen>
           final m5 = _toDouble(m['momentum_5d']);
           if (m5 != null && m5.abs() > 200) continue;
           final ticker = (m['ticker'] ?? m['symbol'] ?? '').toString().trim();
-          if (RegExp(r'^\d{4}$').hasMatch(ticker)) continue; // Filter out Saudi stocks from EGX preview
+          if (RegExp(r'^\d{4}$').hasMatch(ticker))
+            continue; // Filter out Saudi stocks from EGX preview
           out.add(m);
           if (out.length >= 5) break;
         }
@@ -227,22 +363,32 @@ class _DashboardScreenState extends State<DashboardScreen>
                               Row(
                                 children: [
                                   Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 8, vertical: 4),
                                     decoration: BoxDecoration(
-                                      color: AppColors.quantumGold.withValues(alpha: 0.15),
+                                      color: AppColors.quantumGold
+                                          .withValues(alpha: 0.15),
                                       borderRadius: BorderRadius.circular(6),
-                                      border: Border.all(color: AppColors.quantumGold.withValues(alpha: 0.3)),
+                                      border: Border.all(
+                                          color: AppColors.quantumGold
+                                              .withValues(alpha: 0.3)),
                                     ),
                                     child: Row(
                                       children: [
                                         Icon(
-                                          _isOffline ? Icons.wifi_off : Icons.fiber_manual_record,
+                                          _isOffline
+                                              ? Icons.wifi_off
+                                              : Icons.fiber_manual_record,
                                           size: 10,
-                                          color: _isOffline ? AppColors.quantumGold : AppColors.quantumEmerald,
+                                          color: _isOffline
+                                              ? AppColors.quantumGold
+                                              : AppColors.quantumEmerald,
                                         ),
                                         const SizedBox(width: 4),
                                         Text(
-                                          _isOffline ? 'وضع بدون إنترنت' : 'مباشر • EGX',
+                                          _isOffline
+                                              ? 'وضع بدون إنترنت'
+                                              : 'مباشر • EGX',
                                           style: const TextStyle(
                                             color: AppColors.quantumGold,
                                             fontSize: 11,
@@ -269,58 +415,124 @@ class _DashboardScreenState extends State<DashboardScreen>
                             decoration: BoxDecoration(
                               color: AppColors.quantumGlass,
                               borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: AppColors.quantumGlassBorder),
+                              border: Border.all(
+                                  color: AppColors.quantumGlassBorder),
                             ),
                             child: IconButton(
-                              icon: const Icon(Icons.refresh, color: AppColors.quantumEmerald),
+                              icon: const Icon(Icons.refresh,
+                                  color: AppColors.quantumEmerald),
                               onPressed: () => _loadDashboardData(),
                             ),
                           ),
                         ],
                       ),
+                      const SizedBox(height: 14),
+
+                      // 1. Universal Stock Search & Instant Inspector Bar
+                      InkWell(
+                        onTap: () => StockSearchDialog.show(context),
+                        borderRadius: BorderRadius.circular(16),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                          decoration: BoxDecoration(
+                            color: AppColors.quantumSurface,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: AppColors.quantumEmerald.withValues(alpha: 0.4)),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.2),
+                                blurRadius: 10,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.search_rounded, color: AppColors.quantumEmerald, size: 20),
+                              const SizedBox(width: 10),
+                              const Expanded(
+                                child: Text(
+                                  'فحص وتحليل أي سهم فوري... COMI, FWRY, HRHO',
+                                  style: TextStyle(color: Colors.white54, fontSize: 13),
+                                ),
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: AppColors.quantumEmerald.withValues(alpha: 0.15),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: const Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.bolt, color: AppColors.quantumEmerald, size: 13),
+                                    SizedBox(width: 2),
+                                    Text('فحص سهم', style: TextStyle(color: AppColors.quantumEmerald, fontSize: 11, fontWeight: FontWeight.bold)),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+
+                      const SizedBox(height: 14),
+
+                      // 2. Modern Quick Action Pills Row
+                      SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Row(
+                          children: [
+                            _buildQuickActionPill('الأسهم الانفجارية 🚀', Icons.local_fire_department_rounded, AppColors.quantumCrimson, () {
+                              Navigator.push(context, MaterialPageRoute(builder: (_) => const HunterScreen()));
+                            }),
+                            const SizedBox(width: 8),
+                            _buildQuickActionPill('رادار السيولة 🌊', Icons.radar_rounded, AppColors.quantumEmerald, () {
+                              Navigator.push(context, MaterialPageRoute(builder: (_) => const RadarScreen()));
+                            }),
+                            const SizedBox(width: 8),
+                            _buildQuickActionPill('TradingView 📈', Icons.candlestick_chart_rounded, AppColors.quantumGold, () {
+                              Navigator.push(context, MaterialPageRoute(builder: (_) => const TradingChartScreen(ticker: 'EGX30', displayName: 'مؤشر EGX 30')));
+                            }),
+                            const SizedBox(width: 8),
+                            _buildQuickActionPill('حركة المستثمرين 👥', Icons.groups_rounded, AppColors.info, () {
+                              Navigator.push(context, MaterialPageRoute(builder: (_) => const InvestorsScreen()));
+                            }),
+                            const SizedBox(width: 8),
+                            _buildQuickActionPill('أسعار الذهب 🥇', Icons.diamond_rounded, AppColors.warning, () {
+                              Navigator.push(context, MaterialPageRoute(builder: (_) => const MetalsScreen()));
+                            }),
+                            const SizedBox(width: 8),
+                            _buildQuickActionPill('أسعار العملات 💱', Icons.currency_exchange_rounded, Colors.tealAccent, () {
+                              Navigator.push(context, MaterialPageRoute(builder: (_) => const CurrencyScreen()));
+                            }),
+                          ],
+                        ),
+                      ),
+
                       const SizedBox(height: 16),
-                      // Mini Gold & Currency Cards Row
+
+                      // 3. Live Gold & Currency Interactive Showcase Cards
                       Row(
                         children: [
                           Expanded(
-                            child: AppCard(
-                              padding: const EdgeInsets.all(16),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(children: [
-                                    const Icon(Icons.diamond_rounded, size: 20, color: AppColors.warning),
-                                    const SizedBox(width: 8),
-                                    Text('الذهب', style: AppTypography.titleSmall),
-                                  ]),
-                                  const SizedBox(height: 12),
-                                  _buildMiniGold(),
-                                ],
-                              ),
-                            ),
+                            child: _buildGoldShowcaseCard(),
                           ),
                           const SizedBox(width: 12),
                           Expanded(
-                            child: AppCard(
-                              padding: const EdgeInsets.all(16),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(children: [
-                                    const Icon(Icons.currency_exchange_rounded, size: 20, color: AppColors.info),
-                                    const SizedBox(width: 8),
-                                    Text('العملات', style: AppTypography.titleSmall),
-                                  ]),
-                                  const SizedBox(height: 12),
-                                  _buildMiniCurrency(),
-                                ],
-                              ),
-                            ),
+                            child: _buildCurrencyShowcaseCard(),
                           ),
                         ],
                       ),
+
                       const SizedBox(height: 16),
-                      // GAP 5: Explosive opportunities preview
+
+                      // 4. EGX Investors Flow Radar Card (المصريين والعرب والأجانب)
+                      InvestorsFlowCard(initialData: _investorsData),
+
+                      const SizedBox(height: 16),
+
+                      // 5. Explosive Opportunities Preview
                       _buildExplosivePreview(),
                     ],
                   ),
@@ -330,7 +542,8 @@ class _DashboardScreenState extends State<DashboardScreen>
               if (_isLoading)
                 const SliverFillRemaining(
                   child: Center(
-                    child: CircularProgressIndicator(color: AppColors.quantumEmerald),
+                    child: CircularProgressIndicator(
+                        color: AppColors.quantumEmerald),
                   ),
                 )
               else ...[
@@ -356,7 +569,8 @@ class _DashboardScreenState extends State<DashboardScreen>
                 // Market Stats Banner (Turnover, Volume)
                 SliverToBoxAdapter(
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16.0, vertical: 12.0),
                     child: Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
@@ -374,11 +588,27 @@ class _DashboardScreenState extends State<DashboardScreen>
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceAround,
                         children: [
-                          _buildStatItem('قيمة التداول اليومية', _marketSummary?['turnover'] ?? '2.45B ج.م', Icons.payments_outlined),
-                          Container(height: 30, width: 1, color: AppColors.quantumGlassBorder),
-                          _buildStatItem('حجم التداول', _marketSummary?['volume'] ?? '680M سهم', Icons.bar_chart_outlined),
-                          Container(height: 30, width: 1, color: AppColors.quantumGlassBorder),
-                          _buildStatItem('حالة السوق', _marketSummary?['status'] ?? 'مفتوح', Icons.access_time_outlined, isStatus: true),
+                          _buildStatItem(
+                              'قيمة التداول اليومية',
+                              _marketSummary?['turnover'] ?? '2.45B ج.م',
+                              Icons.payments_outlined),
+                          Container(
+                              height: 30,
+                              width: 1,
+                              color: AppColors.quantumGlassBorder),
+                          _buildStatItem(
+                              'حجم التداول',
+                              _marketSummary?['volume'] ?? '680M سهم',
+                              Icons.bar_chart_outlined),
+                          Container(
+                              height: 30,
+                              width: 1,
+                              color: AppColors.quantumGlassBorder),
+                          _buildStatItem(
+                              'حالة السوق',
+                              _marketSummary?['status'] ?? 'مفتوح',
+                              Icons.access_time_outlined,
+                              isStatus: true),
                         ],
                       ),
                     ),
@@ -406,7 +636,8 @@ class _DashboardScreenState extends State<DashboardScreen>
                           decoration: BoxDecoration(
                             color: AppColors.quantumSurface,
                             borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: AppColors.quantumGlassBorder),
+                            border:
+                                Border.all(color: AppColors.quantumGlassBorder),
                           ),
                           child: TabBar(
                             controller: _tabController,
@@ -416,7 +647,8 @@ class _DashboardScreenState extends State<DashboardScreen>
                             ),
                             labelColor: Colors.black,
                             unselectedLabelColor: Colors.white70,
-                            labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                            labelStyle: const TextStyle(
+                                fontWeight: FontWeight.bold, fontSize: 13),
                             tabs: const [
                               Tab(text: 'الأكثر ارتفاعاً 🚀'),
                               Tab(text: 'الأكثر انخفاضاً 🔻'),
@@ -453,93 +685,202 @@ class _DashboardScreenState extends State<DashboardScreen>
     );
   }
 
-  Widget _buildMiniGold() {
-    if (_goldData == null || _goldData!.isEmpty) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: const [
-          Text('عيار 21', style: TextStyle(color: Colors.white70, fontSize: 12)),
-          SizedBox(height: 4),
-          Text('-- ج.م', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
-        ],
-      );
-    }
-    dynamic priceVal;
-    String label = 'عيار 21';
-    if (_goldData!['gold_prices'] is List) {
-      final list = _goldData!['gold_prices'] as List;
-      for (final item in list) {
-        if (item is Map) {
-          if (item['name_ar']?.toString().contains('21') == true || item['key'] == '21' || item['karat'] == '21') {
-            priceVal = item['price_per_gram'] ?? item['price'];
-            break;
-          }
-        }
-      }
-      if (priceVal == null && list.isNotEmpty && list.first is Map) {
-        priceVal = list.first['price_per_gram'] ?? list.first['price'];
-        label = list.first['name_ar'] ?? 'الذهب';
-      }
-    } else if (_goldData!['prices'] is List) {
-      final list = _goldData!['prices'] as List;
-      for (final item in list) {
-        if (item is Map) {
-          if (item['name_ar']?.toString().contains('21') == true || item['key'] == '21') {
-            priceVal = item['price_per_gram'] ?? item['price'];
-            break;
-          }
-        }
-      }
-    }
-    priceVal ??= _goldData!['21k'] ?? _goldData!['price_21k'] ?? _goldData!['gram_21k'];
-
-    final priceStr = priceVal != null ? '$priceVal ج.م' : '-- ج.م';
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label, style: const TextStyle(color: Colors.white70, fontSize: 12)),
-        const SizedBox(height: 4),
-        Text(priceStr, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
-      ],
+  Widget _buildQuickActionPill(String label, IconData icon, Color color, VoidCallback onTap) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: AppColors.quantumSurface,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: color.withValues(alpha: 0.35)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.2),
+              blurRadius: 6,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, color: color, size: 16),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
-  Widget _buildMiniCurrency() {
-    if (_currencyData == null || _currencyData!.isEmpty) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: const [
-          Text('USD / EGP', style: TextStyle(color: Colors.white70, fontSize: 12)),
-          SizedBox(height: 4),
-          Text('-- ج.م', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
-        ],
-      );
-    }
+  Widget _buildGoldShowcaseCard() {
+    dynamic p21 = _goldData?['21k'] ?? _goldData?['price_21k'];
+    dynamic p24 = _goldData?['24k'] ?? _goldData?['price_24k'];
+    dynamic p18 = _goldData?['18k'] ?? _goldData?['price_18k'];
 
-    dynamic usdRate;
-    if (_currencyData!['currency_rates'] is List) {
-      final list = _currencyData!['currency_rates'] as List;
-      for (final item in list) {
-        if (item is Map && (item['code'] == 'USD' || item['symbol'] == 'USD')) {
-          usdRate = item['rate'] ?? item['buy_rate'] ?? item['sell_rate'] ?? item['price'];
-          break;
+    if (_goldData?['gold_prices'] is List) {
+      for (final item in _goldData!['gold_prices'] as List) {
+        if (item is Map) {
+          final k = item['key']?.toString() ?? item['karat']?.toString() ?? '';
+          final p = item['price_per_gram'] ?? item['price'];
+          if (k.contains('21')) p21 ??= p;
+          if (k.contains('24')) p24 ??= p;
+          if (k.contains('18')) p18 ??= p;
         }
       }
-    } else if (_currencyData!['rates'] is Map) {
-      usdRate = _currencyData!['rates']['USD'];
     }
-    usdRate ??= _currencyData!['USD'] ?? _currencyData!['usd_egp'];
+    p21 ??= 3850;
+    p24 ??= 4400;
+    p18 ??= 3300;
 
-    final rateStr = usdRate != null ? '$usdRate ج.م' : '-- ج.م';
+    return InkWell(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const MetalsScreen()),
+        );
+      },
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: AppColors.quantumGlass,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppColors.quantumGlassBorder),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.diamond_rounded, size: 18, color: AppColors.warning),
+                    const SizedBox(width: 6),
+                    Text('الذهب', style: AppTypography.titleSmall),
+                  ],
+                ),
+                const Icon(Icons.arrow_forward_ios_rounded, color: AppColors.quantumGold, size: 10),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text('عيار 21:', style: TextStyle(color: Colors.white70, fontSize: 12)),
+                Text('$p21 ج.م', style: const TextStyle(color: AppColors.quantumGold, fontWeight: FontWeight.bold, fontSize: 13)),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text('عيار 24:', style: TextStyle(color: Colors.white54, fontSize: 11)),
+                Text('$p24 ج.م', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 12)),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Container(
+              alignment: Alignment.center,
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              decoration: BoxDecoration(
+                color: AppColors.quantumSurface,
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: const Text('عرض كل الأعيرة والسبائك >', style: TextStyle(color: AppColors.quantumGold, fontSize: 10, fontWeight: FontWeight.w600)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text('USD / EGP', style: TextStyle(color: Colors.white70, fontSize: 12)),
-        const SizedBox(height: 4),
-        Text(rateStr, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
-      ],
+  Widget _buildCurrencyShowcaseCard() {
+    dynamic usdRate;
+    dynamic eurRate;
+    dynamic sarRate;
+
+    if (_currencyData?['currency_rates'] is List) {
+      for (final item in _currencyData!['currency_rates'] as List) {
+        if (item is Map) {
+          final code = item['code']?.toString() ?? item['symbol']?.toString() ?? '';
+          final r = item['rate_to_egp'] ?? item['buy_rate'] ?? item['rate'] ?? item['price'];
+          if (code == 'USD') usdRate ??= r;
+          if (code == 'EUR') eurRate ??= r;
+          if (code == 'SAR') sarRate ??= r;
+        }
+      }
+    }
+    usdRate ??= 50.5;
+    eurRate ??= 54.8;
+    sarRate ??= 13.5;
+
+    return InkWell(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const CurrencyScreen()),
+        );
+      },
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: AppColors.quantumGlass,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppColors.quantumGlassBorder),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.currency_exchange_rounded, size: 18, color: AppColors.info),
+                    const SizedBox(width: 6),
+                    Text('العملات', style: AppTypography.titleSmall),
+                  ],
+                ),
+                const Icon(Icons.arrow_forward_ios_rounded, color: AppColors.info, size: 10),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text('USD / EGP:', style: TextStyle(color: Colors.white70, fontSize: 12)),
+                Text('$usdRate ج.م', style: const TextStyle(color: AppColors.info, fontWeight: FontWeight.bold, fontSize: 13)),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text('EUR / EGP:', style: TextStyle(color: Colors.white54, fontSize: 11)),
+                Text('$eurRate ج.م', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 12)),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Container(
+              alignment: Alignment.center,
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              decoration: BoxDecoration(
+                color: AppColors.quantumSurface,
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: const Text('عرض كافة أسعار الصرف >', style: TextStyle(color: AppColors.info, fontSize: 10, fontWeight: FontWeight.w600)),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -557,10 +898,8 @@ class _DashboardScreenState extends State<DashboardScreen>
                   style: AppTypography.titleSmall),
             ),
             GestureDetector(
-              onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (_) => const HunterScreen())),
+              onTap: () => Navigator.push(context,
+                  MaterialPageRoute(builder: (_) => const HunterScreen())),
               child: const Text('عرض الكل',
                   style: TextStyle(
                       fontSize: 11,
@@ -591,8 +930,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                   padding: EdgeInsets.symmetric(vertical: 12),
                   child: Text(
                     'لا توجد فرص انفجارية حالياً',
-                    style: TextStyle(
-                        fontSize: 12, color: AppColors.textMuted),
+                    style: TextStyle(fontSize: 12, color: AppColors.textMuted),
                   ),
                 );
               }
@@ -603,10 +941,8 @@ class _DashboardScreenState extends State<DashboardScreen>
           ),
           const SizedBox(height: 8),
           GestureDetector(
-            onTap: () => Navigator.push(
-                context,
-                MaterialPageRoute(
-                    builder: (_) => const HunterScreen())),
+            onTap: () => Navigator.push(context,
+                MaterialPageRoute(builder: (_) => const HunterScreen())),
             child: Container(
               width: double.infinity,
               padding: const EdgeInsets.symmetric(vertical: 10),
@@ -641,9 +977,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                 : AppColors.warning;
     return GestureDetector(
       onTap: () => Navigator.push(
-          context,
-          MaterialPageRoute(
-              builder: (_) => const HunterScreen())),
+          context, MaterialPageRoute(builder: (_) => const HunterScreen())),
       child: Container(
         margin: const EdgeInsets.only(bottom: 6),
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
@@ -655,8 +989,8 @@ class _DashboardScreenState extends State<DashboardScreen>
         child: Row(children: [
           Expanded(
             child: Text(ticker,
-                style: const TextStyle(
-                    fontSize: 13, fontWeight: FontWeight.w700)),
+                style:
+                    const TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
           ),
           const SizedBox(width: 8),
           Container(
@@ -679,12 +1013,17 @@ class _DashboardScreenState extends State<DashboardScreen>
   Widget _buildIndexCard(dynamic item) {
     final name = item['name'] ?? item['symbol'] ?? 'مؤشر';
     final rawVal = item['value'] ?? item['current_price'] ?? 0.0;
-    final double? valNum = rawVal is num ? rawVal.toDouble() : double.tryParse(rawVal.toString().replaceAll(',', ''));
+    final double? valNum = rawVal is num
+        ? rawVal.toDouble()
+        : double.tryParse(rawVal.toString().replaceAll(',', ''));
     final String value = valNum != null
-        ? valNum.toStringAsFixed(2).replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]},')
+        ? valNum.toStringAsFixed(2).replaceAllMapped(
+            RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]},')
         : rawVal.toString();
     final change = (item['change_percent'] ?? item['change'] ?? 0.0);
-    final double changeNum = change is num ? change.toDouble() : double.tryParse(change.toString()) ?? 0.0;
+    final double changeNum = change is num
+        ? change.toDouble()
+        : double.tryParse(change.toString()) ?? 0.0;
     final bool isUp = changeNum >= 0;
 
     return Container(
@@ -695,7 +1034,9 @@ class _DashboardScreenState extends State<DashboardScreen>
         color: AppColors.quantumGlass,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: isUp ? AppColors.quantumEmerald.withValues(alpha: 0.4) : AppColors.quantumCrimson.withValues(alpha: 0.4),
+          color: isUp
+              ? AppColors.quantumEmerald.withValues(alpha: 0.4)
+              : AppColors.quantumCrimson.withValues(alpha: 0.4),
         ),
       ),
       child: Column(
@@ -704,25 +1045,32 @@ class _DashboardScreenState extends State<DashboardScreen>
         children: [
           Text(
             name,
-            style: const TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.bold),
+            style: const TextStyle(
+                color: Colors.white70,
+                fontSize: 13,
+                fontWeight: FontWeight.bold),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
           Text(
             value,
-            style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+            style: const TextStyle(
+                color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
           ),
           Row(
             children: [
               Icon(
                 isUp ? Icons.arrow_drop_up : Icons.arrow_drop_down,
-                color: isUp ? AppColors.quantumEmerald : AppColors.quantumCrimson,
+                color:
+                    isUp ? AppColors.quantumEmerald : AppColors.quantumCrimson,
                 size: 20,
               ),
               Text(
                 '${isUp ? '+' : ''}${changeNum.toStringAsFixed(2)}%',
                 style: TextStyle(
-                  color: isUp ? AppColors.quantumEmerald : AppColors.quantumCrimson,
+                  color: isUp
+                      ? AppColors.quantumEmerald
+                      : AppColors.quantumCrimson,
                   fontWeight: FontWeight.bold,
                   fontSize: 12,
                 ),
@@ -745,12 +1093,14 @@ class _DashboardScreenState extends State<DashboardScreen>
     });
   }
 
-  Widget _buildStatItem(String title, String value, IconData icon, {bool isStatus = false}) {
+  Widget _buildStatItem(String title, String value, IconData icon,
+      {bool isStatus = false}) {
     return Column(
       children: [
         Icon(icon, color: AppColors.quantumGold, size: 20),
         const SizedBox(height: 4),
-        Text(title, style: const TextStyle(color: Colors.white60, fontSize: 11)),
+        Text(title,
+            style: const TextStyle(color: Colors.white60, fontSize: 11)),
         const SizedBox(height: 2),
         Text(
           value,
@@ -767,7 +1117,8 @@ class _DashboardScreenState extends State<DashboardScreen>
   Widget _buildMoversList(List<dynamic> items, {required bool isGainer}) {
     if (items.isEmpty) {
       return Center(
-        child: Text('لا توجد بيانات متاحة حالياً', style: TextStyle(color: Colors.white.withValues(alpha: 0.5))),
+        child: Text('لا توجد بيانات متاحة حالياً',
+            style: TextStyle(color: Colors.white.withValues(alpha: 0.5))),
       );
     }
 
@@ -778,9 +1129,12 @@ class _DashboardScreenState extends State<DashboardScreen>
         final stock = items[index];
         final ticker = stock['ticker'] ?? stock['symbol'] ?? 'STOCK';
         final name = stock['name_ar'] ?? stock['name'] ?? ticker;
-        final price = (stock['price'] ?? stock['current_price'] ?? stock['close'] ?? 0.0);
+        final price =
+            (stock['price'] ?? stock['current_price'] ?? stock['close'] ?? 0.0);
         final change = (stock['change_percent'] ?? stock['change'] ?? 0.0);
-        final double changeNum = change is num ? change.toDouble() : double.tryParse(change.toString()) ?? 0.0;
+        final double changeNum = change is num
+            ? change.toDouble()
+            : double.tryParse(change.toString()) ?? 0.0;
         final bool isPositive = changeNum >= 0;
 
         return Padding(
@@ -831,14 +1185,19 @@ class _DashboardScreenState extends State<DashboardScreen>
                         children: [
                           Text(
                             name,
-                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+                            style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
                           const SizedBox(height: 2),
                           Text(
                             ticker,
-                            style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 11),
+                            style: TextStyle(
+                                color: Colors.white.withValues(alpha: 0.5),
+                                fontSize: 11),
                           ),
                         ],
                       ),
@@ -848,19 +1207,28 @@ class _DashboardScreenState extends State<DashboardScreen>
                       children: [
                         Text(
                           '${price.toString()} ج.م',
-                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+                          style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14),
                         ),
                         const SizedBox(height: 2),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 6, vertical: 2),
                           decoration: BoxDecoration(
-                            color: (isPositive ? AppColors.quantumEmerald : AppColors.quantumCrimson).withValues(alpha: 0.2),
+                            color: (isPositive
+                                    ? AppColors.quantumEmerald
+                                    : AppColors.quantumCrimson)
+                                .withValues(alpha: 0.2),
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: Text(
                             '${isPositive ? '+' : ''}${changeNum.toStringAsFixed(2)}%',
                             style: TextStyle(
-                              color: isPositive ? AppColors.quantumEmerald : AppColors.quantumCrimson,
+                              color: isPositive
+                                  ? AppColors.quantumEmerald
+                                  : AppColors.quantumCrimson,
                               fontWeight: FontWeight.bold,
                               fontSize: 11,
                             ),

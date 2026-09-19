@@ -11,7 +11,7 @@ class LocalDatabase {
   static final LocalDatabase instance = LocalDatabase._privateConstructor();
 
   Database? _database;
-  static const int _version = 2;
+  static const int _version = 3;
 
   Future<Database> get database async {
     if (_database != null) return _database!;
@@ -36,16 +36,21 @@ class LocalDatabase {
       onCreate: (db, version) async {
         await _createStockHistoryTable(db);
         await _createAlertsTable(db);
+        await _createApiCacheTable(db);
       },
       onUpgrade: (db, oldVersion, newVersion) async {
         if (oldVersion < 2) {
           await _createStockHistoryTable(db);
         }
         await _createAlertsTable(db);
+        if (oldVersion < 3) {
+          await _createApiCacheTable(db);
+        }
       },
       onOpen: (db) async {
         await _ensureStockHistoryTable(db);
         await _createAlertsTable(db);
+        await _createApiCacheTable(db);
       },
     );
   }
@@ -239,5 +244,87 @@ class LocalDatabase {
     if (lastTs == null) return true;
     final age = DateTime.now().difference(lastTs);
     return age.inHours >= maxAgeHours;
+  }
+
+  // ===========================================================================
+  // API Cache Table — for large JSON responses that exceed SharedPrefs limits
+  // ===========================================================================
+
+  Future<void> _createApiCacheTable(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS api_cache (
+        cache_key  TEXT PRIMARY KEY,
+        body       TEXT NOT NULL,
+        fetched_at INTEGER NOT NULL,
+        ttl_secs   INTEGER NOT NULL DEFAULT 300
+      )
+    ''');
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_api_cache_fetched ON api_cache(fetched_at)',
+    );
+  }
+
+  /// Store a JSON string in the api_cache table.
+  /// [ttlSeconds]: how long (in seconds) before this entry is considered stale.
+  /// Max body size is 256 KB — larger payloads are silently skipped.
+  Future<void> setApiCache(String key, String body, {int ttlSeconds = 300}) async {
+    if (body.length > 262144) {
+      debugPrint('[DB] api_cache: payload too large for $key (${body.length} bytes), skipping');
+      return;
+    }
+    final db = await database;
+    await db.insert(
+      'api_cache',
+      {
+        'cache_key': key,
+        'body': body,
+        'fetched_at': DateTime.now().millisecondsSinceEpoch ~/ 1000,
+        'ttl_secs': ttlSeconds,
+      },
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  /// Get a cached JSON string if it is still within its TTL window.
+  /// Returns null if missing or expired.
+  Future<String?> getApiCache(String key) async {
+    final db = await database;
+    final rows = await db.query(
+      'api_cache',
+      where: 'cache_key = ?',
+      whereArgs: [key],
+      limit: 1,
+    );
+    if (rows.isEmpty) return null;
+    final row = rows.first;
+    final fetchedAt = row['fetched_at'] as int;
+    final ttlSecs = row['ttl_secs'] as int;
+    final ageSeconds = DateTime.now().millisecondsSinceEpoch ~/ 1000 - fetchedAt;
+    if (ageSeconds > ttlSecs) {
+      // Expired — delete it
+      await db.delete('api_cache', where: 'cache_key = ?', whereArgs: [key]);
+      return null;
+    }
+    return row['body'] as String?;
+  }
+
+  /// Delete a single cache entry
+  Future<void> deleteApiCache(String key) async {
+    final db = await database;
+    await db.delete('api_cache', where: 'cache_key = ?', whereArgs: [key]);
+  }
+
+  /// Remove all api_cache entries older than [maxAgeSeconds] regardless of TTL.
+  /// Call this periodically (e.g., on app start) to prevent unbounded growth.
+  Future<int> evictExpiredApiCache({int maxAgeSeconds = 86400}) async {
+    final db = await database;
+    final cutoff = DateTime.now().millisecondsSinceEpoch ~/ 1000 - maxAgeSeconds;
+    final count = await db.delete(
+      'api_cache',
+      where: 'fetched_at < ?',
+      whereArgs: [cutoff],
+    );
+    if (count > 0) debugPrint('[DB] Evicted $count expired api_cache entries');
+    return count;
   }
 }
