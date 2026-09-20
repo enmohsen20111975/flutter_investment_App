@@ -123,11 +123,20 @@ class _AuthScreenState extends State<AuthScreen> {
         final errorStr = e.toString();
         if (errorStr.contains('NOT_FOUND') ||
             errorStr.contains('sign_in_canceled') ||
-            errorStr.contains('cancelled')) {
+            errorStr.contains('cancelled') ||
+            errorStr.contains('12501')) {
           _error = 'تم إلغاء عملية تسجيل الدخول';
+        } else if (errorStr.contains(': 10') ||
+            errorStr.contains('DEVELOPER_ERROR')) {
+          _error =
+              'خطأ إعدادات Google (كود 10): بصمة الشهادة SHA-1 لنسخة الإنتاج غير مطابقة في Google Cloud Console.\n\nبصمة Release المطلوبة:\nF8:EF:3F:95:7B:3D:11:51:B0:D8:DA:F0:FA:B0:14:0E:30:8F:E4:A4';
+        } else if (errorStr.contains('12500')) {
+          _error =
+              'فشل تسجيل الدخول بواسطة Google (كود 12500). يرجى التحقق من تفعيل حساب Google وشاشة موافقة OAuth في Google Cloud.';
         } else if (errorStr.contains('network') ||
             errorStr.contains('SocketException') ||
-            errorStr.contains('Failed host lookup')) {
+            errorStr.contains('Failed host lookup') ||
+            errorStr.contains(': 7')) {
           _error = 'خطأ في الاتصال. تحقق من اتصال الإنترنت.';
         } else if (errorStr.contains('timeout')) {
           _error = 'انتهت مهلة الاتصال. حاول مرة أخرى.';

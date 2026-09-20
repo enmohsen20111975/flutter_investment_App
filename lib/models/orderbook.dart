@@ -43,15 +43,25 @@ class OrderBook {
   });
 
   factory OrderBook.fromJson(Map<String, dynamic> json) {
-    var rawBids = json['bids'] as List? ?? [];
-    var rawAsks = json['asks'] as List? ?? [];
+    final data = json['data'] is Map<String, dynamic>
+        ? json['data'] as Map<String, dynamic>
+        : (json['data'] is Map ? Map<String, dynamic>.from(json['data'] as Map) : json);
+
+    var rawBids = (data['bids'] ?? json['bids']) as List? ?? [];
+    var rawAsks = (data['asks'] ?? json['asks']) as List? ?? [];
 
     return OrderBook(
-      symbol: json['symbol'] ?? json['ticker'] ?? '',
-      bids: rawBids.map((item) => OrderBookEntry.fromJson(item)).toList(),
-      asks: rawAsks.map((item) => OrderBookEntry.fromJson(item)).toList(),
-      timestamp: json['timestamp'] != null
-          ? DateTime.tryParse(json['timestamp'].toString())
+      symbol: json['symbol'] ?? json['ticker'] ?? data['symbol'] ?? data['ticker'] ?? '',
+      bids: rawBids
+          .map((item) => OrderBookEntry.fromJson(
+              item is Map ? Map<String, dynamic>.from(item) : <String, dynamic>{}))
+          .toList(),
+      asks: rawAsks
+          .map((item) => OrderBookEntry.fromJson(
+              item is Map ? Map<String, dynamic>.from(item) : <String, dynamic>{}))
+          .toList(),
+      timestamp: json['timestamp'] != null || data['timestamp'] != null
+          ? DateTime.tryParse((json['timestamp'] ?? data['timestamp']).toString())
           : DateTime.now(),
     );
   }

@@ -106,19 +106,49 @@
     }
 
     function applyDataToSeries(candles, volumes) {
-      if (!mainSeries) return;
+      if (!mainSeries || !candles || candles.length === 0) return;
+
+      var formattedCandles = candles.map(function(c) {
+        var t = c.time || c.date;
+        return {
+          time: t,
+          open: Number(c.open !== undefined ? c.open : c.close),
+          high: Number(c.high !== undefined ? c.high : c.close),
+          low: Number(c.low !== undefined ? c.low : c.close),
+          close: Number(c.close)
+        };
+      }).filter(function(c) {
+        return c.time && !isNaN(c.open) && !isNaN(c.high) && !isNaN(c.low) && !isNaN(c.close);
+      });
+
+      // Sort by time ascending
+      formattedCandles.sort(function(a, b) {
+        return a.time < b.time ? -1 : (a.time > b.time ? 1 : 0);
+      });
+
+      if (formattedCandles.length === 0) return;
 
       if (currentChartType === 'candle') {
-        mainSeries.setData(candles);
+        mainSeries.setData(formattedCandles);
       } else {
-        const lineData = candles.map(function(c) {
-          return { time: c.time, value: c.close !== undefined ? c.close : c.value };
+        var lineData = formattedCandles.map(function(c) {
+          return { time: c.time, value: c.close };
         });
         mainSeries.setData(lineData);
       }
 
       if (volumeSeries && volumes && volumes.length > 0) {
-        volumeSeries.setData(volumes);
+        var formattedVolumes = volumes.map(function(v) {
+          return {
+            time: v.time || v.date,
+            value: Number(v.value || v.volume || 0),
+            color: v.color || (v.close >= v.open ? '#22c55e' : '#ef4444')
+          };
+        }).filter(function(v) { return v.time && !isNaN(v.value); });
+        formattedVolumes.sort(function(a, b) {
+          return a.time < b.time ? -1 : (a.time > b.time ? 1 : 0);
+        });
+        volumeSeries.setData(formattedVolumes);
       }
     }
 
@@ -126,7 +156,7 @@
       storedCandles = candleData || [];
       storedVolumes = volumeData || [];
       applyDataToSeries(storedCandles, storedVolumes);
-      if (chart) chart.timeScale().fitContent();
+      if (chart && storedCandles.length > 0) chart.timeScale().fitContent();
     }
 
     function addSMA(data, color) {
@@ -148,7 +178,7 @@
     }
 
     function setInterval(interval, days) {
-      // Placeholder: interval switching triggers data reload from Flutter
+      // Handled by Flutter reloading data
     }
 
     window.addEventListener('message', function(event) {
@@ -180,31 +210,8 @@
       }
     });
 
-    function generateSampleCandles() {
-      var candles = [];
-      var volumes = [];
-      var now = Math.floor(Date.now() / 1000) - (60 * 86400);
-      var price = 29.50;
-      for (var i = 0; i < 60; i++) {
-        var open = price + (Math.sin(i * 0.2) * 0.6) + (Math.random() - 0.45) * 0.4;
-        var high = open + Math.random() * 0.8 + 0.2;
-        var low = open - Math.random() * 0.8 - 0.2;
-        var close = low + Math.random() * (high - low);
-        price = close;
-        var t = now + (i * 86400);
-        candles.push({ time: t, open: parseFloat(open.toFixed(2)), high: parseFloat(high.toFixed(2)), low: parseFloat(low.toFixed(2)), close: parseFloat(close.toFixed(2)) });
-        volumes.push({ time: t, value: Math.floor(Math.random() * 80000) + 15000, color: close >= open ? '#22c55e' : '#ef4444' });
-      }
-      setData(candles, volumes);
-    }
-
     function initChart() {
       createChart({ dark: true });
-      setTimeout(function() {
-        if (storedCandles.length === 0) {
-          generateSampleCandles();
-        }
-      }, 150);
     }
 
     if (document.readyState === 'loading') {

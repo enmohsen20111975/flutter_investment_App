@@ -530,37 +530,14 @@ class _LearningBacktestScreenState extends State<LearningBacktestScreen>
                 }
                 final list = snapshot.data ?? [];
                 if (list.isEmpty) {
-                  // Fallback values if backend learning engine is inactive
-                  final mockList = [
-                    {
-                      'indicator': 'مؤشر القوة النسبية RSI',
-                      'trust_score': 84,
-                      'success_rate': 78
-                    },
-                    {
-                      'indicator': 'مؤشر تقاطع المتوسط MACD',
-                      'trust_score': 76,
-                      'success_rate': 72
-                    },
-                    {
-                      'indicator': 'نطاقات بولينجر Bollinger',
-                      'trust_score': 71,
-                      'success_rate': 68
-                    },
-                    {
-                      'indicator': 'مؤشر تدفق السيولة MFI',
-                      'trust_score': 64,
-                      'success_rate': 62
-                    },
-                  ];
-                  return Column(
-                    children: mockList
-                        .map((e) => _buildIndicatorTrustRow(
-                              e['indicator'] as String,
-                              e['trust_score'] as int,
-                              e['success_rate'] as int,
-                            ))
-                        .toList(),
+                  return const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 16.0),
+                    child: Center(
+                      child: Text(
+                        'لا توجد بيانات ثقة للمؤشرات مسجلة حالياً',
+                        style: TextStyle(color: Colors.white54, fontSize: 13),
+                      ),
+                    ),
                   );
                 }
                 return Column(
@@ -596,36 +573,14 @@ class _LearningBacktestScreenState extends State<LearningBacktestScreen>
                 }
                 final list = snapshot.data ?? [];
                 if (list.isEmpty) {
-                  // Mock pattern list
-                  final mockPatterns = [
-                    {
-                      'pattern': 'القاع المزدوج (Double Bottom)',
-                      'status': 'مكتمل صاعد',
-                      'ticker': 'COMI',
-                      'confidence': 85
-                    },
-                    {
-                      'pattern': 'المثلث الصاعد (Ascending Triangle)',
-                      'status': 'مخترق صاعد',
-                      'ticker': 'HELI',
-                      'confidence': 78
-                    },
-                    {
-                      'pattern': 'الرأس والكتفين المقلوب (Inverted H&S)',
-                      'status': 'قيد التكوين',
-                      'ticker': 'HRHO',
-                      'confidence': 72
-                    },
-                  ];
-                  return Column(
-                    children: mockPatterns
-                        .map((e) => _buildPatternRow(
-                              e['pattern'] as String,
-                              e['status'] as String,
-                              e['ticker'] as String,
-                              e['confidence'] as int,
-                            ))
-                        .toList(),
+                  return const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 16.0),
+                    child: Center(
+                      child: Text(
+                        'لم يتم اكتشاف نماذج فنية نشطة حالياً',
+                        style: TextStyle(color: Colors.white54, fontSize: 13),
+                      ),
+                    ),
                   );
                 }
                 return Column(

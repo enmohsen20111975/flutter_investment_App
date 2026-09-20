@@ -10,9 +10,16 @@ plugins {
 
 android {
     namespace = "com.egx.investment"
-    val keystorePropertiesFile = rootProject.file("../my apps Key/key.properties")
+    val candidateKeystoreFiles = listOf(
+        File("D:/my apps Key/key.properties"),
+        rootProject.file("../../../my apps Key/key.properties"),
+        rootProject.file("../../my apps Key/key.properties"),
+        rootProject.file("../my apps Key/key.properties"),
+        rootProject.file("key.properties")
+    )
+    val keystorePropertiesFile = candidateKeystoreFiles.firstOrNull { it.exists() }
     val keystoreProperties = Properties()
-    if (keystorePropertiesFile.exists()) {
+    if (keystorePropertiesFile != null && keystorePropertiesFile.exists()) {
         keystoreProperties.load(FileInputStream(keystorePropertiesFile))
     }
     compileSdk = flutter.compileSdkVersion
@@ -50,7 +57,7 @@ android {
 
     buildTypes {
         release {
-            signingConfig = if (keystorePropertiesFile.exists()) signingConfigs.getByName("release") else null
+            signingConfig = if (keystorePropertiesFile != null && keystorePropertiesFile.exists()) signingConfigs.getByName("release") else null
             isMinifyEnabled = false
             isShrinkResources = false
         }

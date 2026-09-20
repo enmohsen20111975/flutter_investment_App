@@ -779,18 +779,7 @@ class GLMApiClient {
                 CompanyDisclosure.fromJson(item as Map<String, dynamic>))
             .toList();
       },
-      fallback: (_) => [
-        CompanyDisclosure(
-          id: '1',
-          symbol: symbol,
-          companyName: symbol,
-          title: 'قرارات مجلس الإدارة واعتماد القوائم المالية',
-          category: 'قوائم مالية',
-          date: DateTime.now().subtract(const Duration(days: 2)),
-          summary:
-              'تم اعتماد القوائم المالية المجمعة عن الفترة المنتهية وتوزيعات الأرباح.',
-        ),
-      ],
+      fallback: (_) => <CompanyDisclosure>[],
     );
   }
 
@@ -887,19 +876,26 @@ class GLMApiClient {
       ttl: ApiCacheManager.marketTtl,
       fetcher: () async {
         try {
-          final response = await _dio.get('/api/mobile/currency');
-          if (response.data is Map && response.data['rates'] is List) {
-            return response.data['rates'] as List<dynamic>;
-          }
-        } catch (_) {}
-        try {
-          final response = await _dio.get('/api/currency');
+          final response = await _dio.get(
+            '/api/currency',
+            queryParameters: {'action': 'list'},
+          );
           if (response.data is List) return response.data as List<dynamic>;
-          if (response.data is Map && response.data['rates'] is List) {
-            return response.data['rates'] as List<dynamic>;
-          }
-          if (response.data is Map && response.data['currencies'] is List) {
-            return response.data['currencies'] as List<dynamic>;
+          if (response.data is Map) {
+            final map = response.data as Map;
+            if (map['rates'] is List) return map['rates'] as List<dynamic>;
+            if (map['data'] is List) return map['data'] as List<dynamic>;
+            if (map['currencies'] is List) return map['currencies'] as List<dynamic>;
+            if (map['currencies'] is Map) {
+              final currMap = map['currencies'] as Map;
+              final list = <dynamic>[];
+              currMap.forEach((k, v) {
+                if (v is Map) {
+                  list.add({'code': k, ...Map<String, dynamic>.from(v)});
+                }
+              });
+              if (list.isNotEmpty) return list;
+            }
           }
         } catch (_) {}
         try {
@@ -908,16 +904,13 @@ class GLMApiClient {
           if (response.data is Map && response.data['rates'] is List) {
             return response.data['rates'] as List<dynamic>;
           }
+          if (response.data is Map && response.data['data'] is List) {
+            return response.data['data'] as List<dynamic>;
+          }
         } catch (_) {}
         return <dynamic>[];
       },
-      fallback: (_) => <dynamic>[
-        {'code': 'USD', 'name_ar': 'دولار أمريكي', 'symbol': r'$', 'rate_to_egp': 50.5, 'buy': 50.4, 'sell': 50.6},
-        {'code': 'EUR', 'name_ar': 'يورو', 'symbol': '€', 'rate_to_egp': 54.8, 'buy': 54.6, 'sell': 55.0},
-        {'code': 'SAR', 'name_ar': 'ريال سعودي', 'symbol': '﷼', 'rate_to_egp': 13.5, 'buy': 13.4, 'sell': 13.6},
-        {'code': 'AED', 'name_ar': 'درهم إماراتي', 'symbol': 'د.إ', 'rate_to_egp': 13.8, 'buy': 13.7, 'sell': 13.9},
-        {'code': 'KWD', 'name_ar': 'دينار كويتي', 'symbol': 'د.ك', 'rate_to_egp': 165.0, 'buy': 164.0, 'sell': 166.0},
-      ],
+      fallback: (_) => <dynamic>[],
     );
   }
 
@@ -945,29 +938,7 @@ class GLMApiClient {
         }
         return <String, dynamic>{};
       },
-      fallback: (_) => <String, dynamic>{
-        'success': true,
-        'data': [
-          {
-            'date': DateTime.now().toString().split(' ').first,
-            'session_type': 'جلسة رسمية',
-            'foreign_net_value': -57440765.39,
-            'arab_institutions_net_value': -1763302.91,
-            'individuals_net_value': -85872255.09,
-            'institutional_pct': 40.6,
-            'retail_pct': 59.4,
-            'foreign_buys_value': 529334359.49,
-            'foreign_sells_value': 586775124.88,
-            'raw_json': {
-              'foreign_net_flow_m': -57.44,
-              'arab_net_flow_m': -1.76,
-              'egyptian_net_flow_m': -85.87,
-              'institutional_pct': 40.6,
-              'retail_pct': 59.4,
-            }
-          }
-        ]
-      },
+      fallback: (_) => <String, dynamic>{},
     );
   }
 
@@ -1215,9 +1186,18 @@ class GLMApiClient {
           '/api/stocks/$ticker',
           queryParameters: {'flat': flat},
         );
-        return response.data is Map<String, dynamic>
+        final raw = response.data is Map<String, dynamic>
             ? response.data
             : Map<String, dynamic>.from(response.data as Map);
+        if (raw['data'] is Map) {
+          final data = Map<String, dynamic>.from(raw['data'] as Map);
+          return data;
+        }
+        if (raw['stock'] is Map) {
+          final stock = Map<String, dynamic>.from(raw['stock'] as Map);
+          return stock;
+        }
+        return raw;
       },
       fallback: (_) => <String, dynamic>{},
     );
@@ -1938,15 +1918,12 @@ class GLMApiClient {
       key: 'gold_data',
       ttl: ApiCacheManager.marketTtl,
       fetcher: () async {
-        Map<String, dynamic>? raw;
         try {
-          final response = await _dio.get('/api/mobile/gold');
+          final response = await _dio.get('/api/market/gold');
           if (response.data is Map && (response.data as Map).isNotEmpty) {
             raw = Map<String, dynamic>.from(response.data);
           }
-        } catch (e) {
-          debugPrint('[API] getGold mobile failed: $e');
-        }
+        } catch (_) {}
         if (raw == null || raw.isEmpty) {
           try {
             final response = await _dio.get('/api/metals/gold');
@@ -1955,8 +1932,41 @@ class GLMApiClient {
             }
           } catch (_) {}
         }
+        if (raw == null || raw.isEmpty) {
+          try {
+            final response = await _dio.get('/api/mobile/gold');
+            if (response.data is Map && (response.data as Map).isNotEmpty) {
+              raw = Map<String, dynamic>.from(response.data);
+            }
+          } catch (_) {}
+        }
         if (raw != null && raw.isNotEmpty) {
           final result = Map<String, dynamic>.from(raw);
+          // Handle Egyptian prices map from /api/market/gold:
+          // e.g. prices: { "مصر": { "عيار 24": 7340.28, "عيار 21": 6422.74, "عيار 18": 5505.21 } }
+          if (result['prices'] is Map) {
+            final pMap = result['prices'] as Map;
+            final egMap = pMap['مصر'] ?? pMap['Egypt'] ?? pMap['egypt'];
+            if (egMap is Map) {
+              final karatsList = <Map<String, dynamic>>[];
+              egMap.forEach((k, v) {
+                final kStr = k.toString();
+                final pNum = (v is num) ? v.toDouble() : double.tryParse(v.toString()) ?? 0.0;
+                karatsList.add({
+                  'name_ar': kStr,
+                  'karat': kStr.replaceAll(RegExp(r'[^0-9]'), ''),
+                  'price_per_gram': pNum,
+                  'price': pNum,
+                });
+                if (kStr.contains('21')) result['21k'] = pNum;
+                if (kStr.contains('24')) result['24k'] = pNum;
+                if (kStr.contains('18')) result['18k'] = pNum;
+              });
+              if (karatsList.isNotEmpty) {
+                result['gold_prices'] = karatsList;
+              }
+            }
+          }
           // Normalize karats list
           if (result['gold_prices'] == null) {
             if (result['prices'] is Map && (result['prices'] as Map)['karats'] is List) {
@@ -1988,31 +1998,7 @@ class GLMApiClient {
         }
         return <String, dynamic>{};
       },
-      fallback: (_) => {
-        'gold_prices': [
-          {
-            'name_ar': 'عيار 21',
-            'karat': '21',
-            'price_per_gram': 3850,
-            'price': 3850,
-          },
-          {
-            'name_ar': 'عيار 24',
-            'karat': '24',
-            'price_per_gram': 4400,
-            'price': 4400,
-          },
-          {
-            'name_ar': 'عيار 18',
-            'karat': '18',
-            'price_per_gram': 3300,
-            'price': 3300,
-          },
-        ],
-        '21k': 3850,
-        '24k': 4400,
-        '18k': 3350,
-      },
+      fallback: (_) => <String, dynamic>{},
     );
   }
 

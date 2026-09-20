@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import '../theme/colors.dart';
 import '../api/client.dart';
 import '../api/cache_manager.dart';
+import '../api/local_database.dart';
 import '../models/types.dart';
 import '../widgets/tradingview_chart.dart';
 import '../widgets/upgrade_modal.dart';
@@ -33,6 +34,8 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
   List<CompanyDisclosure> _disclosures = [];
   Map<String, dynamic>? _fundamentals;
   Map<String, dynamic>? _recommendation;
+  List<Map<String, dynamic>> _candles = [];
+  List<Map<String, dynamic>> _volumes = [];
   Future<dynamic>? _newsFuture;
   StreamSubscription<String>? _cacheSubscription;
 
@@ -101,7 +104,10 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
         GLMApiClient.instance
             .getStockRecommendation(widget.ticker)
             .catchError((_) => <String, dynamic>{}),
-      ]).timeout(const Duration(seconds: 12));
+        GLMApiClient.instance
+            .getStockHistory(widget.ticker, days: 90)
+            .catchError((_) => StockHistoryResponse(data: [], summary: null)),
+      ]).timeout(const Duration(seconds: 15));
 
       final quote = results[0] is Map
           ? results[0] as Map<String, dynamic>
@@ -116,12 +122,76 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
       final rec = results[4] is Map
           ? results[4] as Map<String, dynamic>
           : <String, dynamic>{};
+      final historyRes = results[5] as StockHistoryResponse;
+
+      final candles = <Map<String, dynamic>>[];
+      final volumes = <Map<String, dynamic>>[];
+      for (final item in historyRes.data) {
+        if (item.date.isNotEmpty && item.close != null) {
+          final d = item.date.split('T').first;
+          candles.add({
+            'time': d,
+            'open': item.open ?? item.close,
+            'high': item.high ?? item.close,
+            'low': item.low ?? item.close,
+            'close': item.close,
+          });
+          if (item.volume != null && item.volume! > 0) {
+            volumes.add({
+              'time': d,
+              'value': item.volume,
+              'color': (item.close ?? 0) >= (item.open ?? item.close ?? 0)
+                  ? 'rgba(38, 166, 154, 0.5)'
+                  : 'rgba(239, 83, 80, 0.5)',
+            });
+          }
+        }
+      }
+
+      // If online history was empty, try local DB cache
+      if (candles.isEmpty) {
+        try {
+          final localHistory =
+              await LocalDatabase.instance.getStockHistory(widget.ticker);
+          for (final row in localHistory) {
+            final d = (row['date'] ?? '').toString().split('T').first;
+            final c = (row['close'] as num?)?.toDouble();
+            if (d.isNotEmpty && c != null) {
+              final o = (row['open'] as num?)?.toDouble() ?? c;
+              candles.add({
+                'time': d,
+                'open': o,
+                'high': (row['high'] as num?)?.toDouble() ?? c,
+                'low': (row['low'] as num?)?.toDouble() ?? c,
+                'close': c,
+              });
+              final v = (row['volume'] as num?)?.toInt();
+              if (v != null && v > 0) {
+                volumes.add({
+                  'time': d,
+                  'value': v,
+                  'color': c >= o
+                      ? 'rgba(38, 166, 154, 0.5)'
+                      : 'rgba(239, 83, 80, 0.5)',
+                });
+              }
+            }
+          }
+        } catch (_) {}
+      } else {
+        // Cache to local database in background
+        try {
+          LocalDatabase.instance.insertStockHistory(widget.ticker, candles);
+        } catch (_) {}
+      }
 
       _stockQuote = quote;
       _orderBook = orderbook;
       _disclosures = disclosures;
       _fundamentals = fundamentals;
       _recommendation = rec;
+      _candles = candles;
+      _volumes = volumes;
 
       return {
         'quote': quote,
@@ -129,6 +199,8 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
         'disclosures': disclosures,
         'fundamentals': fundamentals,
         'recommendation': rec,
+        'candles': candles,
+        'volumes': volumes,
       };
     } catch (e) {
       debugPrint('[StockDetail] Error loading details: $e');
@@ -170,15 +242,48 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
       builder: (context, snapshot) {
         final name =
             _stockQuote?['name_ar'] ?? _stockQuote?['name'] ?? widget.ticker;
-        final price =
-            (_stockQuote?['price'] ?? _stockQuote?['current_price'] ?? 0.0);
-        final change = (_stockQuote?['change_percent'] ??
+        final numPrice = (_stockQuote?['current_price'] ??
+            _stockQuote?['last_price'] ??
+            _stockQuote?['price'] ??
+            (_candles.isNotEmpty ? _candles.last['close'] : 0.0)) as num;
+        final price = numPrice > 0 ? numPrice.toStringAsFixed(2) : '0.00';
+
+        final change = _stockQuote?['change_percent'] ??
+            _stockQuote?['change_pct'] ??
             _stockQuote?['price_change'] ??
-            1.85);
+            _stockQuote?['change'] ??
+            0.0;
         final double changeNum = change is num
             ? change.toDouble()
             : double.tryParse(change.toString()) ?? 0.0;
         final bool isUp = changeNum >= 0;
+
+        final highVal = _stockQuote?['high_price'] ??
+            _stockQuote?['high'] ??
+            (_candles.isNotEmpty
+                ? _candles
+                    .map((c) => (c['high'] as num?) ?? 0)
+                    .reduce((a, b) => a > b ? a : b)
+                : null);
+        final lowVal = _stockQuote?['low_price'] ??
+            _stockQuote?['low'] ??
+            (_candles.isNotEmpty
+                ? _candles
+                    .map((c) => (c['low'] as num?) ?? 999999)
+                    .reduce((a, b) => a < b ? a : b)
+                : null);
+        final volVal = _stockQuote?['volume'] ??
+            (_candles.isNotEmpty ? _candles.last['value'] : null);
+
+        final highText = highVal != null ? '$highVal' : '-';
+        final lowText = (lowVal != null && lowVal != 999999) ? '$lowVal' : '-';
+        final volText = volVal != null
+            ? (volVal is num && volVal >= 1000000
+                ? '${(volVal / 1000000).toStringAsFixed(1)}M'
+                : (volVal is num && volVal >= 1000
+                    ? '${(volVal / 1000).toStringAsFixed(1)}K'
+                    : '$volVal'))
+            : '-';
 
         return Scaffold(
           backgroundColor: AppColors.quantumBg,
@@ -317,24 +422,63 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
                             // Quick metrics
                             Row(
                               children: [
-                                _buildQuickMetric('الأعلى',
-                                    '${_stockQuote?['high'] ?? 30.10}'),
+                                _buildQuickMetric('الأعلى', highText),
                                 const SizedBox(width: 12),
-                                _buildQuickMetric('الأدنى',
-                                    '${_stockQuote?['low'] ?? 28.90}'),
+                                _buildQuickMetric('الأدنى', lowText),
                                 const SizedBox(width: 12),
-                                _buildQuickMetric('الحجم',
-                                    '${_stockQuote?['volume'] ?? '1.2M'}'),
+                                _buildQuickMetric('الحجم', volText),
                               ],
                             ),
                           ],
                         ),
                       ),
                       // TradingView Chart Widget Container
-                      const SizedBox(
+                      SizedBox(
                         height: 260,
                         child: TradingViewChartWithControls(
                           darkTheme: true,
+                          candleData: _candles.isNotEmpty ? _candles : null,
+                          volumeData: _volumes.isNotEmpty ? _volumes : null,
+                          onReloadData: (interval) async {
+                            final days =
+                                interval.days > 0 ? interval.days : 365;
+                            try {
+                              final res = await GLMApiClient.instance
+                                  .getStockHistory(widget.ticker, days: days);
+                              if (mounted && res.data.isNotEmpty) {
+                                final newCandles = <Map<String, dynamic>>[];
+                                final newVolumes = <Map<String, dynamic>>[];
+                                for (final item in res.data) {
+                                  if (item.date.isNotEmpty &&
+                                      item.close != null) {
+                                    final d = item.date.split('T').first;
+                                    newCandles.add({
+                                      'time': d,
+                                      'open': item.open ?? item.close,
+                                      'high': item.high ?? item.close,
+                                      'low': item.low ?? item.close,
+                                      'close': item.close,
+                                    });
+                                    if (item.volume != null &&
+                                        item.volume! > 0) {
+                                      newVolumes.add({
+                                        'time': d,
+                                        'value': item.volume,
+                                        'color': (item.close ?? 0) >=
+                                                (item.open ?? item.close ?? 0)
+                                            ? 'rgba(38, 166, 154, 0.5)'
+                                            : 'rgba(239, 83, 80, 0.5)',
+                                      });
+                                    }
+                                  }
+                                }
+                                setState(() {
+                                  _candles = newCandles;
+                                  _volumes = newVolumes;
+                                });
+                              }
+                            } catch (_) {}
+                          },
                         ),
                       ),
                     ],
@@ -398,6 +542,31 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
   Widget _buildOrderBookTab() {
     final bids = _orderBook?.bids ?? [];
     final asks = _orderBook?.asks ?? [];
+
+    if (bids.isEmpty && asks.isEmpty) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(32.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.layers_clear_outlined, size: 48, color: Colors.white24),
+              SizedBox(height: 12),
+              Text(
+                'لا توجد عروض أو طلبات مسجلة حالياً',
+                style: TextStyle(color: Colors.white60, fontSize: 14),
+              ),
+              SizedBox(height: 4),
+              Text(
+                'قد تكون السوق مغلقة أو لم يتم التداول على السهم في هذه الجلسة',
+                style: TextStyle(color: Colors.white38, fontSize: 12),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+      );
+    }
 
     return Padding(
       padding: const EdgeInsets.all(12.0),
@@ -496,22 +665,36 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
   }
 
   Widget _buildFundamentalsTab() {
-    final pe = _fundamentals?['pe_ratio'] ?? '12.4';
-    final eps = _fundamentals?['eps'] ?? '2.40 ج.م';
-    final mcap = _fundamentals?['market_cap'] ?? '15.2B ج.م';
-    final divYield = _fundamentals?['dividend_yield'] ?? '6.5%';
-    final high52 = _fundamentals?['high_52w'] ?? '34.00 ج.م';
-    final low52 = _fundamentals?['low_52w'] ?? '22.50 ج.م';
+    final pe = _fundamentals?['pe_ratio'] ?? _stockQuote?['pe_ratio'];
+    final eps = _fundamentals?['eps'] ?? _stockQuote?['eps'];
+    final mcap = _fundamentals?['market_cap'] ?? _stockQuote?['market_cap'];
+    final divYield =
+        _fundamentals?['dividend_yield'] ?? _stockQuote?['dividend_yield'];
+    final high52 = _fundamentals?['high_52w'] ?? _stockQuote?['high_52w'];
+    final low52 = _fundamentals?['low_52w'] ?? _stockQuote?['low_52w'];
+
+    final peText = pe != null ? '$pe' : '-';
+    final epsText = eps != null ? '$eps ج.م' : '-';
+    final mcapText = mcap != null
+        ? (mcap is num && mcap >= 1000000000
+            ? '${(mcap / 1000000000).toStringAsFixed(2)}B ج.م'
+            : (mcap is num && mcap >= 1000000
+                ? '${(mcap / 1000000).toStringAsFixed(2)}M ج.م'
+                : '$mcap ج.م'))
+        : '-';
+    final divYieldText = divYield != null ? '$divYield%' : '-';
+    final high52Text = high52 != null ? '$high52 ج.م' : '-';
+    final low52Text = low52 != null ? '$low52 ج.م' : '-';
 
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        _buildDataRow('مضاعف الربحية (P/E)', '$pe'),
-        _buildDataRow('ربحية السهم (EPS)', '$eps'),
-        _buildDataRow('القيمة السوقية', '$mcap'),
-        _buildDataRow('عائد التوزيعات السنوي', '$divYield'),
-        _buildDataRow('أعلى سعر خلال 52 أسبوع', '$high52'),
-        _buildDataRow('أدنى سعر خلال 52 أسبوع', '$low52'),
+        _buildDataRow('مضاعف الربحية (P/E)', peText),
+        _buildDataRow('ربحية السهم (EPS)', epsText),
+        _buildDataRow('القيمة السوقية', mcapText),
+        _buildDataRow('عائد التوزيعات السنوي', divYieldText),
+        _buildDataRow('أعلى سعر خلال 52 أسبوع', high52Text),
+        _buildDataRow('أدنى سعر خلال 52 أسبوع', low52Text),
       ],
     );
   }
@@ -754,11 +937,43 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
       );
     }
 
-    final action = _recommendation?['action'] ?? 'BUY';
-    final target = _recommendation?['target_price'] ?? 34.00;
-    final stopLoss = _recommendation?['stop_loss'] ?? 27.00;
+    final action = _recommendation?['action'] ??
+        _recommendation?['recommendation'] ??
+        _recommendation?['signal'];
+    final target = _recommendation?['target_price'] ??
+        _recommendation?['target'];
+    final stopLoss = _recommendation?['stop_loss'] ??
+        _recommendation?['stop'];
     final reasons = _recommendation?['reasons'] as List? ??
-        ['مؤشرات فنية إيجابية', 'نمو الأرباح الربع سنوي'];
+        (_recommendation?['reason'] != null
+            ? [_recommendation!['reason']]
+            : null);
+
+    if (action == null && target == null && stopLoss == null) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(32.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.psychology_alt_outlined,
+                  size: 56, color: Colors.white24),
+              SizedBox(height: 12),
+              Text(
+                'لا توجد توصية نشطة حالياً لهذا السهم',
+                style: TextStyle(color: Colors.white70, fontSize: 14),
+              ),
+              SizedBox(height: 6),
+              Text(
+                'يتم تحديث التوصيات دورياً بناءً على إغلاقات الجلسة ونماذج التحليل',
+                style: TextStyle(color: Colors.white38, fontSize: 12),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+      );
+    }
 
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -784,7 +999,7 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
                       color: AppColors.quantumEmerald,
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: Text(action,
+                    child: Text(action?.toString() ?? 'HOLD',
                         style: const TextStyle(
                             color: Colors.black,
                             fontWeight: FontWeight.bold,
@@ -796,35 +1011,44 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
-                  _buildRecPriceMetric('السعر المستهدف', '$target ج.م',
+                  _buildRecPriceMetric(
+                      'السعر المستهدف',
+                      target != null ? '$target ج.م' : '-',
                       AppColors.quantumEmerald),
-                  _buildRecPriceMetric('إيقاف الخسارة', '$stopLoss ج.م',
+                  _buildRecPriceMetric(
+                      'إيقاف الخسارة',
+                      stopLoss != null ? '$stopLoss ج.م' : '-',
                       AppColors.quantumCrimson),
                 ],
               ),
             ],
           ),
         ),
-        const SizedBox(height: 16),
-        const Text('أسباب التوصية:',
-            style: TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-                fontSize: 15)),
-        const SizedBox(height: 8),
-        ...reasons.map((r) => Padding(
-              padding: const EdgeInsets.only(bottom: 6.0),
-              child: Row(
-                children: [
-                  const Icon(Icons.check_circle,
-                      color: AppColors.quantumEmerald, size: 16),
-                  const SizedBox(width: 8),
-                  Text(r.toString(),
-                      style: TextStyle(
-                          color: Colors.white.withOpacity(0.8), fontSize: 13)),
-                ],
-              ),
-            )),
+        if (reasons != null && reasons.isNotEmpty) ...[
+          const SizedBox(height: 16),
+          const Text('أسباب التوصية:',
+              style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 15)),
+          const SizedBox(height: 8),
+          ...reasons.map((r) => Padding(
+                padding: const EdgeInsets.only(bottom: 6.0),
+                child: Row(
+                  children: [
+                    const Icon(Icons.check_circle,
+                        color: AppColors.quantumEmerald, size: 16),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(r.toString(),
+                          style: TextStyle(
+                              color: Colors.white.withOpacity(0.8),
+                              fontSize: 13)),
+                    ),
+                  ],
+                ),
+              )),
+        ],
       ],
     );
   }

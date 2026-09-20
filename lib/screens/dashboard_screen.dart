@@ -548,23 +548,21 @@ class _DashboardScreenState extends State<DashboardScreen>
                 )
               else ...[
                 // Indices Horizontal Cards (EGX30, EGX70, etc.)
-                SliverToBoxAdapter(
-                  child: SizedBox(
-                    height: 145,
-                    child: ListView.builder(
-                      scrollDirection: Axis.horizontal,
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      itemCount: _indices.isNotEmpty ? _indices.length : 3,
-                      itemBuilder: (context, index) {
-                        if (_indices.isEmpty) {
-                          return _buildSampleIndexCard(index);
-                        }
-                        final item = _indices[index];
-                        return _buildIndexCard(item);
-                      },
+                if (_indices.isNotEmpty)
+                  SliverToBoxAdapter(
+                    child: SizedBox(
+                      height: 145,
+                      child: ListView.builder(
+                        scrollDirection: Axis.horizontal,
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        itemCount: _indices.length,
+                        itemBuilder: (context, index) {
+                          final item = _indices[index];
+                          return _buildIndexCard(item);
+                        },
+                      ),
                     ),
                   ),
-                ),
 
                 // Market Stats Banner (Turnover, Volume)
                 SliverToBoxAdapter(
@@ -1082,16 +1080,6 @@ class _DashboardScreenState extends State<DashboardScreen>
     );
   }
 
-  Widget _buildSampleIndexCard(int index) {
-    final names = ['EGX30', 'EGX70 EWI', 'EGX100 EWI'];
-    final values = ['30,450.20', '7,210.15', '10,340.80'];
-    final changes = [1.45, -0.62, 0.85];
-    return _buildIndexCard({
-      'name': names[index % 3],
-      'value': values[index % 3],
-      'change_percent': changes[index % 3],
-    });
-  }
 
   Widget _buildStatItem(String title, String value, IconData icon,
       {bool isStatus = false}) {
