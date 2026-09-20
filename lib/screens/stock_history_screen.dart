@@ -180,9 +180,9 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
         } catch (_) {}
       } else {
         // Cache to local database in background
-        try {
-          LocalDatabase.instance.insertStockHistory(widget.ticker, candles);
-        } catch (_) {}
+        LocalDatabase.instance.insertStockHistory(widget.ticker, candles).catchError((e) {
+          debugPrint('[StockHistoryScreen] cache error: $e');
+        });
       }
 
       _stockQuote = quote;

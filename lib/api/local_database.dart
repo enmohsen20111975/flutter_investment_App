@@ -84,6 +84,10 @@ class LocalDatabase {
     );
     if (tables.isEmpty) {
       await _createStockHistoryTable(db);
+    } else {
+      try {
+        await db.execute('ALTER TABLE stock_history ADD COLUMN date TEXT');
+      } catch (_) {}
     }
   }
 
@@ -135,19 +139,61 @@ class LocalDatabase {
     final db = await database;
     final batch = db.batch();
     for (final item in data) {
-      batch.insert(
-        'stock_history',
-        {
-          'ticker': ticker.toUpperCase(),
-          'timestamp': item['timestamp'] as int,
-          'open': (item['open'] as num).toDouble(),
-          'high': (item['high'] as num).toDouble(),
-          'low': (item['low'] as num).toDouble(),
-          'close': (item['close'] as num).toDouble(),
-          'volume': (item['volume'] as num?)?.toInt() ?? 0,
-        },
-        conflictAlgorithm: ConflictAlgorithm.replace,
-      );
+      int? timestamp;
+      String? dateStr;
+
+      final rawTs = item['timestamp'];
+      if (rawTs is num) {
+        final t = rawTs.toInt();
+        timestamp = t > 20000000000 ? t ~/ 1000 : t;
+        dateStr = DateTime.fromMillisecondsSinceEpoch(timestamp * 1000).toIso8601String().split('T').first;
+      }
+
+      final rawDate = (item['date'] ?? item['time'])?.toString();
+      if (rawDate != null && rawDate.isNotEmpty) {
+        dateStr = rawDate.split('T').first;
+        if (timestamp == null) {
+          final parsed = DateTime.tryParse(rawDate);
+          if (parsed != null) {
+            timestamp = parsed.millisecondsSinceEpoch ~/ 1000;
+          }
+        }
+      }
+
+      timestamp ??= DateTime.now().millisecondsSinceEpoch ~/ 1000;
+      dateStr ??= DateTime.fromMillisecondsSinceEpoch(timestamp * 1000).toIso8601String().split('T').first;
+
+      final close = (item['close'] as num?)?.toDouble() ??
+          (item['close_price'] as num?)?.toDouble() ??
+          (item['price'] as num?)?.toDouble() ??
+          0.0;
+      final open = (item['open'] as num?)?.toDouble() ??
+          (item['open_price'] as num?)?.toDouble() ??
+          close;
+      final high = (item['high'] as num?)?.toDouble() ??
+          (item['high_price'] as num?)?.toDouble() ??
+          (close > open ? close : open);
+      final low = (item['low'] as num?)?.toDouble() ??
+          (item['low_price'] as num?)?.toDouble() ??
+          (close < open ? close : open);
+      final volume = (item['volume'] as num?)?.toInt() ?? 0;
+
+      if (close > 0 || open > 0) {
+        batch.insert(
+          'stock_history',
+          {
+            'ticker': ticker.toUpperCase(),
+            'timestamp': timestamp,
+            'date': dateStr,
+            'open': open,
+            'high': high,
+            'low': low,
+            'close': close,
+            'volume': volume,
+          },
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+      }
     }
     await batch.commit(noResult: true);
     debugPrint('[DB] Inserted ${data.length} history records for $ticker');
@@ -156,22 +202,40 @@ class LocalDatabase {
   Future<List<Map<String, dynamic>>> getStockHistory(String ticker, {int days = 30}) async {
     final db = await database;
     final cutoff = DateTime.now().subtract(Duration(days: days)).millisecondsSinceEpoch ~/ 1000;
-    return db.query(
+    final rows = await db.query(
       'stock_history',
       where: 'ticker = ? AND timestamp >= ?',
       whereArgs: [ticker.toUpperCase(), cutoff],
       orderBy: 'timestamp ASC',
     );
+    return rows.map((row) {
+      final map = Map<String, dynamic>.from(row);
+      if (map['date'] == null && map['timestamp'] != null) {
+        final ts = (map['timestamp'] as int) * 1000;
+        map['date'] = DateTime.fromMillisecondsSinceEpoch(ts).toIso8601String().split('T').first;
+      }
+      map['time'] = map['date'];
+      return map;
+    }).toList();
   }
 
   Future<List<Map<String, dynamic>>> getAllStockHistory(String ticker) async {
     final db = await database;
-    return db.query(
+    final rows = await db.query(
       'stock_history',
       where: 'ticker = ?',
       whereArgs: [ticker.toUpperCase()],
       orderBy: 'timestamp ASC',
     );
+    return rows.map((row) {
+      final map = Map<String, dynamic>.from(row);
+      if (map['date'] == null && map['timestamp'] != null) {
+        final ts = (map['timestamp'] as int) * 1000;
+        map['date'] = DateTime.fromMillisecondsSinceEpoch(ts).toIso8601String().split('T').first;
+      }
+      map['time'] = map['date'];
+      return map;
+    }).toList();
   }
 
   Future<DateTime?> getLastHistoryTimestamp(String ticker) async {
