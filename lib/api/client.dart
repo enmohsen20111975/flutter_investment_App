@@ -1977,6 +1977,13 @@ class GLMApiClient {
             }
           }
           // Normalize 21k, 24k, 18k shortcuts
+          if (result['gold_prices'] is Map) {
+            final gp = result['gold_prices'] as Map;
+            result['21k'] ??= gp['karat_21'] ?? gp['21k'];
+            result['24k'] ??= gp['karat_24'] ?? gp['24k'];
+            result['18k'] ??= gp['karat_18'] ?? gp['18k'];
+            result['silver'] ??= gp['silver'];
+          }
           if (result['summary'] is Map) {
             final sum = result['summary'] as Map;
             result['21k'] ??= sum['gold_21k'] ?? sum['21k'];

@@ -258,16 +258,25 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
             : double.tryParse(change.toString()) ?? 0.0;
         final bool isUp = changeNum >= 0;
 
-        final highVal = _stockQuote?['high_price'] ??
-            _stockQuote?['high'] ??
-            (_candles.isNotEmpty
+        final rawHigh = _stockQuote?['high_price'] ?? _stockQuote?['high'];
+        final num? highNum = rawHigh is num
+            ? rawHigh
+            : (rawHigh != null ? num.tryParse(rawHigh.toString()) : null);
+        final highVal = (highNum != null && highNum > 0)
+            ? highNum
+            : (_candles.isNotEmpty
                 ? _candles
                     .map((c) => (c['high'] as num?) ?? 0)
                     .reduce((a, b) => a > b ? a : b)
                 : null);
-        final lowVal = _stockQuote?['low_price'] ??
-            _stockQuote?['low'] ??
-            (_candles.isNotEmpty
+
+        final rawLow = _stockQuote?['low_price'] ?? _stockQuote?['low'];
+        final num? lowNum = rawLow is num
+            ? rawLow
+            : (rawLow != null ? num.tryParse(rawLow.toString()) : null);
+        final lowVal = (lowNum != null && lowNum > 0)
+            ? lowNum
+            : (_candles.isNotEmpty
                 ? _candles
                     .map((c) => (c['low'] as num?) ?? 999999)
                     .reduce((a, b) => a < b ? a : b)
@@ -275,8 +284,8 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
         final volVal = _stockQuote?['volume'] ??
             (_candles.isNotEmpty ? _candles.last['value'] : null);
 
-        final highText = highVal != null ? '$highVal' : '-';
-        final lowText = (lowVal != null && lowVal != 999999) ? '$lowVal' : '-';
+        final highText = (highVal != null && highVal > 0) ? '$highVal' : '-';
+        final lowText = (lowVal != null && lowVal > 0 && lowVal != 999999) ? '$lowVal' : '-';
         final volText = volVal != null
             ? (volVal is num && volVal >= 1000000
                 ? '${(volVal / 1000000).toStringAsFixed(1)}M'

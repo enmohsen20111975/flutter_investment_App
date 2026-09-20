@@ -721,7 +721,12 @@ class _DashboardScreenState extends State<DashboardScreen>
     dynamic p24 = _goldData?['24k'] ?? _goldData?['price_24k'];
     dynamic p18 = _goldData?['18k'] ?? _goldData?['price_18k'];
 
-    if (_goldData?['gold_prices'] is List) {
+    if (_goldData?['gold_prices'] is Map) {
+      final gp = _goldData!['gold_prices'] as Map;
+      p21 ??= gp['karat_21'] ?? gp['21k'];
+      p24 ??= gp['karat_24'] ?? gp['24k'];
+      p18 ??= gp['karat_18'] ?? gp['18k'];
+    } else if (_goldData?['gold_prices'] is List) {
       for (final item in _goldData!['gold_prices'] as List) {
         if (item is Map) {
           final k = item['key']?.toString() ?? item['karat']?.toString() ?? '';
@@ -732,9 +737,9 @@ class _DashboardScreenState extends State<DashboardScreen>
         }
       }
     }
-    p21 ??= 3850;
-    p24 ??= 4400;
-    p18 ??= 3300;
+
+    final p21Text = (p21 != null && p21 != 0) ? '$p21 ج.م' : '-';
+    final p24Text = (p24 != null && p24 != 0) ? '$p24 ج.م' : '-';
 
     return InkWell(
       onTap: () {
@@ -772,7 +777,7 @@ class _DashboardScreenState extends State<DashboardScreen>
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 const Text('عيار 21:', style: TextStyle(color: Colors.white70, fontSize: 12)),
-                Text('$p21 ج.م', style: const TextStyle(color: AppColors.quantumGold, fontWeight: FontWeight.bold, fontSize: 13)),
+                Text(p21Text, style: const TextStyle(color: AppColors.quantumGold, fontWeight: FontWeight.bold, fontSize: 13)),
               ],
             ),
             const SizedBox(height: 4),
@@ -780,7 +785,7 @@ class _DashboardScreenState extends State<DashboardScreen>
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 const Text('عيار 24:', style: TextStyle(color: Colors.white54, fontSize: 11)),
-                Text('$p24 ج.م', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 12)),
+                Text(p24Text, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 12)),
               ],
             ),
             const SizedBox(height: 8),
@@ -804,20 +809,25 @@ class _DashboardScreenState extends State<DashboardScreen>
     dynamic eurRate;
     dynamic sarRate;
 
-    if (_currencyData?['currency_rates'] is List) {
-      for (final item in _currencyData!['currency_rates'] as List) {
+    final ratesList = _currencyData?['currency_rates'] ?? _currencyData?['rates'] ?? _currencyData?['data'];
+    if (ratesList is List) {
+      for (final item in ratesList) {
         if (item is Map) {
-          final code = item['code']?.toString() ?? item['symbol']?.toString() ?? '';
-          final r = item['rate_to_egp'] ?? item['buy_rate'] ?? item['rate'] ?? item['price'];
-          if (code == 'USD') usdRate ??= r;
-          if (code == 'EUR') eurRate ??= r;
-          if (code == 'SAR') sarRate ??= r;
+          final code = (item['code'] ?? item['symbol'] ?? item['currency'] ?? '').toString().toUpperCase();
+          final r = item['rate_to_egp'] ?? item['buy_rate'] ?? item['rate'] ?? item['price'] ?? item['sell_rate'];
+          if (code.contains('USD')) usdRate ??= r;
+          if (code.contains('EUR')) eurRate ??= r;
+          if (code.contains('SAR')) sarRate ??= r;
         }
       }
+    } else if (_currencyData is Map) {
+      usdRate ??= _currencyData?['USD'] ?? _currencyData?['usd'];
+      eurRate ??= _currencyData?['EUR'] ?? _currencyData?['eur'];
+      sarRate ??= _currencyData?['SAR'] ?? _currencyData?['sar'];
     }
-    usdRate ??= 50.5;
-    eurRate ??= 54.8;
-    sarRate ??= 13.5;
+
+    final usdText = (usdRate != null && usdRate != 0) ? '$usdRate ج.م' : '-';
+    final eurText = (eurRate != null && eurRate != 0) ? '$eurRate ج.م' : '-';
 
     return InkWell(
       onTap: () {
@@ -855,7 +865,7 @@ class _DashboardScreenState extends State<DashboardScreen>
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 const Text('USD / EGP:', style: TextStyle(color: Colors.white70, fontSize: 12)),
-                Text('$usdRate ج.م', style: const TextStyle(color: AppColors.info, fontWeight: FontWeight.bold, fontSize: 13)),
+                Text(usdText, style: const TextStyle(color: AppColors.info, fontWeight: FontWeight.bold, fontSize: 13)),
               ],
             ),
             const SizedBox(height: 4),
@@ -863,7 +873,7 @@ class _DashboardScreenState extends State<DashboardScreen>
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 const Text('EUR / EGP:', style: TextStyle(color: Colors.white54, fontSize: 11)),
-                Text('$eurRate ج.م', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 12)),
+                Text(eurText, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 12)),
               ],
             ),
             const SizedBox(height: 8),
