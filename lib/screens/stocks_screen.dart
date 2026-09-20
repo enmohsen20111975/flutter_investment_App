@@ -199,9 +199,9 @@ class _StocksScreenState extends State<StocksScreen>
           backgroundColor: AppColors.surface,
           elevation: 0,
           title: Text(_marketTitle,
-              style: const TextStyle(fontWeight: FontWeight.w800)),
+              style: const TextStyle(fontWeight: FontWeight.w800, color: AppColors.text)),
           leading: IconButton(
-              icon: const Icon(Icons.arrow_back),
+              icon: const Icon(Icons.arrow_back, color: AppColors.text),
               onPressed: () => Navigator.pop(context)),
         ),
         body: Column(
@@ -212,22 +212,27 @@ class _StocksScreenState extends State<StocksScreen>
               color: AppColors.surface,
               child: TextField(
                 controller: _searchCtrl,
+                style: const TextStyle(color: AppColors.text),
                 decoration: InputDecoration(
                   hintText: 'ابحث عن سهم...',
-                  prefixIcon: const Icon(Icons.search, size: 20),
+                  hintStyle: const TextStyle(color: AppColors.textMuted),
+                  prefixIcon: const Icon(Icons.search, size: 20, color: AppColors.textMuted),
                   suffixIcon: _query.isNotEmpty
                       ? IconButton(
-                          icon: const Icon(Icons.clear),
+                          icon: const Icon(Icons.clear, color: AppColors.textMuted),
                           onPressed: () {
                             _searchCtrl.clear();
                             _onSearchChanged('');
                           })
                       : null,
                   filled: true,
-                  fillColor: AppColors.background,
+                  fillColor: AppColors.surfaceMuted,
                   border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide.none),
+                      borderSide: const BorderSide(color: AppColors.border)),
+                  enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(color: AppColors.border)),
                 ),
                 onChanged: _onSearchChanged,
               ),
@@ -239,11 +244,32 @@ class _StocksScreenState extends State<StocksScreen>
               child: Row(children: [
                 Expanded(
                   child: SegmentedButton<String>(
+                    style: ButtonStyle(
+                      backgroundColor: WidgetStateProperty.resolveWith((states) {
+                        if (states.contains(WidgetState.selected)) {
+                          if (_movementFilter == 'gainers') return AppColors.success.withValues(alpha: 0.2);
+                          if (_movementFilter == 'losers') return AppColors.danger.withValues(alpha: 0.2);
+                          return AppColors.primary.withValues(alpha: 0.25);
+                        }
+                        return AppColors.surfaceMuted;
+                      }),
+                      foregroundColor: WidgetStateProperty.resolveWith((states) {
+                        if (states.contains(WidgetState.selected)) {
+                          if (_movementFilter == 'gainers') return AppColors.success;
+                          if (_movementFilter == 'losers') return AppColors.danger;
+                          return AppColors.primaryLight;
+                        }
+                        return AppColors.textSecondary;
+                      }),
+                      side: WidgetStateProperty.all(
+                        const BorderSide(color: AppColors.border),
+                      ),
+                    ),
                     segments: const [
-                      ButtonSegment(value: 'gainers', label: Text('المرتفعة')),
-                      ButtonSegment(value: 'losers', label: Text('المنخفضة')),
+                      ButtonSegment(value: 'gainers', label: Text('المرتفعة', style: TextStyle(fontWeight: FontWeight.w600))),
+                      ButtonSegment(value: 'losers', label: Text('المنخفضة', style: TextStyle(fontWeight: FontWeight.w600))),
                       ButtonSegment(
-                          value: 'active', label: Text('الأكثر نشاطاً')),
+                          value: 'active', label: Text('الأكثر نشاطاً', style: TextStyle(fontWeight: FontWeight.w600))),
                     ],
                     selected: {_movementFilter},
                     onSelectionChanged: (val) {
@@ -253,7 +279,8 @@ class _StocksScreenState extends State<StocksScreen>
                 ),
                 IconButton(
                   icon: Icon(
-                      _showMovers ? Icons.visibility_off : Icons.visibility),
+                      _showMovers ? Icons.visibility_off : Icons.visibility,
+                      color: AppColors.textMuted),
                   onPressed: () => setState(() => _showMovers = !_showMovers),
                 ),
               ]),
@@ -354,12 +381,12 @@ class _StocksScreenState extends State<StocksScreen>
                     children: [
                       Text(ticker,
                           style: const TextStyle(
-                              fontWeight: FontWeight.w700, fontSize: 13),
+                              fontWeight: FontWeight.w700, fontSize: 13, color: AppColors.text),
                           overflow: TextOverflow.ellipsis,
                           maxLines: 1),
                       const SizedBox(height: 4),
                       Text(price.toStringAsFixed(2),
-                          style: const TextStyle(fontSize: 12)),
+                          style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
                       const SizedBox(height: 4),
                       Container(
                         padding: const EdgeInsets.symmetric(
@@ -500,7 +527,7 @@ class _StockCard extends StatelessWidget {
                   children: [
                 Text(stock.nameAr ?? stock.name ?? stock.ticker,
                     style: const TextStyle(
-                        fontWeight: FontWeight.w700, fontSize: 14)),
+                        fontWeight: FontWeight.w700, fontSize: 14, color: AppColors.text)),
                 if (stock.ticker.isNotEmpty)
                   Text(stock.ticker,
                       style: const TextStyle(
@@ -509,7 +536,7 @@ class _StockCard extends StatelessWidget {
           Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
             Text(price,
                 style:
-                    const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                    const TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: AppColors.text)),
             if (changePercent != 0)
               Text('${isUp ? '+' : ''}${changePercent.toStringAsFixed(2)}%',
                   style: TextStyle(

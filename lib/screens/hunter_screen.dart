@@ -132,7 +132,7 @@ class _HunterScreenState extends State<HunterScreen>
           backgroundColor: AppColors.surface,
           elevation: 0,
           title: const Text('الصياد - الفرص الانفجارية',
-              style: TextStyle(fontWeight: FontWeight.w800)),
+              style: TextStyle(fontWeight: FontWeight.w800, color: AppColors.text)),
           leading: IconButton(
             icon: const Icon(Icons.arrow_back),
             onPressed: () => Navigator.pop(context),
@@ -244,20 +244,21 @@ class _HunterScreenState extends State<HunterScreen>
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [AppColors.primaryDark, AppColors.primary],
+          colors: [Color(0xFF1E293B), Color(0xFF0F172A)],
           begin: Alignment.topRight,
           end: Alignment.bottomLeft,
         ),
         borderRadius: BorderRadius.circular(AppRadius.lg),
+        border: Border.all(color: AppColors.primary.withValues(alpha: 0.4)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              const Icon(Icons.bolt_rounded, color: AppColors.white, size: 22),
+              const Icon(Icons.bolt_rounded, color: AppColors.warning, size: 22),
               const SizedBox(width: 8),
-              Text('ملخص المسح', style: AppTypography.titleMedium.copyWith(color: AppColors.white)),
+              Text('ملخص المسح', style: AppTypography.titleMedium.copyWith(color: AppColors.text)),
             ],
           ),
           const SizedBox(height: 12),
@@ -266,18 +267,18 @@ class _HunterScreenState extends State<HunterScreen>
             runSpacing: 8,
             children: [
               _summaryChip('تم مسح', '$scanned سهم'),
-              _summaryChip('فرص انفجارية', '$totalCandidates'),
+              _summaryChip('فرص انفجارية', '$totalCandidates', color: AppColors.warning),
               _summaryChip('مضارب (gambler)', '$gamblerBuys شراء', color: AppColors.danger),
-              _summaryChip('متوازن (balanced)', '$balancedBuys شراء', color: AppColors.warning),
-              _summaryChip('محافظ (conservative)', '$conservativeBuys شراء', color: AppColors.info),
+              _summaryChip('متوازن (balanced)', '$balancedBuys شراء', color: AppColors.secondaryLight),
+              _summaryChip('محافظ (conservative)', '$conservativeBuys شراء', color: AppColors.success),
             ],
           ),
           const SizedBox(height: 8),
           Text(
             'عرض $shownCount فرصة — تحديث بالسحب للأسفل',
-            style: TextStyle(
+            style: const TextStyle(
               fontSize: 11,
-              color: AppColors.white.withValues(alpha: 0.7),
+              color: AppColors.textMuted,
             ),
           ),
         ],
@@ -286,21 +287,21 @@ class _HunterScreenState extends State<HunterScreen>
   }
 
   Widget _summaryChip(String label, String value, {Color? color}) {
-    final c = color ?? AppColors.white;
+    final c = color ?? AppColors.text;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: c.withValues(alpha: 0.18),
+        color: AppColors.surfaceMuted,
         borderRadius: BorderRadius.circular(AppRadius.full),
-        border: Border.all(color: c.withValues(alpha: 0.4)),
+        border: Border.all(color: c.withValues(alpha: 0.5)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Text('$label: ',
-              style: TextStyle(
+              style: const TextStyle(
                   fontSize: 11,
-                  color: AppColors.white.withValues(alpha: 0.85))),
+                  color: AppColors.textSecondary)),
           Text(value,
               style: TextStyle(
                   fontSize: 12, fontWeight: FontWeight.w700, color: c)),
@@ -335,9 +336,9 @@ class _HunterScreenState extends State<HunterScreen>
         borderRadius: BorderRadius.circular(AppRadius.lg),
         border: Border.all(
           color: explosiveScore >= 80
-              ? scoreColor.withValues(alpha: 0.5)
+              ? scoreColor.withValues(alpha: 0.6)
               : AppColors.border,
-          width: explosiveScore >= 85 ? 2 : 1,
+          width: explosiveScore >= 85 ? 1.5 : 1,
         ),
       ),
       child: Column(
@@ -347,12 +348,12 @@ class _HunterScreenState extends State<HunterScreen>
           Row(children: [
             Text('#$rankIndex',
                 style: const TextStyle(
-                    fontSize: 11, color: AppColors.textMuted)),
+                    fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textMuted)),
             const SizedBox(width: 8),
             Expanded(
               child: Text(ticker,
                   style: const TextStyle(
-                      fontSize: 16, fontWeight: FontWeight.w800)),
+                      fontSize: 16, fontWeight: FontWeight.w800, color: AppColors.text)),
             ),
             // Explosive score circle
             SizedBox(
@@ -377,16 +378,16 @@ class _HunterScreenState extends State<HunterScreen>
           // ── Row 2: maestro score + current price ──
           Row(children: [
             _infoBlock('نتيجة Maestro', '${maestroScore.toInt()}',
-                color: AppColors.primary),
+                color: AppColors.secondaryLight),
             const SizedBox(width: 12),
             if (currentPrice != null)
               _infoBlock('السعر الحالي', currentPrice.toStringAsFixed(2),
-                  color: AppColors.textSecondary),
+                  color: AppColors.text),
           ]),
           const SizedBox(height: 12),
           // ── Row 3: 3-persona coverage badges ──
           const Text('تغطية الشخصيات',
-              style: TextStyle(fontSize: 11, color: AppColors.textMuted)),
+              style: TextStyle(fontSize: 11, color: AppColors.textSecondary, fontWeight: FontWeight.w600)),
           const SizedBox(height: 6),
           Row(
             children: [
@@ -404,10 +405,11 @@ class _HunterScreenState extends State<HunterScreen>
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
                   color: AppColors.surfaceMuted,
-                  borderRadius: BorderRadius.circular(AppRadius.md)),
+                  borderRadius: BorderRadius.circular(AppRadius.md),
+                  border: Border.all(color: AppColors.borderLight.withValues(alpha: 0.5))),
               child: Text(reasons,
                   style: const TextStyle(
-                      fontSize: 11, color: AppColors.textSecondary)),
+                      fontSize: 11, color: AppColors.textSecondary, height: 1.4)),
             ),
           ],
         ],

@@ -501,14 +501,15 @@ class _MainNavigatorState extends State<MainNavigator> {
         floatingActionButton: Container(
           decoration: BoxDecoration(
             gradient: const LinearGradient(
-              colors: [AppColors.quantumEmerald, AppColors.quantumGold],
+              colors: [Color(0xFF4F46E5), Color(0xFF0EA5E9)],
             ),
             borderRadius: BorderRadius.circular(30),
             boxShadow: [
               BoxShadow(
-                color: AppColors.quantumEmerald.withValues(alpha: 0.4),
-                blurRadius: 16,
-                spreadRadius: 2,
+                color: const Color(0xFF4F46E5).withValues(alpha: 0.35),
+                blurRadius: 14,
+                spreadRadius: 1,
+                offset: const Offset(0, 4),
               ),
             ],
           ),
@@ -516,24 +517,22 @@ class _MainNavigatorState extends State<MainNavigator> {
             onPressed: () => _showQuickHubModal(context),
             backgroundColor: Colors.transparent,
             elevation: 0,
-            icon: const Icon(Icons.bolt_rounded, color: Colors.black, size: 22),
+            icon: const Icon(Icons.bolt_rounded, color: Color(0xFFFACC15), size: 22),
             label: const Text(
               'الأوامر السريعة',
-              style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 13),
+              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
             ),
           ),
         ),
         bottomNavigationBar: Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              colors: [AppColors.surface, AppColors.surfaceMuted],
-            ),
-            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            border: const Border(top: BorderSide(color: AppColors.border, width: 1)),
             boxShadow: [
               BoxShadow(
-                color: AppColors.primary,
-                blurRadius: 20,
-                offset: Offset(0, -4),
+                color: Colors.black.withValues(alpha: 0.35),
+                blurRadius: 16,
+                offset: const Offset(0, -4),
               ),
             ],
           ),
@@ -543,7 +542,7 @@ class _MainNavigatorState extends State<MainNavigator> {
             type: BottomNavigationBarType.fixed,
             backgroundColor: Colors.transparent,
             elevation: 0,
-            selectedItemColor: AppColors.primaryGlow,
+            selectedItemColor: AppColors.primaryLight,
             unselectedItemColor: AppColors.textMuted,
             selectedFontSize: 11,
             unselectedFontSize: 10,

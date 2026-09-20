@@ -108,7 +108,7 @@ class _MetalsScreenState extends State<MetalsScreen> {
           elevation: 0,
           title: const Text('الذهب والمعادن',
               style:
-                  TextStyle(fontFamily: 'Cairo', fontWeight: FontWeight.bold)),
+                  TextStyle(fontFamily: 'Cairo', fontWeight: FontWeight.bold, color: AppColors.text)),
           leading: IconButton(
             icon: const Icon(Icons.arrow_back),
             onPressed: () => Navigator.pop(context),
@@ -262,20 +262,23 @@ class _MetalsScreenState extends State<MetalsScreen> {
                 color: AppColors.textDark),
           ),
           const SizedBox(height: 4),
-          Row(
-            children: [
-              Icon(isUp ? Icons.arrow_upward : Icons.arrow_downward,
-                  color: isUp ? Colors.green[800] : Colors.red[800], size: 14),
-              const SizedBox(width: 4),
-              Text(
-                '${isUp ? '+' : ''}${ounce.change?.toStringAsFixed(0)} ج.م',
-                style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                    color: isUp ? Colors.green[800] : Colors.red[800]),
-              ),
-            ],
-          ),
+          if (ounce.change != null) ...[
+            const SizedBox(height: 4),
+            Row(
+              children: [
+                Icon(isUp ? Icons.arrow_upward : Icons.arrow_downward,
+                    color: isUp ? AppColors.success : AppColors.danger, size: 14),
+                const SizedBox(width: 4),
+                Text(
+                  '${isUp ? '+' : ''}${ounce.change!.toStringAsFixed(0)} ج.م',
+                  style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: isUp ? AppColors.success : AppColors.danger),
+                ),
+              ],
+            ),
+          ],
         ],
       ),
     );
@@ -312,21 +315,23 @@ class _MetalsScreenState extends State<MetalsScreen> {
                 fontWeight: FontWeight.w900,
                 color: AppColors.text),
           ),
-          const SizedBox(height: 4),
-          Row(
-            children: [
-              Icon(isUp ? Icons.trending_up : Icons.trending_down,
-                  color: isUp ? AppColors.success : AppColors.danger, size: 14),
-              const SizedBox(width: 4),
-              Text(
-                '${isUp ? '+' : ''}${silver.change?.toStringAsFixed(1)} ج.م',
-                style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                    color: isUp ? AppColors.success : AppColors.danger),
-              ),
-            ],
-          ),
+          if (silver.change != null) ...[
+            const SizedBox(height: 4),
+            Row(
+              children: [
+                Icon(isUp ? Icons.trending_up : Icons.trending_down,
+                    color: isUp ? AppColors.success : AppColors.danger, size: 14),
+                const SizedBox(width: 4),
+                Text(
+                  '${isUp ? '+' : ''}${silver.change!.toStringAsFixed(1)} ج.م',
+                  style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: isUp ? AppColors.success : AppColors.danger),
+                ),
+              ],
+            ),
+          ],
         ],
       ),
     );
@@ -358,21 +363,23 @@ class _MetalsScreenState extends State<MetalsScreen> {
                 fontWeight: FontWeight.w800,
                 color: AppColors.white),
           ),
-          const SizedBox(height: 4),
-          Row(
-            children: [
-              Icon(isUp ? Icons.arrow_upward : Icons.arrow_downward,
-                  color: isUp ? AppColors.success : AppColors.danger, size: 12),
-              const SizedBox(width: 4),
-              Text(
-                '${isUp ? '+' : ''}${karat.change?.toStringAsFixed(0)}',
-                style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
-                    color: isUp ? AppColors.success : AppColors.danger),
-              ),
-            ],
-          ),
+          if (karat.change != null) ...[
+            const SizedBox(height: 4),
+            Row(
+              children: [
+                Icon(isUp ? Icons.arrow_upward : Icons.arrow_downward,
+                    color: isUp ? AppColors.success : AppColors.danger, size: 12),
+                const SizedBox(width: 4),
+                Text(
+                  '${isUp ? '+' : ''}${karat.change!.toStringAsFixed(0)}',
+                  style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: isUp ? AppColors.success : AppColors.danger),
+                ),
+              ],
+            ),
+          ],
         ],
       ),
     );

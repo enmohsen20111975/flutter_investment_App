@@ -911,7 +911,7 @@ class _DashboardScreenState extends State<DashboardScreen>
               child: const Text('عرض الكل',
                   style: TextStyle(
                       fontSize: 11,
-                      color: AppColors.primary,
+                      color: AppColors.primaryLight,
                       fontWeight: FontWeight.w600)),
             ),
           ]),
@@ -927,7 +927,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                       width: 22,
                       height: 22,
                       child: CircularProgressIndicator(
-                          strokeWidth: 2, color: AppColors.primary),
+                          strokeWidth: 2, color: AppColors.primaryLight),
                     ),
                   ),
                 );
@@ -955,8 +955,9 @@ class _DashboardScreenState extends State<DashboardScreen>
               width: double.infinity,
               padding: const EdgeInsets.symmetric(vertical: 10),
               decoration: BoxDecoration(
-                color: AppColors.primaryMuted,
+                color: AppColors.primaryContainer,
                 borderRadius: BorderRadius.circular(AppRadius.md),
+                border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
               ),
               alignment: Alignment.center,
               child: const Text(
@@ -964,7 +965,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                 style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w700,
-                    color: AppColors.primary),
+                    color: AppColors.primaryLight),
               ),
             ),
           ),
@@ -981,7 +982,7 @@ class _DashboardScreenState extends State<DashboardScreen>
         : score >= 70
             ? AppColors.success
             : score >= 55
-                ? AppColors.primary
+                ? AppColors.secondaryLight
                 : AppColors.warning;
     return GestureDetector(
       onTap: () => Navigator.push(
@@ -998,7 +999,7 @@ class _DashboardScreenState extends State<DashboardScreen>
           Expanded(
             child: Text(ticker,
                 style:
-                    const TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
+                    const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.text)),
           ),
           const SizedBox(width: 8),
           Container(
