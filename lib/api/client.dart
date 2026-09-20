@@ -1918,6 +1918,7 @@ class GLMApiClient {
       key: 'gold_data',
       ttl: ApiCacheManager.marketTtl,
       fetcher: () async {
+        Map<String, dynamic>? raw;
         try {
           final response = await _dio.get('/api/market/gold');
           if (response.data is Map && (response.data as Map).isNotEmpty) {
