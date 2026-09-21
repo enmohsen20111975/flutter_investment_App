@@ -72,10 +72,12 @@ class AppColors {
   static const Color textSecondaryDark = Color(0xFF475569);
   static const Color textMutedDark = Color(0xFF94A3B8);
 
-  // Modern Borders
+  // Modern Borders & Cards
   static const Color border = Color(0xFF1E293B);
   static const Color borderLight = Color(0xFF334155);
   static const Color borderDark = Color(0xFF475569);
+  static const Color card = Color(0xFF162032);
+  static const Color cardBorder = Color(0xFF26354D);
 
   // Chart Colors
   static const Color chartUp = Color(0xFF10B981);

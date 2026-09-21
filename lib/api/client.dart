@@ -4012,6 +4012,90 @@ class GLMApiClient {
       return {};
     }
   }
+
+  /// GET /api/stocks/[ticker]/comprehensive?market=EGX
+  /// Mega-unified endpoint that bundles basic, price, keyMetrics, technical,
+  /// maestro, hunter, board, news, predictions, and professional analysis.
+  Future<Map<String, dynamic>> getStockComprehensive(String ticker, {String market = 'EGX'}) async {
+    try {
+      final response = await _dio.get(
+        '/api/stocks/${Uri.encodeComponent(ticker.toUpperCase())}/comprehensive',
+        queryParameters: {'market': market},
+      );
+      return response.data is Map<String, dynamic>
+          ? response.data as Map<String, dynamic>
+          : <String, dynamic>{};
+    } catch (e) {
+      debugPrint('[API] getStockComprehensive($ticker) failed: $e');
+      return {};
+    }
+  }
+
+  /// GET /api/stock-profile/[ticker]
+  /// Returns deep fundamentals, financial statements (balance sheet, income statement,
+  /// cash flow), valuation multiples, profitability ratios, and financial health score.
+  Future<Map<String, dynamic>> getStockProfile(String ticker) async {
+    try {
+      final response = await _dio.get(
+        '/api/stock-profile/${Uri.encodeComponent(ticker.toUpperCase())}',
+      );
+      if (response.data is Map<String, dynamic>) {
+        final map = response.data as Map<String, dynamic>;
+        if (map['data'] is Map<String, dynamic>) {
+          return map['data'] as Map<String, dynamic>;
+        }
+        return map;
+      }
+      return {};
+    } catch (e) {
+      debugPrint('[API] getStockProfile($ticker) failed: $e');
+      return {};
+    }
+  }
+
+  /// GET /api/flow/[ticker]
+  /// Returns Smart Money Flow Score, Macro flow, Sector flow, Stock flow,
+  /// Cross validation, target percentage, and stop loss.
+  Future<Map<String, dynamic>> getStockFlow(String ticker) async {
+    try {
+      final response = await _dio.get(
+        '/api/flow/${Uri.encodeComponent(ticker.toUpperCase())}',
+      );
+      if (response.data is Map<String, dynamic>) {
+        final map = response.data as Map<String, dynamic>;
+        if (map['data'] is Map<String, dynamic>) {
+          return map['data'] as Map<String, dynamic>;
+        }
+        return map;
+      }
+      return {};
+    } catch (e) {
+      debugPrint('[API] getStockFlow($ticker) failed: $e');
+      return {};
+    }
+  }
+
+  /// GET /api/explosive/[ticker]
+  /// Returns Explosive Opportunity scanner status, volume ratio, pattern,
+  /// price position, surge score, stop loss, and target.
+  Future<Map<String, dynamic>> getStockExplosive(String ticker) async {
+    try {
+      final response = await _dio.get(
+        '/api/explosive/${Uri.encodeComponent(ticker.toUpperCase())}',
+      );
+      if (response.data is Map<String, dynamic>) {
+        final map = response.data as Map<String, dynamic>;
+        if (map['data'] is Map<String, dynamic>) {
+          return map['data'] as Map<String, dynamic>;
+        }
+        return map;
+      }
+      return {};
+    } catch (e) {
+      debugPrint('[API] getStockExplosive($ticker) failed: $e');
+      return {};
+    }
+  }
 }
 
 // Top-level getter for backward compatibility

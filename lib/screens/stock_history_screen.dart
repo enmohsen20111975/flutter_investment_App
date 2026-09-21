@@ -1,6 +1,7 @@
 // ============================================================================
 // مساعد الاستثمار Flutter - Stock Details & TradingView Live Chart Screen
-// Quantum Luxury Dark Theme with Live Chart, Orderbook, Disclosures & Fundamentals
+// Quantum Luxury Dark Theme with Live Chart, Orderbook, Disclosures,
+// Deep Fundamentals, Flow Scores, Maestro Personas & Marketing Share System
 // ============================================================================
 
 import 'dart:async';
@@ -13,7 +14,7 @@ import '../models/types.dart';
 import '../widgets/tradingview_chart.dart';
 import '../widgets/upgrade_modal.dart';
 import '../services/subscription_service.dart';
-import '../core/app_localizations.dart';
+import '../core/official_links.dart';
 
 class StockHistoryScreen extends StatefulWidget {
   final String ticker;
@@ -34,6 +35,10 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
   List<CompanyDisclosure> _disclosures = [];
   Map<String, dynamic>? _fundamentals;
   Map<String, dynamic>? _recommendation;
+  Map<String, dynamic>? _comprehensive;
+  Map<String, dynamic>? _profile;
+  Map<String, dynamic>? _flow;
+  Map<String, dynamic>? _explosive;
   List<Map<String, dynamic>> _candles = [];
   List<Map<String, dynamic>> _volumes = [];
   Future<dynamic>? _newsFuture;
@@ -42,7 +47,7 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 5, vsync: this);
+    _tabController = TabController(length: 6, vsync: this);
     _tabController.addListener(_onTabChanged);
     _refreshDetails();
     _cacheSubscription = ApiCacheManager.instance.updates.where((key) {
@@ -51,7 +56,10 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
           key.startsWith('stock_orderbook_${widget.ticker}') ||
           key.startsWith('stock_disclosures_${widget.ticker}') ||
           key.startsWith('stock_fundamentals_${widget.ticker}') ||
-          key.startsWith('stock_recommendation_${widget.ticker}');
+          key.startsWith('stock_recommendation_${widget.ticker}') ||
+          key.startsWith('stock_comprehensive_${widget.ticker}') ||
+          key.startsWith('stock_profile_${widget.ticker}') ||
+          key.startsWith('stock_flow_${widget.ticker}');
     }).listen((key) {
       if (mounted) {
         if (key == 'stock_news_${widget.ticker}' && _newsFuture != null) {
@@ -66,7 +74,7 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
   }
 
   void _onTabChanged() {
-    if (_tabController.index == 3 && _newsFuture == null && mounted) {
+    if (_tabController.index == 5 && _newsFuture == null && mounted) {
       setState(() {
         _newsFuture = GLMApiClient.instance.getStockNews(widget.ticker);
       });
@@ -107,7 +115,19 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
         GLMApiClient.instance
             .getStockHistory(widget.ticker, days: 90)
             .catchError((_) => StockHistoryResponse(data: [], summary: null)),
-      ]).timeout(const Duration(seconds: 15));
+        GLMApiClient.instance
+            .getStockComprehensive(widget.ticker)
+            .catchError((_) => <String, dynamic>{}),
+        GLMApiClient.instance
+            .getStockProfile(widget.ticker)
+            .catchError((_) => <String, dynamic>{}),
+        GLMApiClient.instance
+            .getStockFlow(widget.ticker)
+            .catchError((_) => <String, dynamic>{}),
+        GLMApiClient.instance
+            .getStockExplosive(widget.ticker)
+            .catchError((_) => <String, dynamic>{}),
+      ]).timeout(const Duration(seconds: 25));
 
       final quote = results[0] is Map
           ? results[0] as Map<String, dynamic>
@@ -123,6 +143,18 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
           ? results[4] as Map<String, dynamic>
           : <String, dynamic>{};
       final historyRes = results[5] as StockHistoryResponse;
+      final comprehensive = results[6] is Map
+          ? results[6] as Map<String, dynamic>
+          : <String, dynamic>{};
+      final profile = results[7] is Map
+          ? results[7] as Map<String, dynamic>
+          : <String, dynamic>{};
+      final flow = results[8] is Map
+          ? results[8] as Map<String, dynamic>
+          : <String, dynamic>{};
+      final explosive = results[9] is Map
+          ? results[9] as Map<String, dynamic>
+          : <String, dynamic>{};
 
       final candles = <Map<String, dynamic>>[];
       final volumes = <Map<String, dynamic>>[];
@@ -154,7 +186,7 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
           final localHistory =
               await LocalDatabase.instance.getStockHistory(widget.ticker);
           for (final row in localHistory) {
-            final d = (row['date'] ?? '').toString().split('T').first;
+            final d = (row['date'] ?? row['time'] ?? '').toString().split('T').first;
             final c = (row['close'] as num?)?.toDouble();
             if (d.isNotEmpty && c != null) {
               final o = (row['open'] as num?)?.toDouble() ?? c;
@@ -179,7 +211,7 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
           }
         } catch (_) {}
       } else {
-        // Cache to local database in background
+        // Cache to local database in background safely
         LocalDatabase.instance.insertStockHistory(widget.ticker, candles).catchError((e) {
           debugPrint('[StockHistoryScreen] cache error: $e');
         });
@@ -190,6 +222,10 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
       _disclosures = disclosures;
       _fundamentals = fundamentals;
       _recommendation = rec;
+      _comprehensive = comprehensive;
+      _profile = profile;
+      _flow = flow;
+      _explosive = explosive;
       _candles = candles;
       _volumes = volumes;
 
@@ -199,6 +235,10 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
         'disclosures': disclosures,
         'fundamentals': fundamentals,
         'recommendation': rec,
+        'comprehensive': comprehensive,
+        'profile': profile,
+        'flow': flow,
+        'explosive': explosive,
         'candles': candles,
         'volumes': volumes,
       };
@@ -223,8 +263,8 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('تمت إضافة ${widget.ticker} لـ قائمة المتابعة'),
-              backgroundColor: AppColors.quantumEmerald,
+              content: Text('تمت إضافة ${widget.ticker} لقائمة المتابعة'),
+              backgroundColor: AppColors.success,
             ),
           );
         }
@@ -234,17 +274,106 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
     }
   }
 
+  void _openShareModal() {
+    final numPrice = (_stockQuote?['current_price'] ??
+        _stockQuote?['last_price'] ??
+        _stockQuote?['price'] ??
+        _comprehensive?['price']?['current_price'] ??
+        (_candles.isNotEmpty ? _candles.last['close'] : 0.0)) as num;
+    final double priceVal = numPrice.toDouble();
+
+    final change = _stockQuote?['change_percent'] ??
+        _stockQuote?['change_pct'] ??
+        _stockQuote?['price_change'] ??
+        _stockQuote?['change'] ??
+        _comprehensive?['price']?['change_percent'];
+    final double? changeVal = change is num
+        ? change.toDouble()
+        : (change != null ? double.tryParse(change.toString()) : null);
+
+    final name = _stockQuote?['name_ar'] ??
+        _stockQuote?['name'] ??
+        _comprehensive?['basic']?['name_ar'] ??
+        _comprehensive?['basic']?['name'] ??
+        widget.ticker;
+
+    final sector = _stockQuote?['sector'] ??
+        _comprehensive?['basic']?['sector'] ??
+        '';
+
+    final rec = _recommendation?['action'] ??
+        _recommendation?['recommendation'] ??
+        _comprehensive?['maestro']?['action'] ??
+        _comprehensive?['professional']?['signal'];
+
+    final conf = _recommendation?['confidence'] ??
+        _comprehensive?['maestro']?['overall_score'] ??
+        _comprehensive?['professional']?['score'];
+
+    final buyPrice = (_comprehensive?['technical']?['support'] as num?)?.toDouble() ??
+        (_comprehensive?['hunter']?['entry'] as num?)?.toDouble();
+
+    final targetPrice = (_recommendation?['target_price'] as num?)?.toDouble() ??
+        (_comprehensive?['hunter']?['target'] as num?)?.toDouble() ??
+        (_flow?['target'] != null ? priceVal * (1 + ((_flow!['target'] as num).toDouble() / 100)) : null);
+
+    final stopLoss = (_recommendation?['stop_loss'] as num?)?.toDouble() ??
+        (_comprehensive?['hunter']?['stop_loss'] as num?)?.toDouble() ??
+        (_flow?['stop_loss'] != null ? priceVal * (1 + ((_flow!['stop_loss'] as num).toDouble() / 100)) : null);
+
+    final fairValue = (_stockQuote?['fair_value'] as num?)?.toDouble();
+
+    final pe = (_fundamentals?['pe_ratio'] as num?)?.toDouble() ??
+        (_comprehensive?['keyMetrics']?['pe_ratio'] as num?)?.toDouble() ??
+        (_profile?['valuation']?['pe_ratio'] as num?)?.toDouble();
+
+    final pb = (_fundamentals?['pb_ratio'] as num?)?.toDouble() ??
+        (_comprehensive?['keyMetrics']?['pb_ratio'] as num?)?.toDouble() ??
+        (_profile?['valuation']?['pb_ratio'] as num?)?.toDouble();
+
+    final roe = (_fundamentals?['roe'] as num?)?.toDouble() ??
+        (_comprehensive?['keyMetrics']?['roe'] as num?)?.toDouble() ??
+        (_profile?['profitability']?['roe'] as num?)?.toDouble();
+
+    final divYield = (_fundamentals?['dividend_yield'] as num?)?.toDouble() ??
+        (_comprehensive?['keyMetrics']?['dividend_yield'] as num?)?.toDouble() ??
+        (_profile?['dividends']?['dividend_yield'] as num?)?.toDouble();
+
+    OfficialLinks.showShareModal(
+      context,
+      ticker: widget.ticker,
+      name: name.toString(),
+      price: priceVal,
+      changePercent: changeVal,
+      recommendation: rec?.toString(),
+      confidence: conf is num ? conf : null,
+      buyPrice: buyPrice,
+      targetPrice: targetPrice,
+      stopLoss: stopLoss,
+      fairValue: fairValue,
+      pe: pe,
+      pb: pb,
+      roe: roe,
+      dividendYield: divYield,
+      sector: sector.toString(),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final isAr = AppLocalizations.isArabic; // i18n
     return FutureBuilder<Map<String, dynamic>>(
       future: _detailsFuture,
       builder: (context, snapshot) {
-        final name =
-            _stockQuote?['name_ar'] ?? _stockQuote?['name'] ?? widget.ticker;
+        final name = _stockQuote?['name_ar'] ??
+            _stockQuote?['name'] ??
+            _comprehensive?['basic']?['name_ar'] ??
+            _comprehensive?['basic']?['name'] ??
+            widget.ticker;
+
         final numPrice = (_stockQuote?['current_price'] ??
             _stockQuote?['last_price'] ??
             _stockQuote?['price'] ??
+            _comprehensive?['price']?['current_price'] ??
             (_candles.isNotEmpty ? _candles.last['close'] : 0.0)) as num;
         final price = numPrice > 0 ? numPrice.toStringAsFixed(2) : '0.00';
 
@@ -252,13 +381,16 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
             _stockQuote?['change_pct'] ??
             _stockQuote?['price_change'] ??
             _stockQuote?['change'] ??
+            _comprehensive?['price']?['change_percent'] ??
             0.0;
         final double changeNum = change is num
             ? change.toDouble()
             : double.tryParse(change.toString()) ?? 0.0;
         final bool isUp = changeNum >= 0;
 
-        final rawHigh = _stockQuote?['high_price'] ?? _stockQuote?['high'];
+        final rawHigh = _stockQuote?['high_price'] ??
+            _stockQuote?['high'] ??
+            _comprehensive?['price']?['high_price'];
         final num? highNum = rawHigh is num
             ? rawHigh
             : (rawHigh != null ? num.tryParse(rawHigh.toString()) : null);
@@ -270,7 +402,9 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
                     .reduce((a, b) => a > b ? a : b)
                 : null);
 
-        final rawLow = _stockQuote?['low_price'] ?? _stockQuote?['low'];
+        final rawLow = _stockQuote?['low_price'] ??
+            _stockQuote?['low'] ??
+            _comprehensive?['price']?['low_price'];
         final num? lowNum = rawLow is num
             ? rawLow
             : (rawLow != null ? num.tryParse(rawLow.toString()) : null);
@@ -281,11 +415,17 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
                     .map((c) => (c['low'] as num?) ?? 999999)
                     .reduce((a, b) => a < b ? a : b)
                 : null);
+
         final volVal = _stockQuote?['volume'] ??
+            _comprehensive?['price']?['volume'] ??
             (_candles.isNotEmpty ? _candles.last['value'] : null);
 
-        final highText = (highVal != null && highVal > 0) ? '$highVal' : '-';
-        final lowText = (lowVal != null && lowVal > 0 && lowVal != 999999) ? '$lowVal' : '-';
+        final highText = (highVal != null && highVal > 0)
+            ? (highVal is num ? highVal.toStringAsFixed(2) : '$highVal')
+            : '-';
+        final lowText = (lowVal != null && lowVal > 0 && lowVal != 999999)
+            ? (lowVal is num ? lowVal.toStringAsFixed(2) : '$lowVal')
+            : '-';
         final volText = volVal != null
             ? (volVal is num && volVal >= 1000000
                 ? '${(volVal / 1000000).toStringAsFixed(1)}M'
@@ -295,12 +435,12 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
             : '-';
 
         return Scaffold(
-          backgroundColor: AppColors.quantumBg,
+          backgroundColor: AppColors.background,
           appBar: AppBar(
-            backgroundColor: AppColors.quantumSurface,
+            backgroundColor: AppColors.surface,
             elevation: 0,
             leading: IconButton(
-              icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
+              icon: const Icon(Icons.arrow_back_ios, color: AppColors.text),
               onPressed: () => Navigator.pop(context),
             ),
             title: Column(
@@ -308,26 +448,33 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
               children: [
                 Text(
                   name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                      color: Colors.white,
+                      color: AppColors.text,
                       fontSize: 16,
                       fontWeight: FontWeight.bold),
                 ),
                 Text(
                   widget.ticker,
                   style: const TextStyle(
-                      color: AppColors.quantumGold,
+                      color: AppColors.warning,
                       fontSize: 12,
                       fontWeight: FontWeight.bold),
                 ),
               ],
             ),
             actions: [
+              // زر المشاركة الدعائي مع الروابط الرسمية
+              IconButton(
+                icon: const Icon(Icons.share_rounded, color: AppColors.primaryLight),
+                tooltip: 'مشاركة التحليل والروابط الرسمية',
+                onPressed: _openShareModal,
+              ),
               IconButton(
                 icon: Icon(
                   _isInWatchlist ? Icons.star : Icons.star_border,
-                  color:
-                      _isInWatchlist ? AppColors.quantumGold : Colors.white70,
+                  color: _isInWatchlist ? AppColors.warning : AppColors.textSecondary,
                 ),
                 onPressed: _toggleWatchlist,
               ),
@@ -336,8 +483,7 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
           body: () {
             if (snapshot.connectionState == ConnectionState.waiting) {
               return const Center(
-                  child: CircularProgressIndicator(
-                      color: AppColors.quantumEmerald));
+                  child: CircularProgressIndicator(color: AppColors.primaryLight));
             }
 
             if (snapshot.hasError) {
@@ -345,16 +491,15 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Icon(Icons.error_outline,
-                        size: 48, color: AppColors.quantumCrimson),
+                    const Icon(Icons.error_outline, size: 48, color: AppColors.danger),
                     const SizedBox(height: 12),
                     const Text('حدث خطأ في تحميل تفاصيل السهم',
-                        style: TextStyle(color: Colors.white70)),
+                        style: TextStyle(color: AppColors.textSecondary)),
                     const SizedBox(height: 12),
                     ElevatedButton(
                       style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.quantumEmerald,
-                          foregroundColor: Colors.black),
+                          backgroundColor: AppColors.primary,
+                          foregroundColor: Colors.white),
                       onPressed: _refreshDetails,
                       child: const Text('إعادة المحاولة'),
                     ),
@@ -367,15 +512,26 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
               headerSliverBuilder: (context, innerBoxIsScrolled) => [
                 SliverToBoxAdapter(
                   child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
+                      // شارات المؤشرات والامتثال الشرعي
+                      _buildIdentityBadges(),
+
+                      // بطاقة نقاط التدفق المالي الذكي (Flow Score Card)
+                      if (_flow != null && _flow!['flow_score'] != null)
+                        _buildFlowScoreBanner(),
+
+                      // بطاقة الفرصة الانفجارية (Explosive Scanner Card)
+                      if (_explosive != null && _explosive!['explosive_score'] != null)
+                        _buildExplosiveBanner(),
+
                       // Top Quote Summary Header
                       Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: const BoxDecoration(
-                          color: AppColors.quantumSurface,
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        decoration: BoxDecoration(
+                          color: AppColors.surface,
                           border: Border(
-                              bottom: BorderSide(
-                                  color: AppColors.quantumGlassBorder)),
+                              bottom: BorderSide(color: AppColors.cardBorder.withValues(alpha: 0.5))),
                         ),
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -386,7 +542,7 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
                                 Text(
                                   '$price ج.م',
                                   style: const TextStyle(
-                                    color: Colors.white,
+                                    color: AppColors.text,
                                     fontSize: 24,
                                     fontWeight: FontWeight.bold,
                                   ),
@@ -396,29 +552,21 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
                                   padding: const EdgeInsets.symmetric(
                                       horizontal: 8, vertical: 4),
                                   decoration: BoxDecoration(
-                                    color: (isUp
-                                            ? AppColors.quantumEmerald
-                                            : AppColors.quantumCrimson)
-                                        .withValues(alpha: 0.2),
+                                    color: (isUp ? AppColors.success : AppColors.danger)
+                                        .withValues(alpha: 0.15),
                                     borderRadius: BorderRadius.circular(6),
                                   ),
                                   child: Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
                                       Icon(
-                                        isUp
-                                            ? Icons.arrow_drop_up
-                                            : Icons.arrow_drop_down,
-                                        color: isUp
-                                            ? AppColors.quantumEmerald
-                                            : AppColors.quantumCrimson,
+                                        isUp ? Icons.arrow_drop_up : Icons.arrow_drop_down,
+                                        color: isUp ? AppColors.success : AppColors.danger,
                                       ),
                                       Text(
                                         '${isUp ? '+' : ''}${changeNum.toStringAsFixed(2)}%',
                                         style: TextStyle(
-                                          color: isUp
-                                              ? AppColors.quantumEmerald
-                                              : AppColors.quantumCrimson,
+                                          color: isUp ? AppColors.success : AppColors.danger,
                                           fontWeight: FontWeight.bold,
                                           fontSize: 12,
                                         ),
@@ -441,6 +589,7 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
                           ],
                         ),
                       ),
+
                       // TradingView Chart Widget Container
                       SizedBox(
                         height: 260,
@@ -449,8 +598,7 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
                           candleData: _candles.isNotEmpty ? _candles : null,
                           volumeData: _volumes.isNotEmpty ? _volumes : null,
                           onReloadData: (interval) async {
-                            final days =
-                                interval.days > 0 ? interval.days : 365;
+                            final days = interval.days > 0 ? interval.days : 365;
                             try {
                               final res = await GLMApiClient.instance
                                   .getStockHistory(widget.ticker, days: days);
@@ -458,8 +606,7 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
                                 final newCandles = <Map<String, dynamic>>[];
                                 final newVolumes = <Map<String, dynamic>>[];
                                 for (final item in res.data) {
-                                  if (item.date.isNotEmpty &&
-                                      item.close != null) {
+                                  if (item.date.isNotEmpty && item.close != null) {
                                     final d = item.date.split('T').first;
                                     newCandles.add({
                                       'time': d,
@@ -468,8 +615,7 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
                                       'low': item.low ?? item.close,
                                       'close': item.close,
                                     });
-                                    if (item.volume != null &&
-                                        item.volume! > 0) {
+                                    if (item.volume != null && item.volume! > 0) {
                                       newVolumes.add({
                                         'time': d,
                                         'value': item.volume,
@@ -498,17 +644,21 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
                   delegate: _SliverTabBarDelegate(
                     TabBar(
                       controller: _tabController,
-                      indicatorColor: AppColors.quantumEmerald,
-                      labelColor: AppColors.quantumEmerald,
-                      unselectedLabelColor: Colors.white60,
+                      indicatorColor: AppColors.primaryLight,
+                      indicatorWeight: 3,
+                      labelColor: AppColors.primaryLight,
+                      unselectedLabelColor: AppColors.textMuted,
+                      isScrollable: true,
+                      tabAlignment: TabAlignment.start,
                       labelStyle: const TextStyle(
                           fontWeight: FontWeight.bold, fontSize: 13),
                       tabs: const [
+                        Tab(text: 'نظرة عامة والـ AI'),
+                        Tab(text: 'التحليل الفني'),
+                        Tab(text: 'البيانات والقوائم'),
                         Tab(text: 'عمق السوق'),
-                        Tab(text: 'البيانات المالية'),
                         Tab(text: 'الإفصاحات'),
                         Tab(text: 'الأخبار'),
-                        Tab(text: 'التحليل والـ AI'),
                       ],
                     ),
                   ),
@@ -517,11 +667,12 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
               body: TabBarView(
                 controller: _tabController,
                 children: [
+                  _buildOverviewAndAiTab(),
+                  _buildTechnicalTab(),
+                  _buildFinancialsTab(),
                   _buildOrderBookTab(),
-                  _buildFundamentalsTab(),
                   _buildDisclosuresTab(),
                   _buildStockNewsTab(),
-                  _buildRecommendationTab(),
                 ],
               ),
             );
@@ -531,55 +682,786 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
     );
   }
 
+  // ─── Header Badges (Index & Shariah & Health) ──────────────────────────────
+
+  Widget _buildIdentityBadges() {
+    final basic = _comprehensive?['basic'] ?? {};
+    final isEgx30 = basic['is_egx30'] == true || _stockQuote?['egx30_member'] == true;
+    final isEgx70 = basic['is_egx70'] == true || _stockQuote?['egx70_member'] == true;
+    final isEgx100 = basic['is_egx100'] == true || _stockQuote?['egx100_member'] == true;
+    final sector = basic['sector'] ?? _stockQuote?['sector'];
+    final compliance = _stockQuote?['compliance_status'] ?? basic['compliance_status'];
+    final hs = _profile?['health_score'];
+
+    return Container(
+      color: AppColors.surface,
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 6,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          if (isEgx30)
+            _buildBadge('EGX 30', AppColors.success.withValues(alpha: 0.15), AppColors.success),
+          if (isEgx70)
+            _buildBadge('EGX 70', AppColors.warning.withValues(alpha: 0.15), AppColors.warning),
+          if (isEgx100)
+            _buildBadge('EGX 100', Colors.white12, AppColors.textSecondary),
+          if (sector != null && sector.toString().isNotEmpty)
+            _buildBadge(sector.toString(), AppColors.card, AppColors.textSecondary),
+          if (compliance == 'halal')
+            _buildBadge('متوافق شرعاً', AppColors.success.withValues(alpha: 0.15), AppColors.success,
+                icon: Icons.verified_user_outlined),
+          if (compliance == 'doubtful')
+            _buildBadge('غير مؤكد', AppColors.warning.withValues(alpha: 0.15), AppColors.warning,
+                icon: Icons.help_outline),
+          if (hs is Map && hs['score'] != null)
+            _buildBadge('صحة مالية: ${hs['score']}/100 (${hs['label'] ?? ''})',
+                AppColors.primaryLight.withValues(alpha: 0.15), AppColors.primaryLight,
+                icon: Icons.favorite_border),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBadge(String label, Color bg, Color textColor, {IconData? icon}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: textColor.withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (icon != null) ...[
+            Icon(icon, size: 12, color: textColor),
+            const SizedBox(width: 4),
+          ],
+          Text(
+            label,
+            style: TextStyle(
+              color: textColor,
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ─── Flow Score Card Banner ────────────────────────────────────────────────
+
+  Widget _buildFlowScoreBanner() {
+    final flow = _flow!;
+    final score = flow['flow_score'] ?? 0;
+    final label = flow['label'] ?? '';
+    final action = flow['action'] ?? '';
+    final macro = flow['macro_flow'] ?? 0;
+    final sectorFlow = flow['sector_flow'] ?? 0;
+    final stockFlow = flow['stock_flow'] ?? 0;
+    final target = flow['target'];
+    final stopLoss = flow['stop_loss'];
+
+    final Color statusColor = score >= 75
+        ? AppColors.success
+        : (score >= 50 ? AppColors.warning : AppColors.danger);
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 6, 16, 6),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            statusColor.withValues(alpha: 0.15),
+            AppColors.card,
+          ],
+          begin: Alignment.topRight,
+          end: Alignment.bottomLeft,
+        ),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: statusColor.withValues(alpha: 0.4)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            decoration: BoxDecoration(
+              color: statusColor.withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Column(
+              children: [
+                const Text('نقاط التدفق',
+                    style: TextStyle(color: AppColors.textMuted, fontSize: 10)),
+                Text(
+                  '$score',
+                  style: TextStyle(
+                    color: statusColor,
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      '$label ($action)',
+                      style: TextStyle(
+                        color: statusColor,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                      ),
+                    ),
+                    if (target != null)
+                      Text(
+                        'هدف: +$target%',
+                        style: const TextStyle(
+                            color: AppColors.success,
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'سيولة عامة: $macro | قطاع: $sectorFlow | سهم: $stockFlow' +
+                      (stopLoss != null ? ' | وقف: $stopLoss%' : ''),
+                  style: const TextStyle(color: AppColors.textMuted, fontSize: 11),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ─── Explosive Opportunity Banner ──────────────────────────────────────────
+
+  Widget _buildExplosiveBanner() {
+    final exp = _explosive!;
+    final score = exp['explosive_score'] ?? 0;
+    final label = exp['label'] ?? '';
+    final pattern = exp['pattern'] ?? '';
+    final volRatio = exp['volume_ratio'];
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 2, 16, 6),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: AppColors.warning.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppColors.warning.withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.bolt, color: AppColors.warning, size: 20),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'رادار الانفجار ($score/100) — $label : $pattern' +
+                  (volRatio != null ? ' (حجم ${volRatio}x)' : ''),
+              style: const TextStyle(
+                color: AppColors.warning,
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildQuickMetric(String label, String value) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
         Text(label,
-            style:
-                TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 11)),
+            style: const TextStyle(color: AppColors.textMuted, fontSize: 11)),
         const SizedBox(height: 2),
         Text(value,
             style: const TextStyle(
-                color: Colors.white,
+                color: AppColors.text,
                 fontWeight: FontWeight.bold,
                 fontSize: 13)),
       ],
     );
   }
 
-  Widget _buildOrderBookTab() {
-    final bids = _orderBook?.bids ?? [];
-    final asks = _orderBook?.asks ?? [];
+  // ─── Tab 1: Overview & AI Maestro ──────────────────────────────────────────
 
-    if (bids.isEmpty && asks.isEmpty) {
-      return const Center(
-        child: Padding(
-          padding: EdgeInsets.all(32.0),
-          child: Column(
+  Widget _buildOverviewAndAiTab() {
+    final maestro = _comprehensive?['maestro'] ?? {};
+    final personas = maestro['personas'] ?? maestro['persona_recommendations'] ?? {};
+    final hunter = _comprehensive?['hunter'] ?? {};
+    final board = _comprehensive?['board'] ?? {};
+    final prof = _comprehensive?['professional'] ?? {};
+
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        // زر مشاركة التحليل السريع
+        InkWell(
+          onTap: _openShareModal,
+          borderRadius: BorderRadius.circular(12),
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFF4F46E5), Color(0xFF0EA5E9)],
+                begin: Alignment.centerRight,
+                end: Alignment.centerLeft,
+              ),
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF4F46E5).withValues(alpha: 0.3),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                )
+              ],
+            ),
+            child: const Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.share_rounded, color: Colors.white, size: 20),
+                SizedBox(width: 8),
+                Text(
+                  'مشاركة تقرير السهم وروابط المنصة الرسمية',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+
+        // بطاقات التوصيات حسب الشخصيات الثلاث (Maestro Personas)
+        const Text(
+          'تغطية الشخصيات الاستثمارية (Maestro)',
+          style: TextStyle(
+              color: AppColors.text, fontWeight: FontWeight.bold, fontSize: 15),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: _buildPersonaCard(
+                title: 'المضارب',
+                icon: Icons.flash_on,
+                color: const Color(0xFFF59E0B),
+                data: personas['gambler'] ?? personas['speculative'],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _buildPersonaCard(
+                title: 'المتوازن',
+                icon: Icons.balance,
+                color: const Color(0xFF38BDF8),
+                data: personas['balanced'],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _buildPersonaCard(
+                title: 'المحافظ',
+                icon: Icons.shield,
+                color: const Color(0xFF10B981),
+                data: personas['conservative'],
+              ),
+            ),
+          ],
+        ),
+
+        const SizedBox(height: 16),
+
+        // مستويات التداول المستهدفة
+        _buildTradingLevelsCard(hunter),
+
+        const SizedBox(height: 16),
+
+        // تدفقات المستثمرين والمؤسسات (Board of Analysts)
+        if (board.isNotEmpty) _buildInvestorFlowCard(board),
+
+        const SizedBox(height: 16),
+
+        // التقرير الذكي والملخص الاستراتيجي (AI Executive Report)
+        _buildAiSummarySection(prof),
+      ],
+    );
+  }
+
+  Widget _buildPersonaCard({
+    required String title,
+    required IconData icon,
+    required Color color,
+    dynamic data,
+  }) {
+    String action = 'حياد';
+    String enAction = 'WAIT';
+    if (data is Map) {
+      action = data['action_ar'] ?? data['action'] ?? 'حياد';
+      enAction = data['action'] ?? '';
+    } else if (data is String) {
+      action = data;
+    }
+
+    final isBuy = action.contains('شراء') || enAction.toLowerCase().contains('buy');
+    final isSell = action.contains('بيع') || enAction.toLowerCase().contains('sell');
+    final badgeColor = isBuy ? AppColors.success : (isSell ? AppColors.danger : AppColors.warning);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
+      ),
+      child: Column(
+        children: [
+          Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.layers_clear_outlined, size: 48, color: Colors.white24),
-              SizedBox(height: 12),
-              Text(
-                'لا توجد عروض أو طلبات مسجلة حالياً',
-                style: TextStyle(color: Colors.white60, fontSize: 14),
+              Icon(icon, size: 14, color: color),
+              const SizedBox(width: 4),
+              Text(title,
+                  style: TextStyle(
+                      color: color, fontWeight: FontWeight.bold, fontSize: 12)),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: badgeColor.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Text(
+              action,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: badgeColor,
+                fontWeight: FontWeight.bold,
+                fontSize: 11,
               ),
-              SizedBox(height: 4),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTradingLevelsCard(Map hunter) {
+    final entry = (hunter['entry'] as num?)?.toDouble() ??
+        (_comprehensive?['technical']?['support'] as num?)?.toDouble();
+    final target = (hunter['target'] as num?)?.toDouble() ??
+        (_recommendation?['target_price'] as num?)?.toDouble();
+    final stopLoss = (hunter['stop_loss'] as num?)?.toDouble() ??
+        (_recommendation?['stop_loss'] as num?)?.toDouble();
+    final fairValue = (_stockQuote?['fair_value'] as num?)?.toDouble();
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.cardBorder),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.crisis_alert_rounded, color: AppColors.primaryLight, size: 18),
+              SizedBox(width: 8),
               Text(
-                'قد تكون السوق مغلقة أو لم يتم التداول على السهم في هذه الجلسة',
-                style: TextStyle(color: Colors.white38, fontSize: 12),
-                textAlign: TextAlign.center,
+                'أسعار ومستويات التداول المقترحة',
+                style: TextStyle(
+                    color: AppColors.text, fontWeight: FontWeight.bold, fontSize: 14),
+              ),
+            ],
+          ),
+          Divider(color: AppColors.cardBorder, height: 20),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _buildLevelItem('سعر الدخول/الدعم',
+                  entry != null ? '${entry.toStringAsFixed(2)} ج.م' : '-', AppColors.primaryLight),
+              _buildLevelItem('السعر المستهدف',
+                  target != null ? '${target.toStringAsFixed(2)} ج.م' : '-', AppColors.success),
+              _buildLevelItem('وقف الخسارة',
+                  stopLoss != null ? '${stopLoss.toStringAsFixed(2)} ج.م' : '-', AppColors.danger),
+              if (fairValue != null)
+                _buildLevelItem('القيمة العادلة', '${fairValue.toStringAsFixed(2)} ج.م', AppColors.warning),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLevelItem(String label, String val, Color color) {
+    return Column(
+      children: [
+        Text(label, style: const TextStyle(color: AppColors.textMuted, fontSize: 10)),
+        const SizedBox(height: 4),
+        Text(val,
+            style: TextStyle(
+                color: color, fontWeight: FontWeight.bold, fontSize: 13)),
+      ],
+    );
+  }
+
+  Widget _buildInvestorFlowCard(Map board) {
+    final instFlow = board['institutional_flow'] ?? board['institutions'];
+    final retailFlow = board['retail_flow'] ?? board['retail'];
+    final egFlow = board['egyptian_flow'];
+    final arabFlow = board['arab_flow'];
+    final foreignFlow = board['foreign_flow'];
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.cardBorder),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.pie_chart_outline, color: AppColors.primaryLight, size: 18),
+              SizedBox(width: 8),
+              Text(
+                'تدفقات المستثمرين والمؤسسات (Board of Analysts)',
+                style: TextStyle(
+                    color: AppColors.text, fontWeight: FontWeight.bold, fontSize: 14),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          if (instFlow != null || retailFlow != null)
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('المؤسسات: ${instFlow ?? '-'}%',
+                    style: const TextStyle(color: AppColors.primaryLight, fontSize: 12)),
+                Text('الأفراد: ${retailFlow ?? '-'}%',
+                    style: const TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+              ],
+            ),
+          if (egFlow != null || arabFlow != null || foreignFlow != null) ...[
+            const SizedBox(height: 8),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('مصر: $egFlow', style: const TextStyle(color: AppColors.textMuted, fontSize: 11)),
+                Text('عرب: $arabFlow', style: const TextStyle(color: AppColors.textMuted, fontSize: 11)),
+                Text('أجانب: $foreignFlow', style: const TextStyle(color: AppColors.textMuted, fontSize: 11)),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAiSummarySection(Map prof) {
+    final summary = prof['summary'] ?? prof['executive_summary'] ?? _recommendation?['reason'];
+    final strengths = prof['strengths'] as List? ?? [];
+    final weaknesses = prof['weaknesses'] as List? ?? [];
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.cardBorder),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.psychology_rounded, color: AppColors.primaryLight, size: 20),
+              SizedBox(width: 8),
+              Text(
+                'التقرير والملخص الذكي (AI Analysis)',
+                style: TextStyle(
+                    color: AppColors.text, fontWeight: FontWeight.bold, fontSize: 14),
+              ),
+            ],
+          ),
+          if (summary != null) ...[
+            const SizedBox(height: 10),
+            Text(
+              summary.toString(),
+              style: const TextStyle(color: AppColors.textSecondary, fontSize: 12, height: 1.5),
+            ),
+          ],
+          if (strengths.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            const Text('نقاط القوة:',
+                style: TextStyle(color: AppColors.success, fontWeight: FontWeight.bold, fontSize: 12)),
+            const SizedBox(height: 4),
+            ...strengths.map((s) => Padding(
+                  padding: const EdgeInsets.only(bottom: 4),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.check, size: 14, color: AppColors.success),
+                      const SizedBox(width: 6),
+                      Expanded(
+                          child: Text(s.toString(),
+                              style: const TextStyle(color: AppColors.text, fontSize: 11))),
+                    ],
+                  ),
+                )),
+          ],
+          if (weaknesses.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            const Text('نقاط الحذر:',
+                style: TextStyle(color: AppColors.danger, fontWeight: FontWeight.bold, fontSize: 12)),
+            const SizedBox(height: 4),
+            ...weaknesses.map((w) => Padding(
+                  padding: const EdgeInsets.only(bottom: 4),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.warning_amber_rounded, size: 14, color: AppColors.danger),
+                      const SizedBox(width: 6),
+                      Expanded(
+                          child: Text(w.toString(),
+                              style: const TextStyle(color: AppColors.text, fontSize: 11))),
+                    ],
+                  ),
+                )),
+          ],
+        ],
+      ),
+    );
+  }
+
+  // ─── Tab 2: Technical Indicators ───────────────────────────────────────────
+
+  Widget _buildTechnicalTab() {
+    final tech = _comprehensive?['technical'] ?? _profile?['technical'] ?? {};
+    final rsi = tech['rsi'] ?? tech['rsi_14'] ?? _stockQuote?['rsi'];
+    final ma50 = tech['ma_50'] ?? tech['sma_50'] ?? _stockQuote?['ma_50'];
+    final ma200 = tech['ma_200'] ?? tech['sma_200'] ?? _stockQuote?['ma_200'];
+    final trend = tech['trend'] ?? 'neutral';
+    final signal = tech['signal'] ?? tech['action'] ?? 'HOLD';
+    final support = tech['support'] ?? _stockQuote?['support_level'];
+    final resistance = tech['resistance'] ?? _stockQuote?['resistance_level'];
+    final high52 = tech['high_52w'] ?? _fundamentals?['high_52w'] ?? _stockQuote?['high_52w'];
+    final low52 = tech['low_52w'] ?? _fundamentals?['low_52w'] ?? _stockQuote?['low_52w'];
+
+    final rsiVal = rsi is num ? rsi.toDouble() : (rsi != null ? double.tryParse(rsi.toString()) : null);
+
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        // مؤشر RSI
+        Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: AppColors.card,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppColors.cardBorder),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text('مؤشر القوة النسبية (RSI 14)',
+                      style: TextStyle(color: AppColors.text, fontWeight: FontWeight.bold, fontSize: 13)),
+                  Text(
+                    rsiVal != null ? rsiVal.toStringAsFixed(1) : '-',
+                    style: TextStyle(
+                      color: rsiVal != null && (rsiVal > 70 || rsiVal < 30)
+                          ? AppColors.warning
+                          : AppColors.primaryLight,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              LinearProgressIndicator(
+                value: rsiVal != null ? (rsiVal / 100).clamp(0.0, 1.0) : 0.5,
+                backgroundColor: Colors.white12,
+                color: rsiVal != null && rsiVal > 70
+                    ? AppColors.danger
+                    : (rsiVal != null && rsiVal < 30 ? AppColors.success : AppColors.primaryLight),
+                minHeight: 8,
+                borderRadius: BorderRadius.circular(4),
+              ),
+              const SizedBox(height: 6),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text('تشبع بيعي (30)', style: TextStyle(color: AppColors.textMuted, fontSize: 10)),
+                  Text(
+                    rsiVal != null && rsiVal > 70
+                        ? 'منطقة تشبع شرائي (Overbought)'
+                        : (rsiVal != null && rsiVal < 30
+                            ? 'منطقة تشبع بيعي (Oversold)'
+                            : 'منطقة معتدلة'),
+                    style: const TextStyle(color: AppColors.textSecondary, fontSize: 10),
+                  ),
+                  const Text('تشبع شرائي (70)', style: TextStyle(color: AppColors.textMuted, fontSize: 10)),
+                ],
               ),
             ],
           ),
         ),
-      );
+
+        const SizedBox(height: 12),
+
+        // بطاقات المؤشرات الفنية المنسقة
+        _buildDataRow('الاتجاه الفني العام (Trend)', trend == 'bullish' ? 'صاعد ↗️' : (trend == 'bearish' ? 'هابط ↘️' : 'محايد ➡️')),
+        _buildDataRow('إشارة التحليل الفني (Signal)', signal.toString()),
+        _buildDataRow('المتوسط المتحرك 50 يوم (SMA 50)', ma50 != null ? '${(ma50 is num ? ma50.toStringAsFixed(2) : ma50)} ج.م' : '-'),
+        _buildDataRow('المتوسط المتحرك 200 يوم (SMA 200)', ma200 != null ? '${(ma200 is num ? ma200.toStringAsFixed(2) : ma200)} ج.م' : '-'),
+        _buildDataRow('مستوى الدعم الرئيسي (Support)', support != null ? '${(support is num ? support.toStringAsFixed(2) : support)} ج.م' : '-'),
+        _buildDataRow('مستوى المقاومة الرئيسي (Resistance)', resistance != null ? '${(resistance is num ? resistance.toStringAsFixed(2) : resistance)} ج.م' : '-'),
+        _buildDataRow('أعلى سعر خلال 52 أسبوع', high52 != null ? '$high52 ج.م' : '-'),
+        _buildDataRow('أدنى سعر خلال 52 أسبوع', low52 != null ? '$low52 ج.م' : '-'),
+      ],
+    );
+  }
+
+  // ─── Tab 3: Deep Financials & Statements ───────────────────────────────────
+
+  Widget _buildFinancialsTab() {
+    final val = _profile?['valuation'] ?? _comprehensive?['keyMetrics'] ?? {};
+    final prof = _profile?['profitability'] ?? {};
+    final bs = _profile?['balance_sheet'] ?? {};
+    final inc = _profile?['income_statement'] ?? {};
+    final cf = _profile?['cash_flow'] ?? {};
+    final div = _profile?['dividends'] ?? {};
+
+    final pe = val['pe_ratio'] ?? _fundamentals?['pe_ratio'] ?? _stockQuote?['pe_ratio'];
+    final pb = val['pb_ratio'] ?? _fundamentals?['pb_ratio'] ?? _stockQuote?['pb_ratio'];
+    final ps = val['ps_ratio'];
+    final eps = inc['eps'] ?? _fundamentals?['eps'] ?? _stockQuote?['eps'];
+    final mcap = _stockQuote?['market_cap'] ?? _comprehensive?['keyMetrics']?['market_cap'];
+    final divYield = div['dividend_yield'] ?? _fundamentals?['dividend_yield'] ?? _stockQuote?['dividend_yield'];
+
+    final roe = prof['roe'] ?? _fundamentals?['roe'];
+    final roa = prof['roa'];
+    final grossMargin = prof['gross_margin'];
+    final netMargin = prof['net_profit_margin'];
+
+    final totalAssets = bs['total_assets'];
+    final totalLiabilities = bs['total_liabilities'];
+    final totalEquity = bs['total_equity'];
+    final cash = bs['cash_and_equivalents'];
+    final revenue = inc['revenue'];
+    final netIncome = inc['net_income'];
+    final opCashFlow = cf['operating_cash_flow'];
+    final freeCashFlow = cf['free_cash_flow'];
+
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        // 1. مؤشرات التقييم
+        const Text('مؤشرات التقييم (Valuation Multiples)',
+            style: TextStyle(color: AppColors.text, fontWeight: FontWeight.bold, fontSize: 14)),
+        const SizedBox(height: 8),
+        _buildDataRow('مضاعف الربحية (P/E Ratio)', pe != null ? '${_safeNum(pe).toStringAsFixed(1)}' : '-'),
+        _buildDataRow('مضاعف القيمة الدفترية (P/B Ratio)', pb != null ? '${_safeNum(pb).toStringAsFixed(1)}' : '-'),
+        if (ps != null)
+          _buildDataRow('مضاعف المبيعات (P/S Ratio)', '${_safeNum(ps).toStringAsFixed(1)}'),
+        _buildDataRow('ربحية السهم (EPS)', eps != null ? '${_safeNum(eps).toStringAsFixed(2)} ج.م' : '-'),
+        _buildDataRow('عائد التوزيعات السنوي', divYield != null ? '${_safeNum(divYield).toStringAsFixed(1)}%' : '-'),
+        _buildDataRow('القيمة السوقية للشركة', _formatLargeNumber(mcap)),
+
+        const SizedBox(height: 16),
+
+        // 2. مؤشرات الربحية
+        const Text('مؤشرات الربحية والتشغيل (Profitability)',
+            style: TextStyle(color: AppColors.text, fontWeight: FontWeight.bold, fontSize: 14)),
+        const SizedBox(height: 8),
+        _buildDataRow('العائد على حقوق المساهمين (ROE)', roe != null ? '${_safeNum(roe).toStringAsFixed(1)}%' : '-'),
+        if (roa != null)
+          _buildDataRow('العائد على الأصول (ROA)', '${_safeNum(roa).toStringAsFixed(1)}%'),
+        if (grossMargin != null)
+          _buildDataRow('هامش مجمل الربح (Gross Margin)', '${_safeNum(grossMargin).toStringAsFixed(1)}%'),
+        if (netMargin != null)
+          _buildDataRow('هامش صافي الربح (Net Margin)', '${_safeNum(netMargin).toStringAsFixed(1)}%'),
+
+        const SizedBox(height: 16),
+
+        // 3. القوائم المالية الهيكلية
+        const Text('القوائم المالية الهيكلية (Financial Statements)',
+            style: TextStyle(color: AppColors.text, fontWeight: FontWeight.bold, fontSize: 14)),
+        const SizedBox(height: 8),
+        if (revenue != null) _buildDataRow('الإيرادات (Revenue)', _formatLargeNumber(revenue)),
+        if (netIncome != null) _buildDataRow('صافي الدخل (Net Income)', _formatLargeNumber(netIncome)),
+        if (totalAssets != null) _buildDataRow('إجمالي الأصول (Assets)', _formatLargeNumber(totalAssets)),
+        if (totalLiabilities != null) _buildDataRow('إجمالي الالتزامات (Liabilities)', _formatLargeNumber(totalLiabilities)),
+        if (totalEquity != null) _buildDataRow('حقوق المساهمين (Equity)', _formatLargeNumber(totalEquity)),
+        if (cash != null) _buildDataRow('النقد وما يعادله (Cash)', _formatLargeNumber(cash)),
+        if (opCashFlow != null) _buildDataRow('التدفق النقدي التشغيلي', _formatLargeNumber(opCashFlow)),
+        if (freeCashFlow != null) _buildDataRow('التدفق النقدي الحر (FCF)', _formatLargeNumber(freeCashFlow)),
+      ],
+    );
+  }
+
+  double _safeNum(dynamic v) {
+    if (v is num) return v.toDouble();
+    if (v != null) return double.tryParse(v.toString()) ?? 0.0;
+    return 0.0;
+  }
+
+  String _formatLargeNumber(dynamic v) {
+    if (v == null) return '-';
+    final n = _safeNum(v);
+    if (n >= 1e12) return '${(n / 1e12).toStringAsFixed(2)} تريليون ج.م';
+    if (n >= 1e9) return '${(n / 1e9).toStringAsFixed(2)} مليار ج.م';
+    if (n >= 1e6) return '${(n / 1e6).toStringAsFixed(2)} مليون ج.م';
+    if (n > 0) return '${n.toStringAsFixed(0)} ج.م';
+    return '-';
+  }
+
+  // ─── Tab 4: Orderbook ──────────────────────────────────────────────────────
+
+  Widget _buildOrderBookTab() {
+    if (_orderBook == null ||
+        (_orderBook!.bids.isEmpty && _orderBook!.asks.isEmpty)) {
+      return const Center(
+          child: Text('لا توجد بيانات لدفتر الأوامر حالياً',
+              style: TextStyle(color: AppColors.textMuted)));
     }
 
+    final bids = _orderBook!.bids;
+    final asks = _orderBook!.asks;
+
     return Padding(
-      padding: const EdgeInsets.all(12.0),
+      padding: const EdgeInsets.all(8.0),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Bids (طلبات الشراء - أخضر)
           Expanded(
@@ -590,7 +1472,7 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
                   padding: EdgeInsets.all(8.0),
                   child: Text('طلبات الشراء (Bids)',
                       style: TextStyle(
-                          color: AppColors.quantumEmerald,
+                          color: AppColors.success,
                           fontWeight: FontWeight.bold)),
                 ),
                 Expanded(
@@ -603,7 +1485,7 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
                             horizontal: 8, vertical: 6),
                         margin: const EdgeInsets.only(bottom: 4),
                         decoration: BoxDecoration(
-                          color: AppColors.quantumEmerald.withOpacity(0.1),
+                          color: AppColors.success.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: Row(
@@ -611,10 +1493,10 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
                           children: [
                             Text('${item.price} ج.م',
                                 style: const TextStyle(
-                                    color: AppColors.quantumEmerald,
+                                    color: AppColors.success,
                                     fontWeight: FontWeight.bold)),
                             Text('${item.volume}',
-                                style: const TextStyle(color: Colors.white70)),
+                                style: const TextStyle(color: AppColors.textSecondary)),
                           ],
                         ),
                       );
@@ -634,7 +1516,7 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
                   padding: EdgeInsets.all(8.0),
                   child: Text('عروض البيع (Asks)',
                       style: TextStyle(
-                          color: AppColors.quantumCrimson,
+                          color: AppColors.danger,
                           fontWeight: FontWeight.bold)),
                 ),
                 Expanded(
@@ -647,7 +1529,7 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
                             horizontal: 8, vertical: 6),
                         margin: const EdgeInsets.only(bottom: 4),
                         decoration: BoxDecoration(
-                          color: AppColors.quantumCrimson.withOpacity(0.1),
+                          color: AppColors.danger.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: Row(
@@ -655,10 +1537,10 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
                           children: [
                             Text('${item.price} ج.م',
                                 style: const TextStyle(
-                                    color: AppColors.quantumCrimson,
+                                    color: AppColors.danger,
                                     fontWeight: FontWeight.bold)),
                             Text('${item.volume}',
-                                style: const TextStyle(color: Colors.white70)),
+                                style: const TextStyle(color: AppColors.textSecondary)),
                           ],
                         ),
                       );
@@ -673,70 +1555,13 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
     );
   }
 
-  Widget _buildFundamentalsTab() {
-    final pe = _fundamentals?['pe_ratio'] ?? _stockQuote?['pe_ratio'];
-    final eps = _fundamentals?['eps'] ?? _stockQuote?['eps'];
-    final mcap = _fundamentals?['market_cap'] ?? _stockQuote?['market_cap'];
-    final divYield =
-        _fundamentals?['dividend_yield'] ?? _stockQuote?['dividend_yield'];
-    final high52 = _fundamentals?['high_52w'] ?? _stockQuote?['high_52w'];
-    final low52 = _fundamentals?['low_52w'] ?? _stockQuote?['low_52w'];
-
-    final peText = pe != null ? '$pe' : '-';
-    final epsText = eps != null ? '$eps ج.م' : '-';
-    final mcapText = mcap != null
-        ? (mcap is num && mcap >= 1000000000
-            ? '${(mcap / 1000000000).toStringAsFixed(2)}B ج.م'
-            : (mcap is num && mcap >= 1000000
-                ? '${(mcap / 1000000).toStringAsFixed(2)}M ج.م'
-                : '$mcap ج.م'))
-        : '-';
-    final divYieldText = divYield != null ? '$divYield%' : '-';
-    final high52Text = high52 != null ? '$high52 ج.م' : '-';
-    final low52Text = low52 != null ? '$low52 ج.م' : '-';
-
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        _buildDataRow('مضاعف الربحية (P/E)', peText),
-        _buildDataRow('ربحية السهم (EPS)', epsText),
-        _buildDataRow('القيمة السوقية', mcapText),
-        _buildDataRow('عائد التوزيعات السنوي', divYieldText),
-        _buildDataRow('أعلى سعر خلال 52 أسبوع', high52Text),
-        _buildDataRow('أدنى سعر خلال 52 أسبوع', low52Text),
-      ],
-    );
-  }
-
-  Widget _buildDataRow(String title, String value) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-      margin: const EdgeInsets.only(bottom: 8),
-      decoration: BoxDecoration(
-        color: AppColors.quantumGlass,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppColors.quantumGlassBorder),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(title,
-              style: const TextStyle(color: Colors.white70, fontSize: 13)),
-          Text(value,
-              style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 14)),
-        ],
-      ),
-    );
-  }
+  // ─── Tab 5: Disclosures ────────────────────────────────────────────────────
 
   Widget _buildDisclosuresTab() {
     if (_disclosures.isEmpty) {
-      return Center(
+      return const Center(
           child: Text('لا توجد إفصاحات مسجلة',
-              style: TextStyle(color: Colors.white.withOpacity(0.5))));
+              style: TextStyle(color: AppColors.textMuted)));
     }
     return ListView.builder(
       padding: const EdgeInsets.all(12),
@@ -747,9 +1572,9 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
           margin: const EdgeInsets.only(bottom: 10),
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: AppColors.quantumGlass,
+            color: AppColors.card,
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppColors.quantumGlassBorder),
+            border: Border.all(color: AppColors.cardBorder),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -761,33 +1586,31 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
                     padding:
                         const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                     decoration: BoxDecoration(
-                      color: AppColors.quantumGold.withOpacity(0.2),
+                      color: AppColors.warning.withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: Text(d.category,
                         style: const TextStyle(
-                            color: AppColors.quantumGold,
+                            color: AppColors.warning,
                             fontSize: 11,
                             fontWeight: FontWeight.bold)),
                   ),
                   Text(
                     '${d.date.day}/${d.date.month}/${d.date.year}',
-                    style: TextStyle(
-                        color: Colors.white.withOpacity(0.5), fontSize: 11),
+                    style: const TextStyle(color: AppColors.textMuted, fontSize: 11),
                   ),
                 ],
               ),
               const SizedBox(height: 8),
               Text(d.title,
                   style: const TextStyle(
-                      color: Colors.white,
+                      color: AppColors.text,
                       fontWeight: FontWeight.bold,
                       fontSize: 14)),
               if (d.summary != null) ...[
                 const SizedBox(height: 4),
                 Text(d.summary!,
-                    style:
-                        const TextStyle(color: Colors.white70, fontSize: 12)),
+                    style: const TextStyle(color: AppColors.textSecondary, fontSize: 12)),
               ],
             ],
           ),
@@ -796,7 +1619,8 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
     );
   }
 
-  /// تبويب أخبار السهم — آخر الأخبار + الإفصاحات الخاصة بالسهم
+  // ─── Tab 6: News ───────────────────────────────────────────────────────────
+
   Widget _buildStockNewsTab() {
     if (_newsFuture == null) {
       return const Center(child: Text('اضغط على تبويب الأخبار لتحميلها'));
@@ -805,10 +1629,10 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
       future: _newsFuture,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
+          return const Center(child: CircularProgressIndicator(color: AppColors.primaryLight));
         }
         if (snapshot.hasError) {
-          return Center(child: Text(' خطأ: ${snapshot.error}'));
+          return Center(child: Text('خطأ: ${snapshot.error}', style: const TextStyle(color: AppColors.danger)));
         }
         final raw = snapshot.data;
         List<dynamic> news = [];
@@ -826,10 +1650,10 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.newspaper_outlined, size: 64, color: Colors.grey),
+                Icon(Icons.newspaper_outlined, size: 64, color: AppColors.textMuted),
                 SizedBox(height: 16),
-                Text('مفيش أخبار متاحة لهذا السهم دلوقتي',
-                    style: TextStyle(color: Colors.grey)),
+                Text('لا توجد أخبار متاحة لهذا السهم حالياً',
+                    style: TextStyle(color: AppColors.textMuted)),
               ],
             ),
           );
@@ -837,7 +1661,7 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
         return ListView.separated(
           padding: const EdgeInsets.all(12),
           itemCount: news.length,
-          separatorBuilder: (_, __) => const Divider(height: 1),
+          separatorBuilder: (_, __) => const SizedBox(height: 8),
           itemBuilder: (context, index) {
             final item = news[index] is Map
                 ? Map<String, dynamic>.from(news[index] as Map)
@@ -853,56 +1677,45 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
             final summary = item['summary']?.toString() ??
                 item['description']?.toString() ??
                 '';
-            final url =
-                item['url']?.toString() ?? item['link']?.toString() ?? '';
 
-            return Card(
-              margin: const EdgeInsets.symmetric(vertical: 4),
-              child: ListTile(
-                leading: const Icon(Icons.article_outlined, color: Colors.blue),
-                title: Text(title,
-                    style: const TextStyle(
-                        fontSize: 13, fontWeight: FontWeight.bold)),
-                subtitle: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if (summary.isNotEmpty)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 4),
-                        child: Text(summary,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontSize: 11)),
-                      ),
-                    if (source.isNotEmpty || date.isNotEmpty)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 4),
-                        child: Row(
-                          children: [
-                            if (source.isNotEmpty)
-                              Flexible(
-                                  child: Text(source,
-                                      style: const TextStyle(
-                                          fontSize: 10, color: Colors.grey))),
-                            if (source.isNotEmpty && date.isNotEmpty)
-                              const Text(' • ',
-                                  style: TextStyle(
-                                      fontSize: 10, color: Colors.grey)),
-                            if (date.isNotEmpty)
-                              Flexible(
-                                  child: Text(date.split('T').first,
-                                      style: const TextStyle(
-                                          fontSize: 10, color: Colors.grey))),
-                          ],
-                        ),
-                      ),
+            return Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.card,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppColors.cardBorder),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title,
+                      style: const TextStyle(
+                          color: AppColors.text,
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold)),
+                  if (summary.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Text(summary,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(color: AppColors.textSecondary, fontSize: 11)),
                   ],
-                ),
-                onTap: url.isNotEmpty
-                    ? () {
-                        // ممكن فتح URL بـ url_launcher لو متاح
-                      }
-                    : null,
+                  if (source.isNotEmpty || date.isNotEmpty) ...[
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        if (source.isNotEmpty)
+                          Text(source,
+                              style: const TextStyle(fontSize: 10, color: AppColors.primaryLight)),
+                        if (source.isNotEmpty && date.isNotEmpty)
+                          const Text(' • ', style: TextStyle(fontSize: 10, color: AppColors.textMuted)),
+                        if (date.isNotEmpty)
+                          Text(date.split('T').first,
+                              style: const TextStyle(fontSize: 10, color: AppColors.textMuted)),
+                      ],
+                    ),
+                  ],
+                ],
               ),
             );
           },
@@ -911,168 +1724,27 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
     );
   }
 
-  Widget _buildRecommendationTab() {
-    final hasAccess = SubscriptionService.instance.hasAccess('recommendations');
-    if (!hasAccess) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.lock_outline,
-                color: AppColors.quantumGold, size: 48),
-            const SizedBox(height: 12),
-            const Text(
-              'توصيات الـ AI والتحليل الاحترافي مخصصة للمشتركين',
-              style: TextStyle(
-                  color: Colors.white,
+  Widget _buildDataRow(String title, String value) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 11, horizontal: 14),
+      margin: const EdgeInsets.only(bottom: 6),
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppColors.cardBorder),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(title,
+              style: const TextStyle(color: AppColors.textSecondary, fontSize: 13)),
+          Text(value,
+              style: const TextStyle(
+                  color: AppColors.text,
                   fontWeight: FontWeight.bold,
-                  fontSize: 15),
-            ),
-            const SizedBox(height: 16),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.quantumEmerald,
-                foregroundColor: Colors.black,
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(20)),
-              ),
-              onPressed: () => UpgradeModal.show(context,
-                  feature: 'recommendations',
-                  reason: 'عرض توصيات الأسهم المتقدمة'),
-              child: const Text('ترقية الحساب الآن'),
-            ),
-          ],
-        ),
-      );
-    }
-
-    final action = _recommendation?['action'] ??
-        _recommendation?['recommendation'] ??
-        _recommendation?['signal'];
-    final target = _recommendation?['target_price'] ??
-        _recommendation?['target'];
-    final stopLoss = _recommendation?['stop_loss'] ??
-        _recommendation?['stop'];
-    final reasons = _recommendation?['reasons'] as List? ??
-        (_recommendation?['reason'] != null
-            ? [_recommendation!['reason']]
-            : null);
-
-    if (action == null && target == null && stopLoss == null) {
-      return const Center(
-        child: Padding(
-          padding: EdgeInsets.all(32.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.psychology_alt_outlined,
-                  size: 56, color: Colors.white24),
-              SizedBox(height: 12),
-              Text(
-                'لا توجد توصية نشطة حالياً لهذا السهم',
-                style: TextStyle(color: Colors.white70, fontSize: 14),
-              ),
-              SizedBox(height: 6),
-              Text(
-                'يتم تحديث التوصيات دورياً بناءً على إغلاقات الجلسة ونماذج التحليل',
-                style: TextStyle(color: Colors.white38, fontSize: 12),
-                textAlign: TextAlign.center,
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: AppColors.quantumGlass,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: AppColors.quantumEmerald),
-          ),
-          child: Column(
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text('توصية الذكاء الاصطناعي:',
-                      style: TextStyle(color: Colors.white70, fontSize: 14)),
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: AppColors.quantumEmerald,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(action?.toString() ?? 'HOLD',
-                        style: const TextStyle(
-                            color: Colors.black,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14)),
-                  ),
-                ],
-              ),
-              const Divider(color: AppColors.quantumGlassBorder, height: 24),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: [
-                  _buildRecPriceMetric(
-                      'السعر المستهدف',
-                      target != null ? '$target ج.م' : '-',
-                      AppColors.quantumEmerald),
-                  _buildRecPriceMetric(
-                      'إيقاف الخسارة',
-                      stopLoss != null ? '$stopLoss ج.م' : '-',
-                      AppColors.quantumCrimson),
-                ],
-              ),
-            ],
-          ),
-        ),
-        if (reasons != null && reasons.isNotEmpty) ...[
-          const SizedBox(height: 16),
-          const Text('أسباب التوصية:',
-              style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 15)),
-          const SizedBox(height: 8),
-          ...reasons.map((r) => Padding(
-                padding: const EdgeInsets.only(bottom: 6.0),
-                child: Row(
-                  children: [
-                    const Icon(Icons.check_circle,
-                        color: AppColors.quantumEmerald, size: 16),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(r.toString(),
-                          style: TextStyle(
-                              color: Colors.white.withOpacity(0.8),
-                              fontSize: 13)),
-                    ),
-                  ],
-                ),
-              )),
+                  fontSize: 13)),
         ],
-      ],
-    );
-  }
-
-  Widget _buildRecPriceMetric(String title, String val, Color col) {
-    return Column(
-      children: [
-        Text(title,
-            style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.5), fontSize: 12)),
-        const SizedBox(height: 4),
-        Text(val,
-            style: TextStyle(
-                color: col, fontWeight: FontWeight.bold, fontSize: 16)),
-      ],
+      ),
     );
   }
 }
@@ -1091,7 +1763,7 @@ class _SliverTabBarDelegate extends SliverPersistentHeaderDelegate {
   Widget build(
       BuildContext context, double shrinkOffset, bool overlapsContent) {
     return Container(
-      color: AppColors.quantumSurface,
+      color: AppColors.surface,
       child: tabBar,
     );
   }
