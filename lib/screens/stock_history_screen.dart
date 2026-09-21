@@ -904,7 +904,6 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
 
   Widget _buildOverviewAndAiTab() {
     final maestro = _comprehensive?['maestro'] ?? {};
-    final personas = maestro['personas'] ?? maestro['persona_recommendations'] ?? {};
     final hunter = _comprehensive?['hunter'] ?? {};
     final board = _comprehensive?['board'] ?? {};
     final prof = _comprehensive?['professional'] ?? {};
@@ -952,43 +951,8 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
         ),
         const SizedBox(height: 16),
 
-        // بطاقات التوصيات حسب الشخصيات الثلاث (Maestro Personas)
-        const Text(
-          'تغطية الشخصيات الاستثمارية (Maestro)',
-          style: TextStyle(
-              color: AppColors.text, fontWeight: FontWeight.bold, fontSize: 15),
-        ),
-        const SizedBox(height: 8),
-        Row(
-          children: [
-            Expanded(
-              child: _buildPersonaCard(
-                title: 'المضارب',
-                icon: Icons.flash_on,
-                color: const Color(0xFFF59E0B),
-                data: personas['gambler'] ?? personas['speculative'],
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: _buildPersonaCard(
-                title: 'المتوازن',
-                icon: Icons.balance,
-                color: const Color(0xFF38BDF8),
-                data: personas['balanced'],
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: _buildPersonaCard(
-                title: 'المحافظ',
-                icon: Icons.shield,
-                color: const Color(0xFF10B981),
-                data: personas['conservative'],
-              ),
-            ),
-          ],
-        ),
+        // تقييم المايسترو الشامل ومراحل التحليل (Maestro Orchestrator)
+        _buildMaestroOrchestratorSection(maestro),
 
         const SizedBox(height: 16),
 
@@ -1008,63 +972,240 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
     );
   }
 
-  Widget _buildPersonaCard({
-    required String title,
-    required IconData icon,
-    required Color color,
-    dynamic data,
-  }) {
-    String action = 'حياد';
-    String enAction = 'WAIT';
-    if (data is Map) {
-      action = data['action_ar'] ?? data['action'] ?? 'حياد';
-      enAction = data['action'] ?? '';
-    } else if (data is String) {
-      action = data;
-    }
+  Widget _buildMaestroOrchestratorSection(Map maestroData) {
+    final m = maestroData['maestroAnalysis'] is Map
+        ? maestroData['maestroAnalysis'] as Map
+        : maestroData;
 
-    final isBuy = action.contains('شراء') || enAction.toLowerCase().contains('buy');
-    final isSell = action.contains('بيع') || enAction.toLowerCase().contains('sell');
+    final score = (m['maestroScore'] as num?)?.toDouble() ??
+        (m['overall_score'] as num?)?.toDouble() ??
+        (m['score'] as num?)?.toDouble() ??
+        50.0;
+    final rec = (m['recommendationAr'] ?? m['recommendation'] ?? m['action'] ?? 'حياد').toString();
+    final confidence = (m['confidence'] as num?)?.toDouble() ?? 65.0;
+    final riskReward = (m['riskReward'] as num?)?.toDouble();
+    final strategy = m['entry'] is Map ? m['entry']['strategyAr']?.toString() : null;
+    final warnings = (m['warningsAr'] is List)
+        ? (m['warningsAr'] as List).map((w) => w.toString()).toList()
+        : <String>[];
+    final phases = m['phases'] is Map ? m['phases'] as Map : null;
+
+    final isBuy = rec.contains('شراء') || rec.toLowerCase().contains('buy');
+    final isSell = rec.contains('بيع') || rec.toLowerCase().contains('sell');
     final badgeColor = isBuy ? AppColors.success : (isSell ? AppColors.danger : AppColors.warning);
 
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: AppColors.card,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: color.withValues(alpha: 0.3)),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.cardBorder),
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon, size: 14, color: color),
-              const SizedBox(width: 4),
-              Text(title,
+              const Icon(Icons.psychology_rounded, color: AppColors.primaryLight, size: 20),
+              const SizedBox(width: 8),
+              const Expanded(
+                child: Text(
+                  'تقييم المايسترو الشامل (Maestro Engine)',
                   style: TextStyle(
-                      color: color, fontWeight: FontWeight.bold, fontSize: 12)),
+                      color: AppColors.text, fontWeight: FontWeight.bold, fontSize: 14),
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: badgeColor.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: badgeColor.withValues(alpha: 0.4)),
+                ),
+                child: Text(
+                  rec,
+                  style: TextStyle(
+                    color: badgeColor,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12,
+                  ),
+                ),
+              ),
             ],
           ),
-          const SizedBox(height: 6),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-            decoration: BoxDecoration(
-              color: badgeColor.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(4),
+          const SizedBox(height: 12),
+
+          // Score and Confidence
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: AppColors.surfaceMuted,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
+                ),
+                child: Column(
+                  children: [
+                    Text(
+                      '${score.toInt()}/100',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w900,
+                        color: score >= 70
+                            ? AppColors.success
+                            : (score >= 50 ? AppColors.warning : AppColors.danger),
+                      ),
+                    ),
+                    const Text('درجة التقييم',
+                        style: TextStyle(fontSize: 10, color: AppColors.textMuted)),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text('نسبة الثقة في التحليل',
+                            style: TextStyle(fontSize: 11, color: AppColors.textSecondary)),
+                        Text('${confidence.toInt()}%',
+                            style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.text)),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(4),
+                      child: LinearProgressIndicator(
+                        value: (confidence / 100).clamp(0.0, 1.0),
+                        backgroundColor: AppColors.surfaceMuted,
+                        color: AppColors.primaryLight,
+                        minHeight: 6,
+                      ),
+                    ),
+                    if (riskReward != null && riskReward > 0) ...[
+                      const SizedBox(height: 6),
+                      Text(
+                        'معدل العائد إلى المخاطرة (R/R): ${riskReward.toStringAsFixed(2)}:1',
+                        style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          ),
+
+          // Analysis Phases if present
+          if (phases != null && phases.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            const Divider(color: AppColors.cardBorder, height: 1),
+            const SizedBox(height: 8),
+            const Text(
+              'مراحل التحليل الأربعة (Analysis Phases):',
+              style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.textMuted),
             ),
-            child: Text(
-              action,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: badgeColor,
-                fontWeight: FontWeight.bold,
-                fontSize: 11,
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                _buildPhaseChip('النظام', phases['regime']),
+                const SizedBox(width: 6),
+                _buildPhaseChip('الإطار الزمني', phases['timeframe']),
+                const SizedBox(width: 6),
+                _buildPhaseChip('السيولة', phases['volume']),
+                const SizedBox(width: 6),
+                _buildPhaseChip('الأخبار', phases['news']),
+              ],
+            ),
+          ],
+
+          // Strategy text
+          if (strategy != null && strategy.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: AppColors.surfaceMuted,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                'استراتيجية الدخول: $strategy',
+                style: const TextStyle(fontSize: 11, color: AppColors.textSecondary, height: 1.3),
               ),
             ),
-          ),
+          ],
+
+          // Warnings
+          if (warnings.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            ...warnings.map((w) => Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.warning_amber_rounded, size: 13, color: AppColors.warning),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(w,
+                            style: const TextStyle(fontSize: 11, color: AppColors.warning)),
+                      ),
+                    ],
+                  ),
+                )),
+          ],
         ],
+      ),
+    );
+  }
+
+  Widget _buildPhaseChip(String title, dynamic phaseData) {
+    num score = 50;
+    String status = '';
+    if (phaseData is Map) {
+      score = (phaseData['score'] as num?) ?? 50;
+      status = (phaseData['phase'] ?? phaseData['status'] ?? '').toString();
+    } else if (phaseData is num) {
+      score = phaseData;
+    }
+
+    final color = score >= 65
+        ? AppColors.success
+        : (score >= 45 ? AppColors.primaryLight : AppColors.warning);
+
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: color.withValues(alpha: 0.3)),
+        ),
+        child: Column(
+          children: [
+            Text(title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: 9, color: AppColors.textMuted)),
+            const SizedBox(height: 2),
+            Text(
+              '${score.toInt()}',
+              style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: color),
+            ),
+            if (status.isNotEmpty)
+              Text(
+                status,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: 8, color: AppColors.textSecondary),
+              ),
+          ],
+        ),
       ),
     );
   }
