@@ -27,6 +27,11 @@ import 'core/official_links.dart';
 import 'core/share.dart';
 import 'screens/hunter_screen.dart';
 import 'screens/notifications_screen.dart';
+import 'screens/dual_track_screen.dart';
+import 'screens/wealth_charts_screen.dart';
+import 'screens/top_up_recommendations_screen.dart';
+import 'screens/prediction_tracking_screen.dart';
+import 'screens/alerts_center_screen.dart';
 import 'screens/alerts_screen.dart';
 import 'screens/news_screen.dart';
 import 'screens/screener_screen.dart';
@@ -816,6 +821,8 @@ void _showCommandBar() {
               children: [
                 _buildTreeSubItem(Icons.science_rounded, 'محاكاة التداول والاختبار', () => _navigateTo(const SimulationScreen())),
                 _buildTreeSubItem(Icons.menu_book_rounded, 'يومية وسجل التداول', () => _navigateTo(const TradingJournalScreen())),
+                _buildTreeSubItem(Icons.merge_rounded, 'التوقعات المزدوجة (Dual Track)', () => _navigateTo(const DualTrackScreen())),
+                _buildTreeSubItem(Icons.track_changes_rounded, 'تتبّع التوقعات', () => _navigateTo(const PredictionTrackingScreen())),
                 _buildTreeSubItem(Icons.fact_check_rounded, 'تقييم دقة التوقعات', () => _navigateTo(const PredictionPerformanceScreen())),
                 _buildTreeSubItem(Icons.history_edu_rounded, 'مختبر التعلم والباك تيست', () => _navigateTo(const LearningBacktestScreen())),
                 _buildTreeSubItem(Icons.waterfall_chart_rounded, 'محاكاة الشموع اليابانية', () => _navigateTo(const CandleSimulatorScreen())),
@@ -847,8 +854,11 @@ void _showCommandBar() {
                 _buildTreeSubItem(Icons.account_balance_wallet_rounded, 'المحفظة وتوزيع الأصول', () {
                   _setTabIndex(4);
                 }),
+                _buildTreeSubItem(Icons.stacked_line_chart_rounded, 'رسوم الثروة البيانية', () => _navigateTo(const WealthChartsScreen())),
+                _buildTreeSubItem(Icons.trending_up_rounded, 'توصيات زيادة المركز', () => _navigateTo(const TopUpRecommendationsScreen())),
                 _buildTreeSubItem(Icons.visibility_rounded, 'قائمة المراقبة والمتابعة', () => _navigateTo(const WatchlistScreen())),
                 _buildTreeSubItem(Icons.tune_rounded, 'إدارة التنبيهات والأسعار', () => _navigateTo(const AlertsScreen())),
+                _buildTreeSubItem(Icons.notifications_active_rounded, 'مركز التنبيهات الموحّد', () => _navigateTo(const AlertsCenterScreen())),
                 _buildTreeSubItem(Icons.notifications_rounded, 'مركز الإشعارات', () => _navigateTo(const NotificationsScreen())),
                 _buildTreeSubItem(Icons.card_membership_rounded, 'باقات الاشتراكات والترقية', () => _navigateTo(const SubscriptionScreen())),
                 _buildTreeSubItem(Icons.settings_rounded, 'الإعدادات العامة', () => _navigateTo(const SettingsScreen())),
