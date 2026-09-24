@@ -118,7 +118,7 @@ class _WealthChartsScreenState extends State<WealthChartsScreen> {
       _error = null;
     });
     try {
-      final results = await Future.wait([
+      final results = await Future.wait<dynamic>([
         _fetchEquityCurve(),
         _fetchHoldings(),
         _fetchRiskSummary(),

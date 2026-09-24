@@ -109,7 +109,7 @@ class _DualTrackScreenState extends State<DualTrackScreen> {
       _error = null;
     });
     try {
-      final results = await Future.wait([_fetchStats(), _fetchList()]);
+      final results = await Future.wait<dynamic>([_fetchStats(), _fetchList()]);
       if (!mounted) return;
       setState(() {
         _stats = results[0] as Map<String, dynamic>;

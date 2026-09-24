@@ -101,7 +101,7 @@ class _PredictionTrackingScreenState
       _error = null;
     });
     try {
-      final results = await Future.wait([
+      final results = await Future.wait<dynamic>([
         _fetchList(),
         _fetchStats(),
         // Best-effort dashboard; tolerate failure
