@@ -1,12 +1,20 @@
 // ============================================================================
 // مساعد الاستثمار Flutter - Radar & Explosive Hub Screen
-// يجمع بين: صائد الأسهم الانفجارية (Hunter) + رادار السيولة والميكرز (Radar)
+// يجمع بين:
+//   - صائد الأسهم الانفجارية (Hunter)
+//   - رادار السيولة والميكرز (Radar)
+//   - حالة السوق (Market Regime) — DEFENSIVE/NORMAL/AGGRESSIVE
+//   - رادار الخروج (Exit Radar) — 5 مسارات خروج
+//   - الرادار الموحّد (Multi-Market Radar) — 7 أسواق في لوحة واحدة
 // ============================================================================
 
 import 'package:flutter/material.dart';
 import '../theme/colors.dart';
 import 'hunter_screen.dart';
 import 'radar_screen.dart';
+import 'market_regime_screen.dart';
+import 'exit_radar_screen.dart';
+import 'multi_market_radar_screen.dart';
 
 class RadarHubScreen extends StatefulWidget {
   final int marketVersion;
@@ -23,16 +31,39 @@ class RadarHubScreen extends StatefulWidget {
 }
 
 class _RadarHubScreenState extends State<RadarHubScreen>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   late TabController _tabController;
+
+  static const _tabs = <_HubTab>[
+    _HubTab(
+      label: 'الانفجارية',
+      icon: Icons.local_fire_department_rounded,
+    ),
+    _HubTab(
+      label: 'رادار السيولة',
+      icon: Icons.radar_rounded,
+    ),
+    _HubTab(
+      label: 'حالة السوق',
+      icon: Icons.shield_moon_outlined,
+    ),
+    _HubTab(
+      label: 'رادار الخروج',
+      icon: Icons.logout_outlined,
+    ),
+    _HubTab(
+      label: 'الرادار الموحّد',
+      icon: Icons.public,
+    ),
+  ];
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(
-      length: 2,
+      length: _tabs.length,
       vsync: this,
-      initialIndex: widget.initialTabIndex,
+      initialIndex: widget.initialTabIndex.clamp(0, _tabs.length - 1),
     );
   }
 
@@ -52,7 +83,7 @@ class _RadarHubScreenState extends State<RadarHubScreen>
           backgroundColor: AppColors.quantumBg,
           elevation: 0,
           title: Container(
-            height: 40,
+            height: 44,
             decoration: BoxDecoration(
               color: AppColors.quantumSurface,
               borderRadius: BorderRadius.circular(12),
@@ -60,35 +91,34 @@ class _RadarHubScreenState extends State<RadarHubScreen>
             ),
             child: TabBar(
               controller: _tabController,
+              isScrollable: true,
+              indicatorSize: TabBarIndicatorSize.tab,
               indicator: BoxDecoration(
                 color: AppColors.quantumEmerald,
                 borderRadius: BorderRadius.circular(10),
               ),
               labelColor: Colors.black,
               unselectedLabelColor: Colors.white70,
-              labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-              tabs: const [
-                Tab(
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.local_fire_department_rounded, size: 16),
-                      SizedBox(width: 6),
-                      Text('الأسهم الانفجارية'),
-                    ],
-                  ),
-                ),
-                Tab(
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.radar_rounded, size: 16),
-                      SizedBox(width: 6),
-                      Text('رادار السيولة'),
-                    ],
-                  ),
-                ),
-              ],
+              labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+              unselectedLabelStyle: const TextStyle(fontSize: 12),
+              tabAlignment: TabAlignment.start,
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              tabs: _tabs
+                  .map((t) => Tab(
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(t.icon, size: 15),
+                              const SizedBox(width: 5),
+                              Text(t.label),
+                            ],
+                          ),
+                        ),
+                      ))
+                  .toList(),
             ),
           ),
           centerTitle: true,
@@ -98,9 +128,18 @@ class _RadarHubScreenState extends State<RadarHubScreen>
           children: [
             HunterScreen(marketVersion: widget.marketVersion),
             const RadarScreen(),
+            const MarketRegimeScreen(),
+            const ExitRadarScreen(),
+            const MultiMarketRadarScreen(),
           ],
         ),
       ),
     );
   }
+}
+
+class _HubTab {
+  final String label;
+  final IconData icon;
+  const _HubTab({required this.label, required this.icon});
 }

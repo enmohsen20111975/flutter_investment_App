@@ -4096,6 +4096,203 @@ class GLMApiClient {
       return {};
     }
   }
+
+  // ===========================================================================
+  // NEW APIs (2026-09-30) — Level 2+3 features
+  // ===========================================================================
+
+  /// GET /api/market/regime?market=EGX
+  /// Returns current market regime (DEFENSIVE/NORMAL/AGGRESSIVE)
+  Future<Map<String, dynamic>> getMarketRegime({String market = 'EGX'}) async {
+    try {
+      final response = await _dio.get('/api/market/regime', queryParameters: {'market': market});
+      return response.data is Map<String, dynamic>
+          ? response.data as Map<String, dynamic>
+          : <String, dynamic>{'data': response.data};
+    } catch (e) {
+      debugPrint('[API] getMarketRegime($market) failed: $e');
+      return {'success': false, 'error': e.toString()};
+    }
+  }
+
+  /// GET /api/maker-radar/exit-radar
+  /// Returns exit radar (distribution signals)
+  Future<Map<String, dynamic>> getExitRadar({String market = 'EGX'}) async {
+    try {
+      final response = await _dio.get('/api/maker-radar/exit-radar', queryParameters: {'market': market});
+      return response.data is Map<String, dynamic>
+          ? response.data as Map<String, dynamic>
+          : <String, dynamic>{'data': response.data};
+    } catch (e) {
+      debugPrint('[API] getExitRadar($market) failed: $e');
+      return {'success': false, 'error': e.toString()};
+    }
+  }
+
+  /// GET /api/maker-radar/multi-market?markets=EGX,US,CRYPTO
+  /// Returns unified multi-market radar
+  Future<Map<String, dynamic>> getMultiMarketRadar({String markets = 'EGX,US,CRYPTO,GOLD'}) async {
+    try {
+      final response = await _dio.get('/api/maker-radar/multi-market', queryParameters: {'markets': markets});
+      return response.data is Map<String, dynamic>
+          ? response.data as Map<String, dynamic>
+          : <String, dynamic>{'data': response.data};
+    } catch (e) {
+      debugPrint('[API] getMultiMarketRadar($markets) failed: $e');
+      return {'success': false, 'error': e.toString()};
+    }
+  }
+
+  /// GET /api/radar/accuracy?market=EGX
+  /// Returns historical accuracy of radar signals
+  Future<Map<String, dynamic>> getRadarAccuracy({String market = 'EGX', int days = 90}) async {
+    try {
+      final response = await _dio.get('/api/radar/accuracy',
+          queryParameters: {'market': market, 'days': days});
+      return response.data is Map<String, dynamic>
+          ? response.data as Map<String, dynamic>
+          : <String, dynamic>{'data': response.data};
+    } catch (e) {
+      debugPrint('[API] getRadarAccuracy($market,$days) failed: $e');
+      return {'success': false, 'error': e.toString()};
+    }
+  }
+
+  /// GET /api/maker-radar/timeline?ticker=COMI
+  /// Returns signal tracking timeline for a stock
+  Future<Map<String, dynamic>> getSignalTimeline({required String ticker, int days = 30}) async {
+    try {
+      final response = await _dio.get('/api/maker-radar/timeline',
+          queryParameters: {'ticker': ticker, 'days': days});
+      return response.data is Map<String, dynamic>
+          ? response.data as Map<String, dynamic>
+          : <String, dynamic>{'data': response.data};
+    } catch (e) {
+      debugPrint('[API] getSignalTimeline($ticker,$days) failed: $e');
+      return {'success': false, 'error': e.toString()};
+    }
+  }
+
+  /// GET /api/radar/weekly-report
+  /// Returns the latest weekly radar report
+  Future<Map<String, dynamic>> getWeeklyReport() async {
+    try {
+      final response = await _dio.get('/api/radar/weekly-report');
+      return response.data is Map<String, dynamic>
+          ? response.data as Map<String, dynamic>
+          : <String, dynamic>{'data': response.data};
+    } catch (e) {
+      debugPrint('[API] getWeeklyReport failed: $e');
+      return {'success': false, 'error': e.toString()};
+    }
+  }
+
+  /// GET /api/stocks/{ticker}/publish-data
+  /// Returns unified stock data for publishing
+  Future<Map<String, dynamic>> getStockPublishData({required String ticker}) async {
+    try {
+      final response = await _dio.get('/api/stocks/${ticker.toUpperCase()}/publish-data');
+      return response.data is Map<String, dynamic>
+          ? response.data as Map<String, dynamic>
+          : <String, dynamic>{'data': response.data};
+    } catch (e) {
+      debugPrint('[API] getStockPublishData($ticker) failed: $e');
+      return {'success': false, 'error': e.toString()};
+    }
+  }
+
+  /// GET /api/radar/personalized
+  /// Returns personalized radar based on user profile
+  Future<Map<String, dynamic>> getPersonalizedRadar() async {
+    try {
+      final response = await _dio.get('/api/radar/personalized');
+      return response.data is Map<String, dynamic>
+          ? response.data as Map<String, dynamic>
+          : <String, dynamic>{'data': response.data};
+    } catch (e) {
+      debugPrint('[API] getPersonalizedRadar failed: $e');
+      return {'success': false, 'error': e.toString()};
+    }
+  }
+
+  /// POST /api/telegram/publish-stock
+  /// Publishes a stock analysis to Telegram channel
+  Future<Map<String, dynamic>> publishStockToTelegram({required String ticker, String? market, String? channelId}) async {
+    try {
+      final response = await _dio.post('/api/telegram/publish-stock', data: {
+        'ticker': ticker,
+        if (market != null) 'market': market,
+        if (channelId != null) 'channel_id': channelId,
+      });
+      return response.data is Map<String, dynamic>
+          ? response.data as Map<String, dynamic>
+          : <String, dynamic>{'data': response.data};
+    } catch (e) {
+      debugPrint('[API] publishStockToTelegram($ticker) failed: $e');
+      return {'success': false, 'error': e.toString()};
+    }
+  }
+
+  /// GET /api/maker-radar/entry-timing?ticker=COMI
+  /// Returns entry timing score (0-100)
+  Future<Map<String, dynamic>> getEntryTiming({required String ticker}) async {
+    try {
+      final response = await _dio.get('/api/maker-radar/entry-timing',
+          queryParameters: {'ticker': ticker});
+      return response.data is Map<String, dynamic>
+          ? response.data as Map<String, dynamic>
+          : <String, dynamic>{'data': response.data};
+    } catch (e) {
+      debugPrint('[API] getEntryTiming($ticker) failed: $e');
+      return {'success': false, 'error': e.toString()};
+    }
+  }
+
+  /// GET /api/maker-radar/footprint?ticker=COMI&days=30
+  /// Returns liquidity footprint (volume profile by price level)
+  Future<Map<String, dynamic>> getLiquidityFootprint({required String ticker, int days = 30}) async {
+    try {
+      final response = await _dio.get('/api/maker-radar/footprint',
+          queryParameters: {'ticker': ticker, 'days': days});
+      return response.data is Map<String, dynamic>
+          ? response.data as Map<String, dynamic>
+          : <String, dynamic>{'data': response.data};
+    } catch (e) {
+      debugPrint('[API] getLiquidityFootprint($ticker,$days) failed: $e');
+      return {'success': false, 'error': e.toString()};
+    }
+  }
+
+  /// GET /api/maker-radar/sector-treemap
+  /// Returns sector liquidity treemap data
+  Future<Map<String, dynamic>> getSectorTreemap({int days = 30}) async {
+    try {
+      final response = await _dio.get('/api/maker-radar/sector-treemap',
+          queryParameters: {'days': days});
+      return response.data is Map<String, dynamic>
+          ? response.data as Map<String, dynamic>
+          : <String, dynamic>{'data': response.data};
+    } catch (e) {
+      debugPrint('[API] getSectorTreemap($days) failed: $e');
+      return {'success': false, 'error': e.toString()};
+    }
+  }
+
+  /// GET /api/maker-radar/signal-tracker
+  /// Returns signal tracker stats (win rate per signal type)
+  Future<Map<String, dynamic>> getSignalTrackerStats({int days = 30, String? signalType}) async {
+    try {
+      final params = <String, dynamic>{'days': days};
+      if (signalType != null) params['signal_type'] = signalType;
+      final response = await _dio.get('/api/maker-radar/signal-tracker', queryParameters: params);
+      return response.data is Map<String, dynamic>
+          ? response.data as Map<String, dynamic>
+          : <String, dynamic>{'data': response.data};
+    } catch (e) {
+      debugPrint('[API] getSignalTrackerStats($days,${signalType ?? 'all'}) failed: $e');
+      return {'success': false, 'error': e.toString()};
+    }
+  }
 }
 
 // Top-level getter for backward compatibility
