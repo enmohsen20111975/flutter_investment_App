@@ -51,6 +51,9 @@ import 'screens/persona_screen.dart';
 import 'screens/radar_hub_screen.dart';
 import 'screens/tools_hub_screen.dart';
 import 'screens/investors_screen.dart';
+// FOCUS-5-TASKS (2026-10-01): MyBriefingScreen — الـ mirror الـ mobile للـ web widget.
+// شاشة شخصية للعميل: محفظته + تنبيهاته + أخبار أسهمه (مرتّبة بالأولوية).
+import 'screens/my_briefing_screen.dart';
 import 'widgets/stock_search_dialog.dart';
 import 'api/client.dart';
 import 'models/types.dart';
@@ -768,6 +771,86 @@ void _showCommandBar() {
                     ),
                   ],
                 ],
+              ),
+            ),
+
+            const SizedBox(height: 8),
+
+            // ── FOCUS-5-TASKS (2026-10-01): تنبيهات أسهمك الشخصية ──
+            // زرار بارز في أول الـ drawer — أول حاجة العميل يضغط عليها.
+            // بياخده لـ MyBriefingScreen (محفظته + تنبيهاته + أخبار أسهمه).
+            Container(
+              margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF047857), Color(0xFF10B981)],
+                  begin: Alignment.topRight,
+                  end: Alignment.bottomLeft,
+                ),
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF047857).withValues(alpha: 0.3),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(12),
+                  onTap: () => _navigateTo(const MyBriefingScreen()),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 12),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.2),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.notifications_active,
+                            color: Colors.white,
+                            size: 20,
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: const [
+                              Text(
+                                'تنبيهات أسهمك',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 14,
+                                ),
+                              ),
+                              SizedBox(height: 2),
+                              Text(
+                                'محفظتك + تنبيهات Exit Radar + أخبار أسهمك',
+                                style: TextStyle(
+                                  color: Colors.white70,
+                                  fontSize: 10,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const Icon(
+                          Icons.chevron_left,
+                          color: Colors.white70,
+                          size: 20,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               ),
             ),
 

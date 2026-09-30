@@ -4293,6 +4293,74 @@ class GLMApiClient {
       return {'success': false, 'error': e.toString()};
     }
   }
+
+  // ===========================================================================
+  // FOCUS-5-TASKS (2026-10-01) — APIs for the personal dashboard briefing.
+  // These power the new "My Briefing" view that mirrors the web widget:
+  //   1. Portfolio + V40.2 predictions + Exit Radar signals + alerts summary
+  //   2. News filtered by the user's portfolio/watchlist tickers
+  //
+  // These are pure additions — no existing methods changed.
+  // ===========================================================================
+
+  /// GET /api/portfolio/unified-watch
+  ///
+  /// Returns ALL stocks the user is tracking (portfolio + watchlist + radar tracking)
+  /// enriched with:
+  ///   - Live analysis (current price + change_percent + sector)
+  ///   - V40.2 prediction (entry/target/stop/signal/confidence/status)
+  ///   - Actionable advice (TAKE_PROFIT / STOP_LOSS / APPROACHING_TARGET / EXIT_RADAR / HOLD)
+  ///   - Exit Radar signal (X1-X5 paths) if the stock is in today's exit_radar cache
+  ///   - Summary: total_value + total_pnl + alerts (critical/warning/caution counts)
+  ///
+  /// Auth: Bearer token (mobile) or session cookie (web).
+  ///
+  /// This is the single API that powers the "My Briefing" personal dashboard
+  /// (web widget `MyStocksBriefing.tsx` + Flutter `MyBriefingScreen`).
+  Future<Map<String, dynamic>> getUnifiedWatch() async {
+    try {
+      final response = await _dio.get('/api/portfolio/unified-watch');
+      return response.data is Map<String, dynamic>
+          ? response.data as Map<String, dynamic>
+          : <String, dynamic>{'data': response.data};
+    } catch (e) {
+      debugPrint('[API] getUnifiedWatch() failed: $e');
+      return {'success': false, 'error': e.toString()};
+    }
+  }
+
+  /// GET /api/news?tickers=COMI,EGBE,...&limit=N
+  ///
+  /// Returns news filtered by the given tickers (portfolio + watchlist).
+  /// The `tickers` param is matched against the JSON `tickers` column in
+  /// news.db. If [tickers] is empty, returns general news (no filter).
+  ///
+  /// Auth: not required for public news, but Bearer token is sent if present.
+  ///
+  /// Used by MyBriefingScreen to show only news that affect the user's stocks.
+  Future<List<dynamic>> getPersonalizedNews({
+    List<String> tickers = const [],
+    int limit = 3,
+    String? market,
+  }) async {
+    try {
+      final params = <String, dynamic>{'limit': limit};
+      if (tickers.isNotEmpty) {
+        params['tickers'] = tickers.take(30).join(','); // cap to 30 tickers
+      }
+      if (market != null) params['market'] = market;
+      final response = await _dio.get('/api/news', queryParameters: params);
+      final data = response.data;
+      if (data is Map<String, dynamic>) {
+        final news = data['news'];
+        return news is List ? news : <dynamic>[];
+      }
+      return data is List ? data : <dynamic>[];
+    } catch (e) {
+      debugPrint('[API] getPersonalizedNews(tickers=${tickers.length},limit=$limit) failed: $e');
+      return <dynamic>[];
+    }
+  }
 }
 
 // Top-level getter for backward compatibility
