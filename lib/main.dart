@@ -53,8 +53,27 @@ Future<void> main() async {
     GLMApiClient.instance.setAuthToken(authToken);
   }
 
-  // Check if user has auth token (simplified check)
-  final bool hasToken = prefs.containsKey('auth_token');
+  // ALERTS-API-FIX (2026-10-01): Validate token before trusting it.
+  // Before: hasToken = prefs.containsKey('auth_token') — no validation.
+  // If token expired, user stayed logged in with empty data.
+  // After: call /api/auth/me to verify; if 401, clear token → go to /auth.
+  bool hasToken = prefs.containsKey('auth_token');
+  if (hasToken && authToken != null && authToken.isNotEmpty) {
+    try {
+      final response = await GLMApiClient.instance.dio.get('/api/auth/me');
+      if (response.statusCode != 200 || response.data['success'] != true) {
+        // Token invalid or expired → clear it
+        await prefs.remove('auth_token');
+        GLMApiClient.instance.setAuthToken(null);
+        hasToken = false;
+      }
+    } catch (e) {
+      // Network error → keep token (user might be offline)
+      // Don't punish users for bad connectivity — they'll get redirected
+      // to /auth if the token is actually expired on the next API call.
+      debugPrint('[main] token validation failed (network?): $e');
+    }
+  }
 
   // Load theme preference
   final bool isDarkMode = prefs.getBool('dark_mode') ?? false;
