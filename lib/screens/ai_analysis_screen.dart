@@ -12,7 +12,6 @@ import '../api/cache_manager.dart';
 import '../models/json_helpers.dart';
 import '../widgets/state_view.dart';
 import '../widgets/skeleton_loader.dart';
-import '../core/app_localizations.dart';
 
 class AiAnalysisScreen extends StatefulWidget {
   const AiAnalysisScreen({super.key});
@@ -28,6 +27,7 @@ class _AiAnalysisScreenState extends State<AiAnalysisScreen>
   Future<Map<String, dynamic>?>? _predictionsFuture;
   Future<Map<String, dynamic>?>? _globalPredictionsFuture;
   StreamSubscription<String>? _cacheSubscription;
+  Timer? _cacheDebounce;
 
   @override
   void initState() {
@@ -40,7 +40,10 @@ class _AiAnalysisScreenState extends State<AiAnalysisScreen>
           key.startsWith('mobile_predictions_') ||
           key == 'global_predictions';
     }).listen((_) {
-      if (mounted) _refresh();
+      _cacheDebounce?.cancel();
+      _cacheDebounce = Timer(const Duration(milliseconds: 500), () {
+        if (mounted) _refresh();
+      });
     });
   }
 
@@ -56,6 +59,7 @@ class _AiAnalysisScreenState extends State<AiAnalysisScreen>
 
   @override
   void dispose() {
+    _cacheDebounce?.cancel();
     _cacheSubscription?.cancel();
     _tabController.removeListener(_onTabChanged);
     _tabController.dispose();
@@ -104,7 +108,6 @@ class _AiAnalysisScreenState extends State<AiAnalysisScreen>
 
   @override
   Widget build(BuildContext context) {
-    final isAr = AppLocalizations.isArabic; // i18n
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(

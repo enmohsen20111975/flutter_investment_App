@@ -11,7 +11,6 @@ import '../api/cache_manager.dart';
 import '../models/types.dart';
 import '../services/subscription_service.dart';
 import '../widgets/upgrade_modal.dart';
-import '../core/app_localizations.dart';
 
 class PortfolioScreen extends StatefulWidget {
   const PortfolioScreen({super.key});
@@ -34,6 +33,7 @@ class _PortfolioScreenState extends State<PortfolioScreen>
   final TextEditingController _symbolController = TextEditingController();
   final TextEditingController _sharesController = TextEditingController();
   final TextEditingController _priceController = TextEditingController();
+  Timer? _cacheDebounce;
 
   @override
   void initState() {
@@ -42,16 +42,20 @@ class _PortfolioScreenState extends State<PortfolioScreen>
     _cacheSubscription = ApiCacheManager.instance.updates.where((key) {
       return key == 'portfolio_data' || key == 'user_portfolio_data';
     }).listen((_) {
-      if (mounted) {
-        setState(() {
-          _portfolioFuture = GLMApiClient.instance.getMobilePortfolio();
-        });
-      }
+      _cacheDebounce?.cancel();
+      _cacheDebounce = Timer(const Duration(milliseconds: 500), () {
+        if (mounted) {
+          setState(() {
+            _portfolioFuture = GLMApiClient.instance.getMobilePortfolio();
+          });
+        }
+      });
     });
   }
 
   @override
   void dispose() {
+    _cacheDebounce?.cancel();
     _cacheSubscription?.cancel();
     _symbolController.dispose();
     _sharesController.dispose();
@@ -124,7 +128,7 @@ class _PortfolioScreenState extends State<PortfolioScreen>
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: Text('إلغاء',
-                style: TextStyle(color: Colors.white.withOpacity(0.5))),
+                style: TextStyle(color: Colors.white.withValues(alpha: 0.5))),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -181,7 +185,6 @@ class _PortfolioScreenState extends State<PortfolioScreen>
   @override
   Widget build(BuildContext context) {
     // i18n helper
-    final isAr = AppLocalizations.isArabic;
     super.build(context);
 
     return FutureBuilder<PortfolioResponse>(
@@ -256,7 +259,7 @@ class _PortfolioScreenState extends State<PortfolioScreen>
                       border: Border.all(color: AppColors.quantumGlassBorder),
                       boxShadow: [
                         BoxShadow(
-                          color: AppColors.quantumEmerald.withOpacity(0.05),
+                          color: AppColors.quantumEmerald.withValues(alpha: 0.05),
                           blurRadius: 20,
                           spreadRadius: 2,
                         ),
@@ -278,7 +281,7 @@ class _PortfolioScreenState extends State<PortfolioScreen>
                                 color: (isUp
                                         ? AppColors.quantumEmerald
                                         : AppColors.quantumCrimson)
-                                    .withOpacity(0.2),
+                                    .withValues(alpha: 0.2),
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: Text(
@@ -307,7 +310,7 @@ class _PortfolioScreenState extends State<PortfolioScreen>
                           children: [
                             Text('إجمالي الأرباح/الخسائر: ',
                                 style: TextStyle(
-                                    color: Colors.white.withOpacity(0.5),
+                                    color: Colors.white.withValues(alpha: 0.5),
                                     fontSize: 12)),
                             Text(
                               '${isUp ? '+' : ''}${totalGain.toStringAsFixed(2)} ج.م',
@@ -499,7 +502,7 @@ class _PortfolioScreenState extends State<PortfolioScreen>
                                   Text(
                                       '$shares سهم • متوسط الشراء $buyPrice ج.م',
                                       style: TextStyle(
-                                          color: Colors.white.withOpacity(0.5),
+                                          color: Colors.white.withValues(alpha: 0.5),
                                           fontSize: 11)),
                                 ],
                               ),

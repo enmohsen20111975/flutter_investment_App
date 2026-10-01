@@ -10,7 +10,6 @@ import '../theme/colors.dart';
 import '../api/client.dart';
 import '../widgets/state_view.dart';
 import '../widgets/skeleton_loader.dart';
-import '../core/app_localizations.dart';
 
 class SmartConfluenceScreen extends StatefulWidget {
   const SmartConfluenceScreen({super.key});
@@ -25,7 +24,6 @@ class _SmartConfluenceScreenState extends State<SmartConfluenceScreen>
   String _selectedMarket = 'EGX';
   final List<String> _markets = const ['EGX', 'TADAWUL', 'KSE', 'QSE', 'DFM'];
   Future<List<_ConfluenceItem>>? _itemsFuture;
-  Map<String, dynamic>? _scanSummary;
 
   @override
   void initState() {
@@ -56,7 +54,6 @@ class _SmartConfluenceScreenState extends State<SmartConfluenceScreen>
     // 1) Confluence market scan (advanced multi-factor)
     try {
       final scan = await api.getConfluenceMarketScan(market: _selectedMarket);
-      _scanSummary = scan;
       final rawItems = scan['items'] ??
           scan['results'] ??
           scan['stocks'] ??
@@ -70,7 +67,7 @@ class _SmartConfluenceScreenState extends State<SmartConfluenceScreen>
         }
       }
     } catch (_) {
-      _scanSummary = null;
+      // ignore scan failure, fallback below
     }
     // 2) Fallback: stitch from /api/v2/recommend
     if (items.isEmpty) {
@@ -117,7 +114,6 @@ class _SmartConfluenceScreenState extends State<SmartConfluenceScreen>
 
   @override
   Widget build(BuildContext context) {
-    final isAr = AppLocalizations.isArabic; // i18n
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(

@@ -1,7 +1,6 @@
 // ============================================================================
 // مساعد الاستثمار Flutter - Main Entry Point
 // ============================================================================
-
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -31,9 +30,10 @@ import 'services/notification_service.dart';
 import 'services/subscription_service.dart';
 import 'services/version_service.dart';
 import 'services/polling_service.dart';
-import 'core/app_localizations.dart';
+import 'services/portfolio_alert_service.dart';
 
 final darkModeProvider = StateProvider<bool>((ref) => true);
+// F8:EF:3F:95:7B:3D:11:51:B0:D8:DA:F0:FA:B0:14:0E:30:8F:E4:A4   //
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -99,30 +99,26 @@ class _AppRootState extends State<_AppRoot> with WidgetsBindingObserver {
   bool _checking = true;
   bool _forceUpdate = false;
   dynamic _versionResult;
-  Timer? _splashTimeout;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      unawaited(NotificationService().startPortfolioMonitoring());
+      // Delay background alert monitoring slightly so the home dashboard renders smoothly
+      Future.delayed(const Duration(seconds: 4), () {
+        if (mounted) {
+          unawaited(NotificationService().startPortfolioMonitoring());
+          PortfolioAlertService().start();
+        }
+      });
     });
     _checkForcedUpdate();
-    _splashTimeout = Timer(const Duration(seconds: 2), () {
-      if (mounted && _checking) {
-        setState(() {
-          _checking = false;
-          _forceUpdate = false;
-        });
-      }
-    });
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    _splashTimeout?.cancel();
     super.dispose();
   }
 
@@ -131,7 +127,9 @@ class _AppRootState extends State<_AppRoot> with WidgetsBindingObserver {
     if (state == AppLifecycleState.resumed) {
       _checkForcedUpdate();
       pollingService.resume();
-    } else if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive) {
+      PortfolioAlertService().start();
+    } else if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive) {
       pollingService.pause();
     }
   }
@@ -139,8 +137,8 @@ class _AppRootState extends State<_AppRoot> with WidgetsBindingObserver {
   Future<void> _checkForcedUpdate() async {
     try {
       final result = await VersionService.instance.checkVersion().timeout(
-        const Duration(seconds: 2),
-      );
+            const Duration(seconds: 4),
+          );
       if (mounted) {
         setState(() {
           _versionResult = result;
@@ -149,19 +147,26 @@ class _AppRootState extends State<_AppRoot> with WidgetsBindingObserver {
         });
       }
     } on TimeoutException {
-      debugPrint('[AppRoot] Version check timed out — letting user in immediately');
-      if (mounted) {
-        setState(() {
-          _checking = false;
-          _forceUpdate = false;
-        });
+      debugPrint('[AppRoot] Version check timed out — checking cached status');
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        final cachedRequired = prefs.getBool('force_update_required') ?? false;
+        if (mounted) {
+          setState(() {
+            _checking = false;
+            _forceUpdate = cachedRequired;
+          });
+        }
+      } catch (_) {
+        if (mounted) {
+          setState(() => _checking = false);
+        }
       }
     } catch (e) {
       debugPrint('[AppRoot] Version check error: $e');
       if (mounted) {
         setState(() {
           _checking = false;
-          _forceUpdate = false;
         });
       }
     }
@@ -224,7 +229,13 @@ class _AppRootState extends State<_AppRoot> with WidgetsBindingObserver {
           scaffoldBackgroundColor: AppColors.background,
           fontFamily: 'Cairo',
         ),
-        home: ForceUpdateScreen(result: _versionResult),
+        home: ForceUpdateScreen(
+          result: _versionResult,
+          onRetry: () {
+            setState(() => _checking = true);
+            _checkForcedUpdate();
+          },
+        ),
       );
     }
 
@@ -312,10 +323,20 @@ class GLMInvestmentApp extends ConsumerWidget {
         textTheme: const TextTheme(
           bodyLarge: TextStyle(color: AppColors.text, fontFamily: 'Cairo'),
           bodyMedium: TextStyle(color: AppColors.text, fontFamily: 'Cairo'),
-          bodySmall: TextStyle(color: AppColors.textSecondary, fontFamily: 'Cairo'),
-          titleLarge: TextStyle(color: AppColors.text, fontWeight: FontWeight.bold, fontFamily: 'Cairo'),
-          titleMedium: TextStyle(color: AppColors.text, fontWeight: FontWeight.w600, fontFamily: 'Cairo'),
-          titleSmall: TextStyle(color: AppColors.text, fontWeight: FontWeight.w600, fontFamily: 'Cairo'),
+          bodySmall:
+              TextStyle(color: AppColors.textSecondary, fontFamily: 'Cairo'),
+          titleLarge: TextStyle(
+              color: AppColors.text,
+              fontWeight: FontWeight.bold,
+              fontFamily: 'Cairo'),
+          titleMedium: TextStyle(
+              color: AppColors.text,
+              fontWeight: FontWeight.w600,
+              fontFamily: 'Cairo'),
+          titleSmall: TextStyle(
+              color: AppColors.text,
+              fontWeight: FontWeight.w600,
+              fontFamily: 'Cairo'),
         ),
         fontFamily: 'Cairo',
       ),

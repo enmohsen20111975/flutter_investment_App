@@ -10,7 +10,6 @@ import '../theme/typography.dart';
 import '../api/client.dart';
 import '../models/json_helpers.dart';
 import '../widgets/state_view.dart';
-import '../core/app_localizations.dart';
 
 class CryptoDetailScreen extends StatefulWidget {
   final String coinId;
@@ -39,8 +38,8 @@ class _CryptoDetailScreenState extends State<CryptoDetailScreen> {
         api.getCryptoOHLC(coinId: widget.coinId, days: _selectedDays),
       ]);
 
-      final detail = results[0] as Map<String, dynamic>;
-      final ohlcResponse = results[1] as Map<String, dynamic>;
+      final detail = results[0];
+      final ohlcResponse = results[1];
       final ohlcDataWrapper =
           ohlcResponse['data'] as Map<String, dynamic>? ?? ohlcResponse;
 
@@ -65,7 +64,6 @@ class _CryptoDetailScreenState extends State<CryptoDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isAr = AppLocalizations.isArabic; // i18n
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(

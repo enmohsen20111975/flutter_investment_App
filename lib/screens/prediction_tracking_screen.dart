@@ -9,11 +9,9 @@
 
 import 'package:flutter/material.dart';
 import '../theme/colors.dart';
-import '../theme/typography.dart';
 import '../api/client.dart';
 import '../widgets/state_view.dart';
 import '../widgets/skeleton_loader.dart';
-import '../core/app_localizations.dart';
 
 class PredictionTrackingScreen extends StatefulWidget {
   const PredictionTrackingScreen({super.key});
@@ -246,7 +244,6 @@ class _PredictionTrackingScreenState
   // ──────────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
-    final isAr = AppLocalizations.isArabic;
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(

@@ -41,12 +41,12 @@ class PredictionModel {
         predictionType: json['prediction_type']?.toString() ??
             json['type']?.toString() ??
             'general',
-        confidence: _toInt(json['confidence']) ?? 0,
+        confidence: _toInt(json['confidence']),
         entryPrice: _toDouble(json['entry_price'] ?? json['entry']),
         targetPrice: _toDouble(json['target_price'] ?? json['target']),
         stopLoss: _toDouble(json['stop_loss'] ?? json['stopLoss']),
-        technicalScore: _toInt(json['technical_score'] ?? json['technicalScore']) ?? 0,
-        fundamentalScore: _toInt(json['fundamental_score'] ?? json['fundamentalScore']) ?? 0,
+        technicalScore: _toInt(json['technical_score'] ?? json['technicalScore']),
+        fundamentalScore: _toInt(json['fundamental_score'] ?? json['fundamentalScore']),
         status: json['status']?.toString() ?? 'ACTIVE',
         predictionDate: json['prediction_date']?.toString() ??
             json['date']?.toString() ??

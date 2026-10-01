@@ -12,7 +12,6 @@ import '../models/persona_model.dart';
 import '../widgets/persona_card.dart';
 import '../widgets/skeleton_loader.dart';
 import '../widgets/empty_state_widget.dart';
-import '../core/app_localizations.dart';
 
 class PersonaScreen extends StatefulWidget {
   const PersonaScreen({super.key});
@@ -61,7 +60,6 @@ class _PersonaScreenState extends State<PersonaScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isAr = AppLocalizations.isArabic;
     const Color personaColor = AppColors.warning;
 
     return Directionality(

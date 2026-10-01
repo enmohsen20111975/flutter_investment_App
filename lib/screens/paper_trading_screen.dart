@@ -8,7 +8,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import '../theme/colors.dart';
 import '../api/client.dart';
-import '../core/app_localizations.dart';
 
 class PaperTradingScreen extends StatefulWidget {
   const PaperTradingScreen({super.key});
@@ -220,7 +219,6 @@ class _PaperTradingScreenState extends State<PaperTradingScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isAr = AppLocalizations.isArabic; // i18n
     if (_loading) {
       return const Center(child: CircularProgressIndicator(color: AppColors.primary));
     }

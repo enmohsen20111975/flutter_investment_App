@@ -5,8 +5,6 @@
 
 import 'dart:async';
 import 'package:flutter/material.dart';
-import '../theme/colors.dart';
-import '../api/client.dart';
 import '../api/mobile_api.dart';
 
 /// Status of the market with convenience getters

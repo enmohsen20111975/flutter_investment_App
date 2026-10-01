@@ -11,7 +11,6 @@ import 'screens/dashboard_screen.dart';
 import 'screens/stocks_screen.dart';
 import 'screens/stock_history_screen.dart';
 import 'screens/currency_screen.dart';
-import 'screens/crypto_screen.dart';
 import 'screens/zakat_screen.dart';
 import 'screens/ai_analysis_screen.dart';
 import 'screens/auth_screen.dart';
@@ -23,9 +22,7 @@ import 'screens/settings_screen.dart';
 import 'screens/webview_screen.dart';
 import 'screens/metals_screen.dart';
 import 'screens/learning_backtest_screen.dart';
-import 'core/official_links.dart';
 import 'core/share.dart';
-import 'screens/hunter_screen.dart';
 import 'screens/notifications_screen.dart';
 import 'screens/dual_track_screen.dart';
 import 'screens/wealth_charts_screen.dart';
@@ -166,18 +163,9 @@ class _MainNavigatorState extends State<MainNavigator> {
   Future<void> _fetchNotificationCount() async {
     try {
       final response = await api.getMobileNotifications();
-      final Map<String, dynamic> data = <String, dynamic>{};
-      if (response is Map) {
-        final Map<dynamic, dynamic> rawMap = response as Map<dynamic, dynamic>;
-        for (final entry in rawMap.keys) {
-          final key = entry.toString();
-          data[key] = rawMap[entry];
-        }
-      }
-      final dynamic rawNotifications = data['notifications'] ?? data['data'];
-      final List<dynamic> list =
-          rawNotifications is List ? rawNotifications : <dynamic>[];
-      
+      List<dynamic> list = [];
+      list = response;
+          
       final prefs = await SharedPreferences.getInstance();
       final List<String> notifiedIds = prefs.getStringList('notified_notification_ids') ?? <String>[];
       final List<String> newNotifiedIds = List<String>.from(notifiedIds);
@@ -185,7 +173,7 @@ class _MainNavigatorState extends State<MainNavigator> {
       int unread = 0;
       for (final item in list) {
         final Map<dynamic, dynamic> map =
-            item is Map ? item as Map<dynamic, dynamic> : <dynamic, dynamic>{};
+            item is Map ? item : <dynamic, dynamic>{};
         final String id = map['id']?.toString() ?? '';
         final isRead = map['is_read'] == true || map['read'] == true;
         
@@ -1191,17 +1179,6 @@ void _showCommandBar() {
     final String displayName = user.username ?? user.email;
     if (displayName.isEmpty) return 'U';
     return displayName[0].toUpperCase();
-  }
-
-  Widget _buildDrawerItem(IconData icon, String label, VoidCallback onTap) {
-    return ListTile(
-      leading: Icon(icon, size: 20, color: AppColors.textSecondary),
-      title: Text(label,
-          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
-      onTap: onTap,
-      dense: true,
-      visualDensity: const VisualDensity(horizontal: -4, vertical: -2),
-    );
   }
 
   Future<void> _navigateTo(Widget screen) async {

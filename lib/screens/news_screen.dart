@@ -8,7 +8,6 @@ import '../theme/colors.dart';
 import '../api/client.dart';
 import '../models/types.dart';
 import 'stock_history_screen.dart';
-import '../core/app_localizations.dart';
 
 class NewsScreen extends StatefulWidget {
   const NewsScreen({super.key});
@@ -48,7 +47,6 @@ class _NewsScreenState extends State<NewsScreen> with SingleTickerProviderStateM
   @override
   Widget build(BuildContext context) {
     // i18n helper
-    final isAr = AppLocalizations.isArabic;
     return Scaffold(
       backgroundColor: AppColors.quantumBg,
       appBar: AppBar(
@@ -154,7 +152,7 @@ class _NewsScreenState extends State<NewsScreen> with SingleTickerProviderStateM
                 Center(
                   child: Padding(
                     padding: const EdgeInsets.all(40),
-                    child: Text('لا توجد أخبار حديثة حالياً', style: TextStyle(color: Colors.white.withOpacity(0.5))),
+                    child: Text('لا توجد أخبار حديثة حالياً', style: TextStyle(color: Colors.white.withValues(alpha: 0.5))),
                   ),
                 )
               else
@@ -180,7 +178,7 @@ class _NewsScreenState extends State<NewsScreen> with SingleTickerProviderStateM
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                               decoration: BoxDecoration(
-                                color: AppColors.quantumEmerald.withOpacity(0.15),
+                                color: AppColors.quantumEmerald.withValues(alpha: 0.15),
                                 borderRadius: BorderRadius.circular(4),
                               ),
                               child: Text(source, style: const TextStyle(color: AppColors.quantumEmerald, fontSize: 11, fontWeight: FontWeight.bold)),
@@ -242,7 +240,7 @@ class _NewsScreenState extends State<NewsScreen> with SingleTickerProviderStateM
                 return Center(
                   child: Padding(
                     padding: const EdgeInsets.all(40),
-                    child: Text('لا توجد إفصاحات شركات مسجلة', style: TextStyle(color: Colors.white.withOpacity(0.5))),
+                    child: Text('لا توجد إفصاحات شركات مسجلة', style: TextStyle(color: Colors.white.withValues(alpha: 0.5))),
                   ),
                 );
               }
@@ -273,9 +271,9 @@ class _NewsScreenState extends State<NewsScreen> with SingleTickerProviderStateM
                           child: Container(
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                             decoration: BoxDecoration(
-                              color: AppColors.quantumGold.withOpacity(0.2),
+                              color: AppColors.quantumGold.withValues(alpha: 0.2),
                               borderRadius: BorderRadius.circular(6),
-                              border: Border.all(color: AppColors.quantumGold.withOpacity(0.4)),
+                              border: Border.all(color: AppColors.quantumGold.withValues(alpha: 0.4)),
                             ),
                             child: Text(
                               item.symbol,

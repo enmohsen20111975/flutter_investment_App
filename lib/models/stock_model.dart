@@ -3,7 +3,6 @@
 // Typed stock data model with fromJson/toJson
 // ============================================================================
 
-import 'json_helpers.dart';
 
 class StockModel {
   final String ticker;

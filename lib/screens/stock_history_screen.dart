@@ -43,6 +43,7 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
   List<Map<String, dynamic>> _volumes = [];
   Future<dynamic>? _newsFuture;
   StreamSubscription<String>? _cacheSubscription;
+  Timer? _cacheDebounce;
 
   @override
   void initState() {
@@ -67,7 +68,10 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
             _newsFuture = GLMApiClient.instance.getStockNews(widget.ticker);
           });
         } else {
-          _refreshDetails();
+          _cacheDebounce?.cancel();
+          _cacheDebounce = Timer(const Duration(milliseconds: 500), () {
+            if (mounted) _refreshDetails();
+          });
         }
       }
     });
@@ -83,6 +87,7 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
 
   @override
   void dispose() {
+    _cacheDebounce?.cancel();
     _cacheSubscription?.cancel();
     _tabController.removeListener(_onTabChanged);
     _tabController.dispose();
@@ -421,10 +426,10 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
             (_candles.isNotEmpty ? _candles.last['value'] : null);
 
         final highText = (highVal != null && highVal > 0)
-            ? (highVal is num ? highVal.toStringAsFixed(2) : '$highVal')
+            ? (highVal.toStringAsFixed(2))
             : '-';
         final lowText = (lowVal != null && lowVal > 0 && lowVal != 999999)
-            ? (lowVal is num ? lowVal.toStringAsFixed(2) : '$lowVal')
+            ? (lowVal.toStringAsFixed(2))
             : '-';
         final volText = volVal != null
             ? (volVal is num && volVal >= 1000000

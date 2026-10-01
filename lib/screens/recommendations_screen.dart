@@ -15,7 +15,6 @@ import '../models/types.dart';
 import '../widgets/state_view.dart';
 import '../widgets/skeleton_loader.dart';
 import '../widgets/freshness_badge.dart';
-import '../core/app_localizations.dart';
 
 class RecommendationsScreen extends StatefulWidget {
   const RecommendationsScreen({super.key});
@@ -37,6 +36,7 @@ class _RecommendationsScreenState extends State<RecommendationsScreen> {
   String _activeMarket = 'EGX';
 
   Timer? _autoRefreshTimer;
+  Timer? _cacheDebounce;
   StreamSubscription<String>? _cacheSubscription;
 
   @override
@@ -51,13 +51,17 @@ class _RecommendationsScreenState extends State<RecommendationsScreen> {
           key == 'morning_reports' ||
           key.startsWith('performance_dashboard_7_');
     }).listen((_) {
-      if (mounted) _refresh();
+      _cacheDebounce?.cancel();
+      _cacheDebounce = Timer(const Duration(milliseconds: 500), () {
+        if (mounted) _refresh();
+      });
     });
   }
 
   @override
   void dispose() {
     _autoRefreshTimer?.cancel();
+    _cacheDebounce?.cancel();
     _cacheSubscription?.cancel();
     super.dispose();
   }
@@ -304,7 +308,6 @@ class _RecommendationsScreenState extends State<RecommendationsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isAr = AppLocalizations.isArabic;
     const Color personaColor = AppColors.warning;
 
     return Directionality(
@@ -495,7 +498,7 @@ class _RecommendationsScreenState extends State<RecommendationsScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Text(stat.expertName ?? 'خبير',
+          Text(stat.expertName,
               style: AppTypography.bodySmall,
               maxLines: 1,
               overflow: TextOverflow.ellipsis),
@@ -511,10 +514,10 @@ class _RecommendationsScreenState extends State<RecommendationsScreen> {
           Row(
             children: [
               _buildStatItem(
-                  'نسبة', '${stat.successRate?.toStringAsFixed(0) ?? 0}%'),
+                  'نسبة', '${stat.successRate.toStringAsFixed(0)}%'),
               const SizedBox(width: 16),
               _buildStatItem(
-                  'عائد', '${stat.avgReturn?.toStringAsFixed(1) ?? 0}%'),
+                  'عائد', '${stat.avgReturn.toStringAsFixed(1)}%'),
             ],
           ),
         ],

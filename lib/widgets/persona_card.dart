@@ -155,7 +155,6 @@ class PersonaCard extends StatelessWidget {
   }
 
   Widget _buildGatesRow() {
-    final gates = opportunity.gates ?? {};
     final passed = opportunity.passedGates;
     final total = opportunity.totalGates;
     final ratio = total > 0 ? passed / total : 0.0;

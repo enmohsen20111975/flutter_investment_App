@@ -231,7 +231,7 @@ $communityPrompt
                   ),
                   onPressed: () {
                     Navigator.pop(ctx);
-                    Share.share(text, subject: 'تحليل سهم $ticker');
+                    SharePlus.instance.share(ShareParams(text: text, subject: 'تحليل سهم $ticker'));
                   },
                 ),
                 const SizedBox(height: 12),
@@ -252,7 +252,7 @@ $communityPrompt
                           if (await canLaunchUrl(uri)) {
                             await launchUrl(uri, mode: LaunchMode.externalApplication);
                           } else {
-                            Share.share(text);
+                            SharePlus.instance.share(ShareParams(text: text));
                           }
                         },
                       ),
@@ -271,7 +271,7 @@ $communityPrompt
                           if (await canLaunchUrl(uri)) {
                             await launchUrl(uri, mode: LaunchMode.externalApplication);
                           } else {
-                            Share.share(text);
+                            SharePlus.instance.share(ShareParams(text: text));
                           }
                         },
                       ),

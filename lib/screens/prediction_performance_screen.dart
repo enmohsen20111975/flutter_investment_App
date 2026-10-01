@@ -14,7 +14,6 @@ import '../api/client.dart';
 import '../widgets/state_view.dart';
 import '../widgets/skeleton_loader.dart';
 import '../widgets/freshness_badge.dart';
-import '../core/app_localizations.dart';
 
 class PredictionPerformanceScreen extends StatefulWidget {
   const PredictionPerformanceScreen({super.key});
@@ -88,7 +87,6 @@ class _PredictionPerformanceScreenState
 
   @override
   Widget build(BuildContext context) {
-    final isAr = AppLocalizations.isArabic; // i18n
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(

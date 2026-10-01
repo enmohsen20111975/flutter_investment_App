@@ -48,7 +48,6 @@ class StockRepository {
 
   Future<List<PredictionModel>> getPredictions({int? limit, String? status}) async {
     final rawList = await _api.getMobilePredictions(limit: limit, status: status);
-    if (rawList is! List) return [];
     return rawList
         .map((e) => e is Map ? PredictionModel.fromJson(Map<String, dynamic>.from(e)) : null)
         .where((e) => e != null)

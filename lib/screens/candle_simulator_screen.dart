@@ -5,7 +5,6 @@
 
 import 'package:flutter/material.dart';
 import '../theme/colors.dart';
-import '../core/app_localizations.dart';
 
 class CandleSimulatorScreen extends StatefulWidget {
   const CandleSimulatorScreen({super.key});
@@ -22,7 +21,6 @@ class _CandleSimulatorScreenState extends State<CandleSimulatorScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isAr = AppLocalizations.isArabic; // i18n
     final patterns = _detectPatterns();
     return ListView(
       padding: const EdgeInsets.all(12),

@@ -48,6 +48,10 @@ class LocalDatabase {
         }
       },
       onOpen: (db) async {
+        try {
+          await db.execute('PRAGMA journal_mode = WAL');
+          await db.execute('PRAGMA synchronous = NORMAL');
+        } catch (_) {}
         await _ensureStockHistoryTable(db);
         await _createAlertsTable(db);
         await _createApiCacheTable(db);
@@ -61,6 +65,7 @@ class LocalDatabase {
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         ticker TEXT NOT NULL,
         timestamp INTEGER NOT NULL,
+        date TEXT,
         open REAL NOT NULL,
         high REAL NOT NULL,
         low REAL NOT NULL,
@@ -85,9 +90,13 @@ class LocalDatabase {
     if (tables.isEmpty) {
       await _createStockHistoryTable(db);
     } else {
-      try {
-        await db.execute('ALTER TABLE stock_history ADD COLUMN date TEXT');
-      } catch (_) {}
+      final columns = await db.rawQuery('PRAGMA table_info(stock_history)');
+      final hasDate = columns.any((c) => c['name'] == 'date');
+      if (!hasDate) {
+        try {
+          await db.execute('ALTER TABLE stock_history ADD COLUMN date TEXT');
+        } catch (_) {}
+      }
     }
   }
 
@@ -136,67 +145,84 @@ class LocalDatabase {
   // ===========================================================================
 
   Future<void> insertStockHistory(String ticker, List<Map<String, dynamic>> data) async {
-    final db = await database;
-    final batch = db.batch();
-    for (final item in data) {
-      int? timestamp;
-      String? dateStr;
+    if (data.isEmpty) return;
+    try {
+      final db = await database;
+      final lastRecorded = await getLastHistoryTimestamp(ticker);
+      final batch = db.batch();
+      int insertedCount = 0;
 
-      final rawTs = item['timestamp'];
-      if (rawTs is num) {
-        final t = rawTs.toInt();
-        timestamp = t > 20000000000 ? t ~/ 1000 : t;
-        dateStr = DateTime.fromMillisecondsSinceEpoch(timestamp * 1000).toIso8601String().split('T').first;
-      }
+      for (final item in data) {
+        int? timestamp;
+        String? dateStr;
 
-      final rawDate = (item['date'] ?? item['time'])?.toString();
-      if (rawDate != null && rawDate.isNotEmpty) {
-        dateStr = rawDate.split('T').first;
-        if (timestamp == null) {
-          final parsed = DateTime.tryParse(rawDate);
-          if (parsed != null) {
-            timestamp = parsed.millisecondsSinceEpoch ~/ 1000;
+        final rawTs = item['timestamp'];
+        if (rawTs is num) {
+          final t = rawTs.toInt();
+          timestamp = t > 20000000000 ? t ~/ 1000 : t;
+          dateStr = DateTime.fromMillisecondsSinceEpoch(timestamp * 1000).toIso8601String().split('T').first;
+        }
+
+        final rawDate = (item['date'] ?? item['time'])?.toString();
+        if (rawDate != null && rawDate.isNotEmpty) {
+          dateStr = rawDate.split('T').first;
+          if (timestamp == null) {
+            final parsed = DateTime.tryParse(rawDate);
+            if (parsed != null) {
+              timestamp = parsed.millisecondsSinceEpoch ~/ 1000;
+            }
           }
+        }
+
+        timestamp ??= DateTime.now().millisecondsSinceEpoch ~/ 1000;
+        dateStr ??= DateTime.fromMillisecondsSinceEpoch(timestamp * 1000).toIso8601String().split('T').first;
+
+        // Skip if this timestamp is older than what we already have cached
+        if (lastRecorded != null && timestamp < (lastRecorded.millisecondsSinceEpoch ~/ 1000) - 86400) {
+          continue;
+        }
+
+        final close = (item['close'] as num?)?.toDouble() ??
+            (item['close_price'] as num?)?.toDouble() ??
+            (item['price'] as num?)?.toDouble() ??
+            0.0;
+        final open = (item['open'] as num?)?.toDouble() ??
+            (item['open_price'] as num?)?.toDouble() ??
+            close;
+        final high = (item['high'] as num?)?.toDouble() ??
+            (item['high_price'] as num?)?.toDouble() ??
+            (close > open ? close : open);
+        final low = (item['low'] as num?)?.toDouble() ??
+            (item['low_price'] as num?)?.toDouble() ??
+            (close < open ? close : open);
+        final volume = (item['volume'] as num?)?.toInt() ?? 0;
+
+        if (close > 0 || open > 0) {
+          batch.insert(
+            'stock_history',
+            {
+              'ticker': ticker.toUpperCase(),
+              'timestamp': timestamp,
+              'date': dateStr,
+              'open': open,
+              'high': high,
+              'low': low,
+              'close': close,
+              'volume': volume,
+            },
+            conflictAlgorithm: ConflictAlgorithm.replace,
+          );
+          insertedCount++;
         }
       }
 
-      timestamp ??= DateTime.now().millisecondsSinceEpoch ~/ 1000;
-      dateStr ??= DateTime.fromMillisecondsSinceEpoch(timestamp * 1000).toIso8601String().split('T').first;
-
-      final close = (item['close'] as num?)?.toDouble() ??
-          (item['close_price'] as num?)?.toDouble() ??
-          (item['price'] as num?)?.toDouble() ??
-          0.0;
-      final open = (item['open'] as num?)?.toDouble() ??
-          (item['open_price'] as num?)?.toDouble() ??
-          close;
-      final high = (item['high'] as num?)?.toDouble() ??
-          (item['high_price'] as num?)?.toDouble() ??
-          (close > open ? close : open);
-      final low = (item['low'] as num?)?.toDouble() ??
-          (item['low_price'] as num?)?.toDouble() ??
-          (close < open ? close : open);
-      final volume = (item['volume'] as num?)?.toInt() ?? 0;
-
-      if (close > 0 || open > 0) {
-        batch.insert(
-          'stock_history',
-          {
-            'ticker': ticker.toUpperCase(),
-            'timestamp': timestamp,
-            'date': dateStr,
-            'open': open,
-            'high': high,
-            'low': low,
-            'close': close,
-            'volume': volume,
-          },
-          conflictAlgorithm: ConflictAlgorithm.replace,
-        );
+      if (insertedCount > 0) {
+        await batch.commit(noResult: true);
+        debugPrint('[DB] Inserted $insertedCount history records for $ticker');
       }
+    } catch (e) {
+      debugPrint('[DB] insertStockHistory error: $e');
     }
-    await batch.commit(noResult: true);
-    debugPrint('[DB] Inserted ${data.length} history records for $ticker');
   }
 
   Future<List<Map<String, dynamic>>> getStockHistory(String ticker, {int days = 30}) async {

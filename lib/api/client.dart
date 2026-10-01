@@ -32,8 +32,8 @@ class GLMApiClient {
     // Default Dio - standard requests
     _dio = Dio(BaseOptions(
       baseUrl: _baseUrl,
-      connectTimeout: const Duration(seconds: 15),
-      receiveTimeout: const Duration(seconds: 30),
+      connectTimeout: const Duration(seconds: 7),
+      receiveTimeout: const Duration(seconds: 15),
     ));
     _dio.interceptors.add(InterceptorsWrapper(
       onRequest: (options, handler) {
@@ -413,7 +413,7 @@ class GLMApiClient {
               await _dio.get('/api/stocks', queryParameters: queryParams);
           final payload = response.data;
           if (payload is Map) {
-            final map = Map<String, dynamic>.from(payload as Map);
+            final map = Map<String, dynamic>.from(payload);
             debugPrint(
                 '[API] Stocks response: ${(map['stocks'] is List ? map['stocks'] as List : const []).length} stocks');
             return map;
@@ -2215,6 +2215,7 @@ class GLMApiClient {
     return _cachedMap(
       key: 'explosive_opportunities_${limit}_$market',
       ttl: const Duration(minutes: 3),
+      fallback: (_) => <String, dynamic>{'top_candidates': <dynamic>[]},
       fetcher: () async {
         final queryParams = <String, dynamic>{'top': limit};
         if (market != null && market != 'ALL') queryParams['market'] = market;
@@ -3147,8 +3148,14 @@ class GLMApiClient {
         // اجيب السعر الحالي
         double currentPrice = 0;
         try {
-          final stockRes = await _dio.get('/api/mobile/stocks/$ticker',
-              options: Options(headers: {'Cache-Control': 'no-cache'}));
+          final stockRes = await _dio.get(
+            '/api/mobile/stocks/$ticker',
+            options: Options(
+              headers: {'Cache-Control': 'no-cache'},
+              sendTimeout: const Duration(seconds: 3),
+              receiveTimeout: const Duration(seconds: 3),
+            ),
+          );
           if (stockRes.data is Map) {
             currentPrice = (stockRes.data['price'] ??
                     stockRes.data['data']?['price'] ??

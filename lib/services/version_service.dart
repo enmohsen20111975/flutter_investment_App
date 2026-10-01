@@ -101,10 +101,26 @@ class VersionService {
       }
 
       if (minVersion != null && minVersion.isNotEmpty) {
-        final needsUpdate = _isVersionLower(currentVersion, minVersion);
-        final storeUrl = data['store_url'] ?? data['play_store_url'] ?? _playStoreUrl;
-        final messageAr = (data['message_ar'] ?? data['messageAr'] ?? data['message'])?.toString() ?? 'يرجى تحديث التطبيق إلى أحدث إصدار للمتابعة.';
-        
+        final bool serverForce = data['force_update'] == true;
+        final String? latestVer =
+            (data['latest_version'] ?? data['latestVersion'])?.toString();
+
+        final bool isBelowMin = _isVersionLower(currentVersion, minVersion);
+        final bool isBelowLatestWithForce = serverForce &&
+            latestVer != null &&
+            _isVersionLower(currentVersion, latestVer);
+
+        final needsUpdate = isBelowMin || isBelowLatestWithForce;
+        final storeUrl = data['store_url'] ??
+            data['update_url'] ??
+            data['play_store_url'] ??
+            _playStoreUrl;
+        final messageAr = (data['message_ar'] ??
+                    data['messageAr'] ??
+                    data['message'])
+                ?.toString() ??
+            'يرجى تحديث التطبيق من متجر Google Play إلى أحدث إصدار للمتابعة.';
+
         if (prefs != null) {
           await prefs.setBool('force_update_required', needsUpdate);
           await prefs.setString('force_update_min_version', minVersion);
@@ -115,7 +131,7 @@ class VersionService {
         return VersionCheckResult(
           updateRequired: needsUpdate,
           currentVersion: currentVersion,
-          minRequiredVersion: minVersion,
+          minRequiredVersion: serverForce && latestVer != null ? latestVer : minVersion,
           storeUrl: storeUrl,
           message: data['message']?.toString(),
           messageAr: messageAr,

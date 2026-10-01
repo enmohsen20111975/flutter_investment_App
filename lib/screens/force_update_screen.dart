@@ -7,38 +7,44 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../theme/colors.dart';
 import '../services/version_service.dart';
-import '../core/app_localizations.dart';
 
 class ForceUpdateScreen extends StatelessWidget {
   final VersionCheckResult result;
+  final VoidCallback? onRetry;
 
-  const ForceUpdateScreen({super.key, required this.result});
+  const ForceUpdateScreen({super.key, required this.result, this.onRetry});
 
   Future<void> _openStore(BuildContext context) async {
-    final url = Uri.parse(result.storeUrl ??
-        'https://play.google.com/store/apps/details?id=com.egx.investment');
+    final storeUrl = result.storeUrl ??
+        'https://play.google.com/store/apps/details?id=com.egx.investment';
+    final marketUri = Uri.parse('market://details?id=com.egx.investment');
+    final webUri = Uri.parse(storeUrl);
+
     try {
-      if (await canLaunchUrl(url)) {
-        await launchUrl(url, mode: LaunchMode.externalApplication);
+      if (await canLaunchUrl(marketUri)) {
+        await launchUrl(marketUri, mode: LaunchMode.externalApplication);
       } else {
-        // Fallback: try forcing external launch
-        await launchUrl(url, mode: LaunchMode.externalApplication);
+        await launchUrl(webUri, mode: LaunchMode.externalApplication);
       }
     } catch (e) {
       debugPrint('[ForceUpdate] Failed to open store: $e');
+      try {
+        await launchUrl(webUri, mode: LaunchMode.externalApplication);
+      } catch (_) {}
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final isAr = AppLocalizations.isArabic; // i18n
     final message = result.messageAr ??
         result.message ??
         'يرجى تحديث التطبيق إلى أحدث إصدار للمتابعة.';
 
-    return Directionality(
-      textDirection: TextDirection.rtl,
-      child: Scaffold(
+    return PopScope(
+      canPop: false,
+      child: Directionality(
+        textDirection: TextDirection.rtl,
+        child: Scaffold(
         backgroundColor: AppColors.background,
         body: SafeArea(
           child: Center(
@@ -140,9 +146,11 @@ class ForceUpdateScreen extends StatelessWidget {
                   // killing the app)
                   TextButton.icon(
                     onPressed: () {
-                      // Restart-friendly: just relaunch via popping to root
-                      // The real re-check happens on next full launch.
-                      Navigator.of(context).maybePop();
+                      if (onRetry != null) {
+                        onRetry!();
+                      } else {
+                        Navigator.of(context).maybePop();
+                      }
                     },
                     icon: const Icon(Icons.refresh_rounded,
                         color: AppColors.textMuted, size: 18),
@@ -161,6 +169,7 @@ class ForceUpdateScreen extends StatelessWidget {
           ),
         ),
       ),
+    ),
     );
   }
 

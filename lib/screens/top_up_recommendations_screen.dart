@@ -13,7 +13,6 @@ import '../theme/typography.dart';
 import '../api/client.dart';
 import '../widgets/state_view.dart';
 import '../widgets/skeleton_loader.dart';
-import '../core/app_localizations.dart';
 
 class TopUpRecommendationsScreen extends StatefulWidget {
   const TopUpRecommendationsScreen({super.key});
@@ -50,21 +49,14 @@ class _TopUpRecommendationsScreenState
     });
     try {
       final data = await api.getPortfolioHoldings();
-      List raw;
-      if (data is List) {
-        raw = data;
-      } else if (data is Map) {
-        final list = data['holdings'] ??
-            data['positions'] ??
-            data['items'] ??
-            data['portfolio']?['positions'] ??
-            data['portfolio']?['items'] ??
-            data['data'] ??
-            const [];
-        raw = list is List ? list : const [];
-      } else {
-        raw = const [];
-      }
+      final list = data['holdings'] ??
+          data['positions'] ??
+          data['items'] ??
+          data['portfolio']?['positions'] ??
+          data['portfolio']?['items'] ??
+          data['data'] ??
+          const [];
+      final List raw = list is List ? list : const [];
 
       final all = raw
           .whereType<Map>()
@@ -444,7 +436,6 @@ class _TopUpRecommendationsScreenState
   // ──────────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
-    final isAr = AppLocalizations.isArabic;
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(

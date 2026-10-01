@@ -7,7 +7,6 @@
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import '../theme/colors.dart';
-import '../core/app_localizations.dart';
 
 class WebViewScreen extends StatefulWidget {
   final String? initialUrl;
@@ -51,7 +50,6 @@ class _WebViewScreenState extends State<WebViewScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isAr = AppLocalizations.isArabic; // i18n
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(

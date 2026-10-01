@@ -57,7 +57,22 @@ class NotificationService {
     );
     
     await _createNotificationChannels();
+    await _createPortfolioChannels();
+    unawaited(requestPermission());
     await _scheduleDailyAnalysis();
+  }
+
+  Future<bool> requestPermission() async {
+    try {
+      final androidPlugin = _notificationsPlugin
+          .resolvePlatformSpecificImplementation<
+              AndroidFlutterLocalNotificationsPlugin>();
+      final granted = await androidPlugin?.requestNotificationsPermission();
+      return granted ?? true;
+    } catch (e) {
+      debugPrint('[NotificationService] Permission request error: $e');
+      return false;
+    }
   }
 
   Future<void> _createNotificationChannels() async {

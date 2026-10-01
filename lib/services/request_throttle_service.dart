@@ -30,17 +30,17 @@ class RequestThrottleService {
   RequestThrottleService._();
   static final RequestThrottleService instance = RequestThrottleService._();
 
-  /// Maximum number of simultaneous in-flight requests
-  static const int _maxConcurrent = 3;
+  /// Maximum number of simultaneous in-flight requests (high throughput for mobile)
+  static const int _maxConcurrent = 12;
 
   /// Circuit breaker: open after N consecutive failures
-  static const int _failureThreshold = 3;
+  static const int _failureThreshold = 10;
 
   /// Circuit breaker: stay open for this duration before trying again
-  static const Duration _openDuration = Duration(seconds: 60);
+  static const Duration _openDuration = Duration(seconds: 5);
 
   /// Circuit breaker: half-open test after open period
-  static const Duration _halfOpenTimeout = Duration(seconds: 10);
+  static const Duration _halfOpenTimeout = Duration(seconds: 3);
 
   int _activeCount = 0;
   final List<_RequestEntry<dynamic>> _queue = [];
@@ -112,8 +112,11 @@ class RequestThrottleService {
         debugPrint('[Throttle] Half-open test for ${entry.key}');
       }
 
+      final timeout = _circuitState == _CircuitState.halfOpen
+          ? _halfOpenTimeout
+          : const Duration(seconds: 25);
       final result = await entry.fetcher().timeout(
-        const Duration(seconds: 30),
+        timeout,
         onTimeout: () => throw TimeoutException('Request timeout: ${entry.key}'),
       );
 

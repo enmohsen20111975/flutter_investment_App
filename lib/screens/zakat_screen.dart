@@ -5,7 +5,6 @@
 
 import 'package:flutter/material.dart';
 import '../theme/colors.dart';
-import '../core/app_localizations.dart';
 
 class ZakatScreen extends StatefulWidget {
   const ZakatScreen({super.key});
@@ -95,7 +94,6 @@ class _ZakatScreenState extends State<ZakatScreen> with SingleTickerProviderStat
 
   @override
   Widget build(BuildContext context) {
-    final isAr = AppLocalizations.isArabic; // i18n
     return Scaffold(
       backgroundColor: AppColors.quantumBg,
       appBar: AppBar(
@@ -145,10 +143,10 @@ class _ZakatScreenState extends State<ZakatScreen> with SingleTickerProviderStat
           decoration: BoxDecoration(
             color: AppColors.quantumGlass,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: AppColors.quantumEmerald.withOpacity(0.5)),
+            border: Border.all(color: AppColors.quantumEmerald.withValues(alpha: 0.5)),
             boxShadow: [
               BoxShadow(
-                color: AppColors.quantumEmerald.withOpacity(0.05),
+                color: AppColors.quantumEmerald.withValues(alpha: 0.05),
                 blurRadius: 15,
               ),
             ],
@@ -190,10 +188,10 @@ class _ZakatScreenState extends State<ZakatScreen> with SingleTickerProviderStat
           decoration: BoxDecoration(
             color: AppColors.quantumGlass,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: AppColors.quantumGold.withOpacity(0.5)),
+            border: Border.all(color: AppColors.quantumGold.withValues(alpha: 0.5)),
             boxShadow: [
               BoxShadow(
-                color: AppColors.quantumGold.withOpacity(0.05),
+                color: AppColors.quantumGold.withValues(alpha: 0.05),
                 blurRadius: 15,
               ),
             ],

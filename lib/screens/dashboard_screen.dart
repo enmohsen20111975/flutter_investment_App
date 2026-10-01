@@ -20,7 +20,6 @@ import 'metals_screen.dart';
 import 'currency_screen.dart';
 import 'trading_chart_screen.dart';
 import 'investors_screen.dart';
-import '../core/app_localizations.dart';
 import '../services/polling_service.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -51,7 +50,6 @@ class _DashboardScreenState extends State<DashboardScreen>
   late TabController _tabController;
   StreamSubscription<Map<String, dynamic>>? _pollingSub;
   StreamSubscription<String>? _cacheSubscription;
-  bool _hasLoadedInitial = false;
   /// Prevents concurrent overlapping _loadDashboardData calls
   bool _loadGuard = false;
   /// Debounce timer for cache-update-triggered explosive refresh
@@ -59,7 +57,7 @@ class _DashboardScreenState extends State<DashboardScreen>
 
   // Explosive-opportunities preview (GAP 5).
   late Future<List<Map<String, dynamic>>> _explosiveFuture =
-      Future.delayed(const Duration(milliseconds: 800), _fetchExplosivePreview);
+      Future.delayed(const Duration(milliseconds: 2500), _fetchExplosivePreview);
 
   @override
   void initState() {
@@ -333,8 +331,6 @@ class _DashboardScreenState extends State<DashboardScreen>
 
   @override
   Widget build(BuildContext context) {
-    // i18n helper
-    final isAr = AppLocalizations.isArabic;
     super.build(context);
 
     return Scaffold(

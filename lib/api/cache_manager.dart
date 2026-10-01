@@ -157,6 +157,7 @@ class ApiCacheManager {
     required Duration ttl,
     required int gen,
     bool persist = false,
+    bool isBackgroundRefresh = false,
   }) async {
     final completer = Completer<dynamic>();
     _loading[key] = completer;
@@ -170,7 +171,11 @@ class ApiCacheManager {
       _store(key, data, ttl);
       if (persist) unawaited(_saveToPrefs(key, data));
       if (!completer.isCompleted) completer.complete(data);
-      _notifyUpdate(key);
+      // ONLY notify listeners if this was a background revalidation,
+      // avoiding infinite re-fetch loops when callers await the result directly.
+      if (isBackgroundRefresh) {
+        _notifyUpdate(key);
+      }
       return data;
     } catch (e) {
       if (!completer.isCompleted) completer.completeError(e);
@@ -188,8 +193,14 @@ class ApiCacheManager {
     bool persist = false,
   }) {
     unawaited(
-      _fetchAndStore<T>(key: key, fetcher: fetcher, ttl: ttl, gen: gen, persist: persist)
-          .catchError((Object e, StackTrace s) {
+      _fetchAndStore<T>(
+        key: key,
+        fetcher: fetcher,
+        ttl: ttl,
+        gen: gen,
+        persist: persist,
+        isBackgroundRefresh: true,
+      ).catchError((Object e, StackTrace s) {
         debugPrint('[Cache] Background refresh failed for $key: $e');
         return Future<T>.error(e, s);
       }),

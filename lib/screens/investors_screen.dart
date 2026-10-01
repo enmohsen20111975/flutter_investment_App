@@ -5,7 +5,6 @@
 
 import 'package:flutter/material.dart';
 import '../theme/colors.dart';
-import '../theme/typography.dart';
 import '../api/client.dart';
 
 class InvestorsScreen extends StatefulWidget {

@@ -177,16 +177,6 @@ class InfoCard extends StatelessWidget {
     }
   }
 
-  Color get _toneBg {
-    switch (tone) {
-      case 'success': return AppColors.successLight;
-      case 'warning': return AppColors.warningLight;
-      case 'danger': return AppColors.dangerLight;
-      case 'info': return AppColors.infoLight;
-      default: return AppColors.primaryMuted;
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Container(

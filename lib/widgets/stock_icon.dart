@@ -60,15 +60,12 @@ class _StockIconState extends State<StockIcon> {
   String? get _iconUrl => widget.iconUrl ?? widget.stock?.iconUrl;
 
   String? get _ticker => widget.stock?.ticker ?? widget.ticker;
-  String? get _name => widget.stock?.name ?? widget.name;
-  String? get _nameAr => widget.stock?.nameAr ?? widget.nameAr;
   String? get _sector => widget.stock?.sector ?? widget.sector;
 
   @override
   Widget build(BuildContext context) {
     final url = _iconUrl;
     final fallbackEmoji = getSectorIcon(_sector);
-    final displayName = _nameAr ?? _name ?? _ticker ?? '';
 
     if (url != null && !_imageError) {
       return Container(
@@ -152,7 +149,6 @@ class _StockIconMiniState extends State<StockIconMini> {
   bool _imageError = false;
 
   String? get _iconUrl => widget.stock?.iconUrl;
-  String? get _ticker => widget.stock?.ticker ?? widget.ticker;
   String? get _sector => widget.stock?.sector ?? widget.sector;
 
   @override

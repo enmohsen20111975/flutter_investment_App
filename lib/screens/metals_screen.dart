@@ -9,7 +9,6 @@ import '../theme/colors.dart';
 import '../api/client.dart';
 import '../models/types.dart';
 import '../widgets/state_view.dart';
-import '../core/app_localizations.dart';
 
 class MetalsScreen extends StatefulWidget {
   const MetalsScreen({super.key});
@@ -98,7 +97,6 @@ class _MetalsScreenState extends State<MetalsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isAr = AppLocalizations.isArabic; // i18n
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(

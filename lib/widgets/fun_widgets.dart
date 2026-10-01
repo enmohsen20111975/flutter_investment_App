@@ -148,7 +148,6 @@ class FunButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bgColor = backgroundColor ?? AppColors.primary;
     final txtColor = textColor ?? AppColors.white;
 
     Widget button = Container(

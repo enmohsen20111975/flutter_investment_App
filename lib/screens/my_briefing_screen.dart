@@ -1,18 +1,18 @@
 // ============================================================================
-// مساعد الاستثمار Flutter - My Briefing Screen
-// شاشة «تنبيهات أسهمك» — المرآة الـ mobile للـ web widget MyStocksBriefing
+// Ù…Ø³Ø§Ø¹Ø¯ Ø§Ù„Ø§Ø³ØªØ«Ù…Ø§Ø± Flutter - My Briefing Screen
+// Ø´Ø§Ø´Ø© Â«ØªÙ†Ø¨ÙŠÙ‡Ø§Øª Ø£Ø³Ù‡Ù…ÙƒÂ» â€” Ø§Ù„Ù…Ø±Ø¢Ø© Ø§Ù„Ù€ mobile Ù„Ù„Ù€ web widget MyStocksBriefing
 //
-// تعرض:
-//   1. ملخص المحفظة (القيمة الحالية + المكاسب/الخسائر + عدد الأسهم + التكلفة)
-//   2. تنبيهات تحتاج قرار (top 5) — EXIT_RADAR > STOP_LOSS > TAKE_PROFIT > APPROACHING_TARGET
-//   3. آخر أخبار أسهمك (3 news items مفلترة بأسهم محفظة العميل)
+// ØªØ¹Ø±Ø¶:
+//   1. Ù…Ù„Ø®Øµ Ø§Ù„Ù…Ø­ÙØ¸Ø© (Ø§Ù„Ù‚ÙŠÙ…Ø© Ø§Ù„Ø­Ø§Ù„ÙŠØ© + Ø§Ù„Ù…ÙƒØ§Ø³Ø¨/Ø§Ù„Ø®Ø³Ø§Ø¦Ø± + Ø¹Ø¯Ø¯ Ø§Ù„Ø£Ø³Ù‡Ù… + Ø§Ù„ØªÙƒÙ„ÙØ©)
+//   2. ØªÙ†Ø¨ÙŠÙ‡Ø§Øª ØªØ­ØªØ§Ø¬ Ù‚Ø±Ø§Ø± (top 5) â€” EXIT_RADAR > STOP_LOSS > TAKE_PROFIT > APPROACHING_TARGET
+//   3. Ø¢Ø®Ø± Ø£Ø®Ø¨Ø§Ø± Ø£Ø³Ù‡Ù…Ùƒ (3 news items Ù…ÙÙ„ØªØ±Ø© Ø¨Ø£Ø³Ù‡Ù… Ù…Ø­ÙØ¸Ø© Ø§Ù„Ø¹Ù…ÙŠÙ„)
 //
-// المصادر:
-//   - GET /api/portfolio/unified-watch (محفظة + توقعات + exit_radar_signal + alerts summary)
-//   - GET /api/news?tickers=COMI,EGBE,...&limit=3 (أخبار مفلترة)
+// Ø§Ù„Ù…ØµØ§Ø¯Ø±:
+//   - GET /api/portfolio/unified-watch (Ù…Ø­ÙØ¸Ø© + ØªÙˆÙ‚Ø¹Ø§Øª + exit_radar_signal + alerts summary)
+//   - GET /api/news?tickers=COMI,EGBE,...&limit=3 (Ø£Ø®Ø¨Ø§Ø± Ù…ÙÙ„ØªØ±Ø©)
 //
-// مهمة FOCUS-5-TASKS (2026-10-01): ترجمة الـ 5 مهام اللي اتعملت في الـ web
-// إلى Flutter app عشان الموبايل يبقى متزامن مع كل تطوير.
+// Ù…Ù‡Ù…Ø© FOCUS-5-TASKS (2026-10-01): ØªØ±Ø¬Ù…Ø© Ø§Ù„Ù€ 5 Ù…Ù‡Ø§Ù… Ø§Ù„Ù„ÙŠ Ø§ØªØ¹Ù…Ù„Øª ÙÙŠ Ø§Ù„Ù€ web
+// Ø¥Ù„Ù‰ Flutter app Ø¹Ø´Ø§Ù† Ø§Ù„Ù…ÙˆØ¨Ø§ÙŠÙ„ ÙŠØ¨Ù‚Ù‰ Ù…ØªØ²Ø§Ù…Ù† Ù…Ø¹ ÙƒÙ„ ØªØ·ÙˆÙŠØ±.
 // ============================================================================
 
 import 'package:flutter/material.dart';
@@ -23,19 +23,19 @@ import '../theme/typography.dart';
 import '../widgets/loading_widget.dart';
 import '../widgets/empty_state_widget.dart';
 
-// ─── Providers ────────────────────────────────────────────────────────────
+// â”€â”€â”€ Providers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-/// Provider للـ unified-watch data (portfolio + predictions + exit_radar + alerts).
+/// Provider Ù„Ù„Ù€ unified-watch data (portfolio + predictions + exit_radar + alerts).
 final unifiedWatchProvider =
     FutureProvider.autoDispose<Map<String, dynamic>>((ref) async {
   return GLMApiClient.instance.getUnifiedWatch();
 });
 
-/// Provider للأخبار المفلترة بأسهم العميل.
-/// بياخد قائمة الـ tickers من الـ unified-watch ويفلتر بيها الأخبار.
+/// Provider Ù„Ù„Ø£Ø®Ø¨Ø§Ø± Ø§Ù„Ù…ÙÙ„ØªØ±Ø© Ø¨Ø£Ø³Ù‡Ù… Ø§Ù„Ø¹Ù…ÙŠÙ„.
+/// Ø¨ÙŠØ§Ø®Ø¯ Ù‚Ø§Ø¦Ù…Ø© Ø§Ù„Ù€ tickers Ù…Ù† Ø§Ù„Ù€ unified-watch ÙˆÙŠÙÙ„ØªØ± Ø¨ÙŠÙ‡Ø§ Ø§Ù„Ø£Ø®Ø¨Ø§Ø±.
 final personalizedNewsProvider =
     FutureProvider.autoDispose<List<dynamic>>((ref) async {
-  // نقرأ الـ unifiedWatch الأول عشان نعرف الـ tickers
+  // Ù†Ù‚Ø±Ø£ Ø§Ù„Ù€ unifiedWatch Ø§Ù„Ø£ÙˆÙ„ Ø¹Ø´Ø§Ù† Ù†Ø¹Ø±Ù Ø§Ù„Ù€ tickers
   final watchData = await ref.watch(unifiedWatchProvider.future);
   final stocks = watchData['stocks'];
   final List<String> tickers = [];
@@ -49,7 +49,7 @@ final personalizedNewsProvider =
   return GLMApiClient.instance.getPersonalizedNews(tickers: tickers, limit: 3);
 });
 
-// ─── Constants ─────────────────────────────────────────────────────────────
+// â”€â”€â”€ Constants â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 class _AdviceTypeInfo {
   final String labelAr;
@@ -61,18 +61,18 @@ class _AdviceTypeInfo {
 
 final Map<String, _AdviceTypeInfo> _adviceTypeInfo = {
   'EXIT_RADAR': _AdviceTypeInfo(
-    'إشارة خروج', Color(0xFFB91C1C), Color(0xFFFEF2F2), 100),
+    'Ø¥Ø´Ø§Ø±Ø© Ø®Ø±ÙˆØ¬', Color(0xFFB91C1C), Color(0xFFFEF2F2), 100),
   'STOP_LOSS': _AdviceTypeInfo(
-    'وقف خسارة', Color(0xFFB91C1C), Color(0xFFFEF2F2), 90),
+    'ÙˆÙ‚Ù Ø®Ø³Ø§Ø±Ø©', Color(0xFFB91C1C), Color(0xFFFEF2F2), 90),
   'TAKE_PROFIT': _AdviceTypeInfo(
-    'جني أرباح', Color(0xFF047857), Color(0xFFECFDF5), 70),
+    'Ø¬Ù†ÙŠ Ø£Ø±Ø¨Ø§Ø­', Color(0xFF047857), Color(0xFFECFDF5), 70),
   'APPROACHING_TARGET': _AdviceTypeInfo(
-    'اقتراب من الهدف', Color(0xFFB45309), Color(0xFFFEF3C7), 60),
+    'Ø§Ù‚ØªØ±Ø§Ø¨ Ù…Ù† Ø§Ù„Ù‡Ø¯Ù', Color(0xFFB45309), Color(0xFFFEF3C7), 60),
   'HOLD': _AdviceTypeInfo(
-    'انتظار', Colors.grey, Color(0xFFF3F4F6), 0),
+    'Ø§Ù†ØªØ¸Ø§Ø±', Colors.grey, Color(0xFFF3F4F6), 0),
 };
 
-// ─── Screen ───────────────────────────────────────────────────────────────
+// â”€â”€â”€ Screen â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 class MyBriefingScreen extends ConsumerWidget {
   const MyBriefingScreen({super.key});
@@ -89,11 +89,11 @@ class MyBriefingScreen extends ConsumerWidget {
         appBar: AppBar(
           backgroundColor: AppColors.quantumBg,
           elevation: 0,
-          title: const Text('تنبيهات أسهمك'),
+          title: const Text('ØªÙ†Ø¨ÙŠÙ‡Ø§Øª Ø£Ø³Ù‡Ù…Ùƒ'),
           actions: [
             IconButton(
               icon: const Icon(Icons.refresh),
-              tooltip: 'تحديث',
+              tooltip: 'ØªØ­Ø¯ÙŠØ«',
               onPressed: () {
                 ref.invalidate(unifiedWatchProvider);
                 ref.invalidate(personalizedNewsProvider);
@@ -102,19 +102,19 @@ class MyBriefingScreen extends ConsumerWidget {
           ],
         ),
         body: asyncWatch.when(
-          loading: () => const LoadingWidget(message: 'بيجيب محفظتك وتنبيهاتك...'),
+          loading: () => const LoadingWidget(message: 'Ø¨ÙŠØ¬ÙŠØ¨ Ù…Ø­ÙØ¸ØªÙƒ ÙˆØªÙ†Ø¨ÙŠÙ‡Ø§ØªÙƒ...'),
           error: (err, _) => EmptyStateWidget(
-            message: 'تعذّر تحميل التنبيهات',
+            message: 'ØªØ¹Ø°Ù‘Ø± ØªØ­Ù…ÙŠÙ„ Ø§Ù„ØªÙ†Ø¨ÙŠÙ‡Ø§Øª',
             icon: Icons.error_outline,
-            actionLabel: 'إعادة المحاولة',
+            actionLabel: 'Ø¥Ø¹Ø§Ø¯Ø© Ø§Ù„Ù…Ø­Ø§ÙˆÙ„Ø©',
             onAction: () => ref.invalidate(unifiedWatchProvider),
           ),
           data: (data) {
             if (data['success'] != true) {
               return EmptyStateWidget(
-                message: 'سجّل دخولك عشان تلاقي محفظتك + تنبيهاتك هنا',
+                message: 'Ø³Ø¬Ù‘Ù„ Ø¯Ø®ÙˆÙ„Ùƒ Ø¹Ø´Ø§Ù† ØªÙ„Ø§Ù‚ÙŠ Ù…Ø­ÙØ¸ØªÙƒ + ØªÙ†Ø¨ÙŠÙ‡Ø§ØªÙƒ Ù‡Ù†Ø§',
                 icon: Icons.lock_outline,
-                actionLabel: 'تسجيل الدخول',
+                actionLabel: 'ØªØ³Ø¬ÙŠÙ„ Ø§Ù„Ø¯Ø®ÙˆÙ„',
                 onAction: () => ref.invalidate(unifiedWatchProvider),
               );
             }
@@ -125,7 +125,7 @@ class MyBriefingScreen extends ConsumerWidget {
 
             if (stocks.isEmpty) {
               return const EmptyStateWidget(
-                message: 'أضف أسهم لمحفظتك عشان تبدأ التنبيهات الذكية',
+                message: 'Ø£Ø¶Ù Ø£Ø³Ù‡Ù… Ù„Ù…Ø­ÙØ¸ØªÙƒ Ø¹Ø´Ø§Ù† ØªØ¨Ø¯Ø£ Ø§Ù„ØªÙ†Ø¨ÙŠÙ‡Ø§Øª Ø§Ù„Ø°ÙƒÙŠØ©',
                 icon: Icons.add_circle_outline,
               );
             }
@@ -133,8 +133,12 @@ class MyBriefingScreen extends ConsumerWidget {
             // Sort stocks by advice priority (exit_radar first, then stop_loss, etc.)
             final sortedStocks = [...stocks]
               ..sort((a, b) {
-                final aType = (a is Map ? a['advice']?['type'] : null) ?? 'HOLD';
-                final bType = (b is Map ? b['advice']?['type'] : null) ?? 'HOLD';
+                final aAdvice = a is Map ? a['advice'] : null;
+                final bAdvice = b is Map ? b['advice'] : null;
+                final aType =
+                    (aAdvice is Map ? aAdvice['type'] : null) ?? 'HOLD';
+                final bType =
+                    (bAdvice is Map ? bAdvice['type'] : null) ?? 'HOLD';
                 final aP = _adviceTypeInfo[aType]?.priority ?? 0;
                 final bP = _adviceTypeInfo[bType]?.priority ?? 0;
                 return bP.compareTo(aP);
@@ -188,7 +192,7 @@ class MyBriefingScreen extends ConsumerWidget {
   }
 }
 
-// ─── Sub-widgets ──────────────────────────────────────────────────────────
+// â”€â”€â”€ Sub-widgets â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 class _PortfolioSummarySection extends StatelessWidget {
   final Map summary;
@@ -210,7 +214,7 @@ class _PortfolioSummarySection extends StatelessWidget {
           children: [
             Icon(Icons.wallet, size: 18, color: AppColors.primary),
             const SizedBox(width: 8),
-            Text('ملخص المحفظة', style: AppTextStyles.bodyLargeBold),
+            Text('Ù…Ù„Ø®Øµ Ø§Ù„Ù…Ø­ÙØ¸Ø©', style: AppTypography.titleSmall),
           ],
         ),
         const SizedBox(height: 8),
@@ -223,25 +227,29 @@ class _PortfolioSummarySection extends StatelessWidget {
           childAspectRatio: 2.4,
           children: [
             _miniCard(
-              'القيمة الحالية',
-              '${totalValue.toStringAsFixed(2)} ج.م',
+              context,
+              'Ø§Ù„Ù‚ÙŠÙ…Ø© Ø§Ù„Ø­Ø§Ù„ÙŠØ©',
+              '${totalValue.toStringAsFixed(2)} Ø¬.Ù…',
               Icons.account_balance_wallet,
             ),
             _miniCard(
-              'المكاسب/الخسائر',
-              '${isPositive ? '+' : ''}${totalPnl.toStringAsFixed(2)} ج.م\n(${totalPnlPct.toStringAsFixed(1)}%)',
+              context,
+              'Ø§Ù„Ù…ÙƒØ§Ø³Ø¨/Ø§Ù„Ø®Ø³Ø§Ø¦Ø±',
+              '${isPositive ? '+' : ''}${totalPnl.toStringAsFixed(2)} Ø¬.Ù…\n(${totalPnlPct.toStringAsFixed(1)}%)',
               isPositive ? Icons.trending_up : Icons.trending_down,
               valueColor:
                   isPositive ? Color(0xFF047857) : Color(0xFFB91C1C),
             ),
             _miniCard(
-              'عدد الأسهم',
+              context,
+              'Ø¹Ø¯Ø¯ Ø§Ù„Ø£Ø³Ù‡Ù…',
               '$portfolioStocks',
               Icons.pie_chart_outline,
             ),
             _miniCard(
-              'قيمة التكلفة',
-              '${totalCost.toStringAsFixed(2)} ج.م',
+              context,
+              'Ù‚ÙŠÙ…Ø© Ø§Ù„ØªÙƒÙ„ÙØ©',
+              '${totalCost.toStringAsFixed(2)} Ø¬.Ù…',
               Icons.savings,
             ),
           ],
@@ -250,7 +258,8 @@ class _PortfolioSummarySection extends StatelessWidget {
     );
   }
 
-  Widget _miniCard(String label, String value, IconData icon,
+  Widget _miniCard(BuildContext context, String label, String value,
+      IconData icon,
       {Color? valueColor}) {
     return Container(
       padding: const EdgeInsets.all(10),
@@ -311,7 +320,7 @@ class _AlertsSection extends StatelessWidget {
                   color: total > 0 ? Color(0xFFB45309) : Colors.grey,
                 ),
                 const SizedBox(width: 8),
-                Text('تنبيهات تحتاج قرار', style: AppTextStyles.bodyLargeBold),
+                Text('ØªÙ†Ø¨ÙŠÙ‡Ø§Øª ØªØ­ØªØ§Ø¬ Ù‚Ø±Ø§Ø±', style: AppTypography.titleSmall),
               ],
             ),
             if (total > 0)
@@ -349,7 +358,7 @@ class _AlertsSection extends StatelessWidget {
                 Icon(Icons.check_circle, size: 16, color: Color(0xFF047857)),
                 const SizedBox(width: 8),
                 Text(
-                  'كل أسهمك في وضع طبيعي — مفيش تنبيهات مستعجلة دلوقتي. ✅',
+                  'ÙƒÙ„ Ø£Ø³Ù‡Ù…Ùƒ ÙÙŠ ÙˆØ¶Ø¹ Ø·Ø¨ÙŠØ¹ÙŠ â€” Ù…ÙÙŠØ´ ØªÙ†Ø¨ÙŠÙ‡Ø§Øª Ù…Ø³ØªØ¹Ø¬Ù„Ø© Ø¯Ù„ÙˆÙ‚ØªÙŠ. âœ…',
                   style: TextStyle(fontSize: 12, color: Color(0xFF047857)),
                   textAlign: TextAlign.center,
                 ),
@@ -370,10 +379,10 @@ class _AlertsSection extends StatelessWidget {
                 if (critical > 0)
                   Padding(
                     padding: const EdgeInsets.only(left: 8),
-                    child: _severityChip('حرج', critical, Color(0xFFB91C1C)),
+                    child: _severityChip('Ø­Ø±Ø¬', critical, Color(0xFFB91C1C)),
                   ),
                 if (warning > 0)
-                  _severityChip('تحذير', warning, Color(0xFFB45309)),
+                  _severityChip('ØªØ­Ø°ÙŠØ±', warning, Color(0xFFB45309)),
               ],
             ),
           ),
@@ -385,7 +394,7 @@ class _AlertsSection extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: color, width: 0.5),
       ),
@@ -457,7 +466,7 @@ class _AlertCard extends StatelessWidget {
                       const SizedBox(width: 6),
                       Flexible(
                         child: Text(
-                          '— $nameAr',
+                          'â€” $nameAr',
                           style: TextStyle(
                             fontSize: 11,
                             color: Colors.grey.shade700,
@@ -509,7 +518,7 @@ class _AlertCard extends StatelessWidget {
                 ),
               if (currentPrice != null)
                 Text(
-                  '${currentPrice.toStringAsFixed(2)} ج.م',
+                  '${currentPrice.toStringAsFixed(2)} Ø¬.Ù…',
                   style: TextStyle(
                     fontSize: 11,
                     color: Colors.grey.shade600,
@@ -517,7 +526,7 @@ class _AlertCard extends StatelessWidget {
                 ),
               if (shares != null && shares > 0)
                 Text(
-                  '$shares سهم',
+                  '$shares Ø³Ù‡Ù…',
                   style: TextStyle(
                     fontSize: 11,
                     color: Colors.grey.shade600,
@@ -525,7 +534,7 @@ class _AlertCard extends StatelessWidget {
                 ),
             ],
           ),
-          // Action (the DECISION — Task 5)
+          // Action (the DECISION â€” Task 5)
           if (action.isNotEmpty) ...[
             const SizedBox(height: 6),
             Container(
@@ -533,13 +542,13 @@ class _AlertCard extends StatelessWidget {
               decoration: BoxDecoration(
                 border: Border(
                   top: BorderSide(
-                    color: info.color.withOpacity(0.3),
+                    color: info.color.withValues(alpha: 0.3),
                     width: 0.5,
                   ),
                 ),
               ),
               child: Text(
-                'الإجراء: $action',
+                'Ø§Ù„Ø¥Ø¬Ø±Ø§Ø¡: $action',
                 style: TextStyle(
                   fontSize: 10,
                   color: Colors.grey.shade700,
@@ -552,7 +561,7 @@ class _AlertCard extends StatelessWidget {
           if (exitSignal != null && exitSignal['label_ar'] != null) ...[
             const SizedBox(height: 4),
             Text(
-              'الإشارة: ${exitSignal['label_ar']}',
+              'Ø§Ù„Ø¥Ø´Ø§Ø±Ø©: ${exitSignal['label_ar']}',
               style: TextStyle(
                 fontSize: 10,
                 fontStyle: FontStyle.italic,
@@ -579,7 +588,7 @@ class _NewsSection extends ConsumerWidget {
           children: [
             Icon(Icons.article, size: 18, color: Colors.blue),
             const SizedBox(width: 8),
-            Text('آخر أخبار أسهمك', style: AppTextStyles.bodyLargeBold),
+            Text('Ø¢Ø®Ø± Ø£Ø®Ø¨Ø§Ø± Ø£Ø³Ù‡Ù…Ùƒ', style: AppTypography.titleSmall),
           ],
         ),
         const SizedBox(height: 8),
@@ -594,7 +603,7 @@ class _NewsSection extends ConsumerWidget {
             ),
           ),
           error: (_, __) => const Text(
-            'تعذّر تحميل الأخبار',
+            'ØªØ¹Ø°Ù‘Ø± ØªØ­Ù…ÙŠÙ„ Ø§Ù„Ø£Ø®Ø¨Ø§Ø±',
             style: TextStyle(fontSize: 11, color: Colors.grey),
           ),
           data: (news) {
@@ -606,7 +615,7 @@ class _NewsSection extends ConsumerWidget {
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
-                  'مفيش أخبار لأسهمك حاليًا — أخبار السوق كلها بتظهر في صفحة الأخبار.',
+                  'Ù…ÙÙŠØ´ Ø£Ø®Ø¨Ø§Ø± Ù„Ø£Ø³Ù‡Ù…Ùƒ Ø­Ø§Ù„ÙŠÙ‹Ø§ â€” Ø£Ø®Ø¨Ø§Ø± Ø§Ù„Ø³ÙˆÙ‚ ÙƒÙ„Ù‡Ø§ Ø¨ØªØ¸Ù‡Ø± ÙÙŠ ØµÙØ­Ø© Ø§Ù„Ø£Ø®Ø¨Ø§Ø±.',
                   style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
                   textAlign: TextAlign.center,
                 ),
@@ -666,7 +675,7 @@ class _NewsCard extends StatelessWidget {
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Text(
-                    '★$importance',
+                    'â˜…$importance',
                     style: TextStyle(
                       fontSize: 9,
                       fontWeight: FontWeight.bold,
@@ -695,7 +704,7 @@ class _NewsCard extends StatelessWidget {
                 ),
               if (source != null && publishedAt != null)
                 Text(
-                  ' • ',
+                  ' â€¢ ',
                   style: TextStyle(fontSize: 9, color: Colors.grey.shade400),
                 ),
               if (publishedAt != null)
@@ -717,11 +726,11 @@ class _NewsCard extends StatelessWidget {
     try {
       final date = DateTime.parse(dateString);
       final diff = DateTime.now().difference(date);
-      if (diff.inMinutes < 1) return 'الآن';
-      if (diff.inMinutes < 60) return 'منذ ${diff.inMinutes} دقيقة';
-      if (diff.inHours < 24) return 'منذ ${diff.inHours} ساعة';
-      if (diff.inDays <= 10) return 'منذ ${diff.inDays} يوم';
-      return 'منذ فترة';
+      if (diff.inMinutes < 1) return 'Ø§Ù„Ø¢Ù†';
+      if (diff.inMinutes < 60) return 'Ù…Ù†Ø° ${diff.inMinutes} Ø¯Ù‚ÙŠÙ‚Ø©';
+      if (diff.inHours < 24) return 'Ù…Ù†Ø° ${diff.inHours} Ø³Ø§Ø¹Ø©';
+      if (diff.inDays <= 10) return 'Ù…Ù†Ø° ${diff.inDays} ÙŠÙˆÙ…';
+      return 'Ù…Ù†Ø° ÙØªØ±Ø©';
     } catch (_) {
       return '';
     }
@@ -738,8 +747,8 @@ class _CacheFooter extends StatelessWidget {
     final isStale = ageSeconds > 30 * 60;
     return Center(
       child: Text(
-        'رادار الخروج آخر تحديث: $ageMinutes دقيقة'
-        '${isStale ? ' (قديم — اتحدّث قريبًا)' : ''}',
+        'Ø±Ø§Ø¯Ø§Ø± Ø§Ù„Ø®Ø±ÙˆØ¬ Ø¢Ø®Ø± ØªØ­Ø¯ÙŠØ«: $ageMinutes Ø¯Ù‚ÙŠÙ‚Ø©'
+        '${isStale ? ' (Ù‚Ø¯ÙŠÙ… â€” Ø§ØªØ­Ø¯Ù‘Ø« Ù‚Ø±ÙŠØ¨Ù‹Ø§)' : ''}',
         style: TextStyle(
           fontSize: 10,
           color: Colors.grey.shade500,

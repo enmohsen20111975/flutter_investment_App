@@ -22,7 +22,6 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   User? _user;
-  bool _loading = true;
   String _riskTolerance = 'medium';
   String _language = 'ar';
   bool _notifications = true;
@@ -35,32 +34,26 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _loadSettings() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      setState(() {
-        _riskTolerance = prefs.getString('risk_tolerance') ?? 'medium';
-        _language = prefs.getString('language') ?? 'ar';
-        _notifications = prefs.getBool('notifications') ?? true;
-        _darkMode = prefs.getBool('dark_mode') ?? false;
-      });
+    final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
+    setState(() {
+      _riskTolerance = prefs.getString('risk_tolerance') ?? 'medium';
+      _language = prefs.getString('language') ?? 'ar';
+      _notifications = prefs.getBool('notifications') ?? true;
+      _darkMode = prefs.getBool('dark_mode') ?? false;
+    });
 
-      // Try to load user data (skip if API fails)
-      if (await api.isAuthenticated()) {
-        try {
-          final userData = await api.getMe();
-          if (userData != null) {
-            final user = User.fromJson(userData);
-            if (mounted)
-              setState(() {
-                _user = user;
-              });
-          }
-        } catch (_) {}
-      }
-    } finally {
-      setState(() {
-        _loading = false;
-      });
+    // Try to load user data (skip if API fails)
+    if (await api.isAuthenticated()) {
+      try {
+        final userData = await api.getMe();
+        final user = User.fromJson(userData);
+        if (mounted) {
+          setState(() {
+            _user = user;
+          });
+        }
+      } catch (_) {}
     }
   }
 
@@ -133,7 +126,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 icon: Icons.shield_outlined,
                 title: 'مستوى تحمل المخاطر',
                 child: DropdownButtonFormField<String>(
-                  value: _riskTolerance,
+                  initialValue: _riskTolerance,
                   decoration: const InputDecoration(
                     border: InputBorder.none,
                     contentPadding: EdgeInsets.zero,
@@ -438,7 +431,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           Switch(
             value: value,
             onChanged: onChanged,
-            activeColor: AppColors.primary,
+            activeThumbColor: AppColors.primary,
           ),
         ],
       ),

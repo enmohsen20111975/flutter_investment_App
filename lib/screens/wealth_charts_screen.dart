@@ -14,7 +14,6 @@ import '../theme/typography.dart';
 import '../api/client.dart';
 import '../widgets/state_view.dart';
 import '../widgets/skeleton_loader.dart';
-import '../core/app_localizations.dart';
 
 class WealthChartsScreen extends StatefulWidget {
   const WealthChartsScreen({super.key});
@@ -56,21 +55,14 @@ class _WealthChartsScreenState extends State<WealthChartsScreen> {
   Future<List<Map<String, dynamic>>> _fetchHoldings() async {
     try {
       final data = await api.getPortfolioHoldings();
-      List raw;
-      if (data is List) {
-        raw = data;
-      } else if (data is Map) {
-        final list = data['holdings'] ??
-            data['positions'] ??
-            data['items'] ??
-            data['portfolio']?['positions'] ??
-            data['portfolio']?['items'] ??
-            data['data'] ??
-            const [];
-        raw = list is List ? list : const [];
-      } else {
-        raw = const [];
-      }
+      final list = data['holdings'] ??
+          data['positions'] ??
+          data['items'] ??
+          data['portfolio']?['positions'] ??
+          data['portfolio']?['items'] ??
+          data['data'] ??
+          const [];
+      final List raw = list is List ? list : const [];
       return raw
           .whereType<Map>()
           .map((e) => Map<String, dynamic>.from(e))
@@ -84,8 +76,7 @@ class _WealthChartsScreenState extends State<WealthChartsScreen> {
   Future<Map<String, dynamic>> _fetchRiskSummary() async {
     try {
       final data = await api.getPortfolioRiskSummary();
-      if (data is Map) return Map<String, dynamic>.from(data);
-      return <String, dynamic>{};
+      return data;
     } catch (e) {
       debugPrint('[WealthCharts] risk-summary fetch failed: $e');
       return <String, dynamic>{};
@@ -164,22 +155,11 @@ class _WealthChartsScreenState extends State<WealthChartsScreen> {
         p['y']);
   }
 
-  String _equityLabel(Map<String, dynamic> p) {
-    return (p['date'] ??
-            p['day'] ??
-            p['timestamp'] ??
-            p['created_at'] ??
-            p['x'] ??
-            '')
-        .toString();
-  }
-
   // ──────────────────────────────────────────────────────────────────────
   // Build
   // ──────────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
-    final isAr = AppLocalizations.isArabic;
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
@@ -819,8 +799,8 @@ class _WealthChartsScreenState extends State<WealthChartsScreen> {
 
   String _compact(double v) {
     final abs = v.abs();
-    if (abs >= 1_000_000) return '${(v / 1_000_000).toStringAsFixed(1)}M';
-    if (abs >= 1_000) return '${(v / 1_000).toStringAsFixed(1)}K';
+    if (abs >= 1000000) return '${(v / 1000000).toStringAsFixed(1)}M';
+    if (abs >= 1000) return '${(v / 1000).toStringAsFixed(1)}K';
     return v.toStringAsFixed(0);
   }
 

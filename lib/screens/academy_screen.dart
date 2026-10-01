@@ -10,7 +10,6 @@ import 'paper_trading_screen.dart';
 import 'candle_simulator_screen.dart';
 import 'strategy_sandbox_screen.dart';
 import 'academy_encyclopedia_screen.dart';
-import '../core/app_localizations.dart';
 
 class AcademyScreen extends StatefulWidget {
   const AcademyScreen({super.key});
@@ -37,7 +36,6 @@ class _AcademyScreenState extends State<AcademyScreen>
 
   @override
   Widget build(BuildContext context) {
-    final isAr = AppLocalizations.isArabic; // i18n
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(

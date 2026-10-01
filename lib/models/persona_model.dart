@@ -122,7 +122,7 @@ class PersonaConfig {
         nameAr: json['name_ar']?.toString() ?? json['name']?.toString() ?? '',
         description: json['description']?.toString() ?? '',
         descriptionAr: json['description_ar']?.toString() ?? json['description']?.toString() ?? '',
-        minGates: _toInt(json['min_gates'] ?? json['minGates']) ?? 3,
+        minGates: _toInt(json['min_gates'] ?? json['minGates']),
         color: json['color']?.toString(),
       );
 

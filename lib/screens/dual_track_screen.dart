@@ -14,7 +14,6 @@ import '../theme/typography.dart';
 import '../api/client.dart';
 import '../widgets/state_view.dart';
 import '../widgets/skeleton_loader.dart';
-import '../core/app_localizations.dart';
 
 class DualTrackScreen extends StatefulWidget {
   const DualTrackScreen({super.key});
@@ -206,7 +205,6 @@ class _DualTrackScreenState extends State<DualTrackScreen> {
   // ──────────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
-    final isAr = AppLocalizations.isArabic;
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(

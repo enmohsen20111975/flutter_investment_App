@@ -10,7 +10,6 @@ import '../api/client.dart';
 import '../models/types.dart';
 import '../widgets/state_view.dart';
 import 'crypto_detail_screen.dart';
-import '../core/app_localizations.dart';
 
 class CryptoScreen extends StatefulWidget {
   const CryptoScreen({super.key});
@@ -59,7 +58,6 @@ class _CryptoScreenState extends State<CryptoScreen>
 
   @override
   Widget build(BuildContext context) {
-    final isAr = AppLocalizations.isArabic; // i18n
     super.build(context);
     return Scaffold(
       backgroundColor: AppColors.background,

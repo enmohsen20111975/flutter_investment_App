@@ -11,7 +11,6 @@ import '../theme/colors.dart';
 import '../api/client.dart';
 import '../widgets/state_view.dart';
 import '../widgets/skeleton_loader.dart';
-import '../core/app_localizations.dart';
 
 class LiveMonitorScreen extends StatefulWidget {
   const LiveMonitorScreen({super.key});
@@ -28,7 +27,6 @@ class _LiveMonitorScreenState extends State<LiveMonitorScreen>
   List<_LiveQuote> _quotes = [];
   Map<String, double> _previousPrices = {};
   bool _loading = true;
-  String? _error;
   Timer? _timer;
   late AnimationController _pulseCtrl;
   bool _autoRefresh = true;
@@ -111,14 +109,12 @@ class _LiveMonitorScreenState extends State<LiveMonitorScreen>
           };
           _quotes = newQuotes;
           _loading = false;
-          _error = null;
         });
       }
     } catch (e) {
       if (mounted) {
         setState(() {
           _loading = false;
-          _error = 'تعذر تحميل الأسعار اللحظية';
         });
       }
     }
@@ -168,7 +164,6 @@ class _LiveMonitorScreenState extends State<LiveMonitorScreen>
 
   @override
   Widget build(BuildContext context) {
-    final isAr = AppLocalizations.isArabic; // i18n
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(

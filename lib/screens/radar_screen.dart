@@ -18,7 +18,6 @@ import '../api/client.dart';
 import '../widgets/loading_widget.dart';
 import '../widgets/empty_state_widget.dart';
 import 'stock_history_screen.dart';
-import '../core/app_localizations.dart';
 
 // ─── Provider: Radar Data ─────────────────────────────────────────────────
 final radarDataProvider = FutureProvider.autoDispose<Map<String, dynamic>>((ref) async {
@@ -58,7 +57,6 @@ class _RadarScreenState extends ConsumerState<RadarScreen> with SingleTickerProv
 
   @override
   Widget build(BuildContext context) {
-    final isAr = AppLocalizations.isArabic; // i18n
     final radarAsync = ref.watch(radarDataProvider);
 
     return Scaffold(
@@ -166,7 +164,7 @@ class _RadarScreenState extends ConsumerState<RadarScreen> with SingleTickerProv
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3),
+        color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
         border: Border(bottom: BorderSide(color: Theme.of(context).dividerColor)),
       ),
       child: SingleChildScrollView(
@@ -197,8 +195,8 @@ class _RadarScreenState extends ConsumerState<RadarScreen> with SingleTickerProv
       padding: const EdgeInsets.only(left: 8),
       child: Chip(
         label: Text('$label: $value', style: const TextStyle(fontSize: 11)),
-        backgroundColor: color.withOpacity(0.15),
-        side: BorderSide(color: color.withOpacity(0.3)),
+        backgroundColor: color.withValues(alpha: 0.15),
+        side: BorderSide(color: color.withValues(alpha: 0.3)),
         visualDensity: VisualDensity.compact,
       ),
     );
@@ -209,7 +207,7 @@ class _RadarScreenState extends ConsumerState<RadarScreen> with SingleTickerProv
       padding: const EdgeInsets.only(left: 8),
       child: Chip(
         label: Text(label, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-        backgroundColor: color.withOpacity(0.2),
+        backgroundColor: color.withValues(alpha: 0.2),
         side: BorderSide(color: color),
         visualDensity: VisualDensity.compact,
       ),
@@ -278,7 +276,7 @@ class _RadarScreenState extends ConsumerState<RadarScreen> with SingleTickerProv
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
-                  color: Colors.orange.withOpacity(0.2),
+                  color: Colors.orange.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(4),
                 ),
                 child: Text('⚡ ${explosionScore.toStringAsFixed(1)}',
@@ -377,9 +375,9 @@ class _RadarScreenState extends ConsumerState<RadarScreen> with SingleTickerProv
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.15),
+        color: color.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: color.withOpacity(0.4)),
+        border: Border.all(color: color.withValues(alpha: 0.4)),
       ),
       child: Text(text, style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.bold)),
     );
@@ -417,9 +415,9 @@ class _RadarScreenState extends ConsumerState<RadarScreen> with SingleTickerProv
       margin: const EdgeInsets.all(2),
       padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 6),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: color.withOpacity(0.3)),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,

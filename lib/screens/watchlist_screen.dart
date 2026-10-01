@@ -13,7 +13,6 @@ import '../services/subscription_service.dart';
 import '../widgets/upgrade_modal.dart';
 import '../widgets/stock_icon.dart';
 import 'stock_history_screen.dart';
-import '../core/app_localizations.dart';
 
 class WatchlistScreen extends StatefulWidget {
   const WatchlistScreen({super.key});
@@ -27,6 +26,7 @@ class _WatchlistScreenState extends State<WatchlistScreen> {
       GLMApiClient.instance.getWatchlistEnhanced();
   final TextEditingController _searchController = TextEditingController();
   StreamSubscription<String>? _cacheSubscription;
+  Timer? _cacheDebounce;
 
   @override
   void initState() {
@@ -35,12 +35,16 @@ class _WatchlistScreenState extends State<WatchlistScreen> {
     _cacheSubscription = ApiCacheManager.instance.updates.where((key) {
       return key == 'watchlist_enhanced' || key == 'user_watchlist_data';
     }).listen((_) {
-      if (mounted) _refreshWatchlist();
+      _cacheDebounce?.cancel();
+      _cacheDebounce = Timer(const Duration(milliseconds: 500), () {
+        if (mounted) _refreshWatchlist();
+      });
     });
   }
 
   @override
   void dispose() {
+    _cacheDebounce?.cancel();
     _cacheSubscription?.cancel();
     _searchController.dispose();
     super.dispose();
@@ -119,7 +123,7 @@ class _WatchlistScreenState extends State<WatchlistScreen> {
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: Text('إلغاء',
-                style: TextStyle(color: Colors.white.withOpacity(0.5))),
+                style: TextStyle(color: Colors.white.withValues(alpha: 0.5))),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -143,7 +147,6 @@ class _WatchlistScreenState extends State<WatchlistScreen> {
   @override
   Widget build(BuildContext context) {
     // i18n helper
-    final isAr = AppLocalizations.isArabic;
     return FutureBuilder<WatchlistResponse>(
       future: _watchlistFuture,
       builder: (context, snapshot) {
@@ -206,7 +209,7 @@ class _WatchlistScreenState extends State<WatchlistScreen> {
                         children: [
                           Icon(Icons.star_border_purple500_outlined,
                               size: 64,
-                              color: AppColors.quantumGold.withOpacity(0.5)),
+                              color: AppColors.quantumGold.withValues(alpha: 0.5)),
                           const SizedBox(height: 16),
                           const Text('قائمة المتابعة فارغة حالياً',
                               style: TextStyle(
@@ -248,7 +251,7 @@ class _WatchlistScreenState extends State<WatchlistScreen> {
                               padding: const EdgeInsets.only(left: 20),
                               decoration: BoxDecoration(
                                 color:
-                                    AppColors.quantumCrimson.withOpacity(0.8),
+                                    AppColors.quantumCrimson.withValues(alpha: 0.8),
                                 borderRadius: BorderRadius.circular(14),
                               ),
                               child:
@@ -300,7 +303,7 @@ class _WatchlistScreenState extends State<WatchlistScreen> {
                                             Text(ticker,
                                                 style: TextStyle(
                                                     color: Colors.white
-                                                        .withOpacity(0.5),
+                                                        .withValues(alpha: 0.5),
                                                     fontSize: 11)),
                                           ],
                                         ),
@@ -323,7 +326,7 @@ class _WatchlistScreenState extends State<WatchlistScreen> {
                                                       ? AppColors.quantumEmerald
                                                       : AppColors
                                                           .quantumCrimson)
-                                                  .withOpacity(0.2),
+                                                  .withValues(alpha: 0.2),
                                               borderRadius:
                                                   BorderRadius.circular(4),
                                             ),

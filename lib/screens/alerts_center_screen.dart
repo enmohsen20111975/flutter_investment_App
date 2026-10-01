@@ -13,10 +13,8 @@ import 'package:flutter/material.dart';
 import '../theme/colors.dart';
 import '../theme/typography.dart';
 import '../api/client.dart';
-import '../models/types.dart';
 import '../widgets/state_view.dart';
 import '../widgets/skeleton_loader.dart';
-import '../core/app_localizations.dart';
 
 class AlertsCenterScreen extends StatefulWidget {
   const AlertsCenterScreen({super.key});
@@ -91,7 +89,7 @@ class _AlertsCenterScreenState extends State<AlertsCenterScreen> {
         m['message'] =
             '${a.condition == 'ABOVE' ? 'أعلى من' : 'أقل من'} ${a.targetPrice}';
         m['severity'] = a.condition == 'ABOVE' ? 'info' : 'warning';
-        m['created_at'] = a.createdAt?.toIso8601String();
+        m['created_at'] = a.createdAt.toIso8601String();
         m['is_read'] = false;
         return m;
       }).toList();
@@ -313,7 +311,6 @@ class _AlertsCenterScreenState extends State<AlertsCenterScreen> {
   // ──────────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
-    final isAr = AppLocalizations.isArabic;
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(

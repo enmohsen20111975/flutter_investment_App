@@ -5,8 +5,7 @@
 
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:dio/dio.dart';
 import '../api/client.dart';
 import 'notification_service.dart';
 
@@ -18,8 +17,10 @@ class PortfolioAlertService {
   final GLMApiClient _api = GLMApiClient.instance;
   final NotificationService _notif = NotificationService();
 
+  Timer? _initialDelayTimer;
   Timer? _portfolioTimer;
   Timer? _whaleTimer;
+  Timer? _priceAlertTimer;
   bool _isRunning = false;
 
   // آخر التنبيهات (للـ UI)
@@ -31,34 +32,51 @@ class PortfolioAlertService {
   // Set عشان منكررش التنبيهات
   final Set<String> _firedAlertKeys = {};
 
-  /// ابدأ المراقبة (كل 5 دقايق)
+  /// ابدأ المراقبة (المحفظة، الحيتان، وتنبيهات الأسعار)
   void start() {
     if (_isRunning) return;
     _isRunning = true;
-    debugPrint('[PortfolioAlertService] Started - polling every 5 minutes');
+    debugPrint('[PortfolioAlertService] Started - delayed first check by 12s');
 
-    // فحص فوري
-    _checkPortfolio();
-    _checkWhales();
+    // تأخير الفحص المبدئي 12 ثانية حتى تنتهي الشاشة الرئيسية من الرندر بالكامل
+    _initialDelayTimer?.cancel();
+    _initialDelayTimer = Timer(const Duration(seconds: 12), () {
+      if (!_isRunning) return;
+      _checkPortfolio();
+      _checkWhales();
+      _checkPriceAlerts();
+    });
 
     // مراقبة المحفظة كل 5 دقايق
+    _portfolioTimer?.cancel();
     _portfolioTimer = Timer.periodic(const Duration(minutes: 5), (_) {
       _checkPortfolio();
     });
 
     // مراقبة الحيتان كل 5 دقايق
+    _whaleTimer?.cancel();
     _whaleTimer = Timer.periodic(const Duration(minutes: 5), (_) {
       _checkWhales();
+    });
+
+    // مراقبة تنبيهات الأسعار كل 4 دقايق
+    _priceAlertTimer?.cancel();
+    _priceAlertTimer = Timer.periodic(const Duration(minutes: 4), (_) {
+      _checkPriceAlerts();
     });
   }
 
   /// اوقف المراقبة
   void stop() {
     _isRunning = false;
+    _initialDelayTimer?.cancel();
+    _initialDelayTimer = null;
     _portfolioTimer?.cancel();
     _whaleTimer?.cancel();
+    _priceAlertTimer?.cancel();
     _portfolioTimer = null;
     _whaleTimer = null;
+    _priceAlertTimer = null;
     debugPrint('[PortfolioAlertService] Stopped');
   }
 
@@ -120,10 +138,70 @@ class PortfolioAlertService {
     }
   }
 
+  /// فحص تنبيهات الأسعار المحددة من المستخدم
+  Future<void> _checkPriceAlerts() async {
+    try {
+      final alerts = await _api.getAlerts();
+      if (alerts.isEmpty) return;
+
+      for (final a in alerts) {
+        if (!_isRunning) break;
+        if (!a.isActive) continue;
+        final ticker = a.symbol;
+        if (ticker.isEmpty) continue;
+
+        double currentPrice = 0.0;
+        try {
+          final res = await _api.dio.get(
+            '/api/mobile/stocks/$ticker',
+            options: Options(
+              sendTimeout: const Duration(seconds: 3),
+              receiveTimeout: const Duration(seconds: 3),
+            ),
+          );
+          if (res.data is Map) {
+            final val = res.data['price'] ??
+                res.data['data']?['price'] ??
+                res.data['currentPrice'] ??
+                0;
+            currentPrice = (val as num).toDouble();
+          }
+        } catch (_) {
+          continue;
+        }
+        if (currentPrice <= 0) continue;
+
+        final isAbove = a.condition.toUpperCase() == 'ABOVE';
+        final triggered = isAbove
+            ? currentPrice >= a.targetPrice
+            : currentPrice <= a.targetPrice;
+
+        if (triggered) {
+          final key =
+              'price_alert_${a.id}_${a.targetPrice}_${currentPrice.toStringAsFixed(2)}';
+          if (_firedAlertKeys.contains(key)) continue;
+          _firedAlertKeys.add(key);
+
+          await _notif.showPortfolioAlert(
+            title: '🔔 تنبيه السعر: $ticker',
+            body: isAbove
+                ? 'وصل سهم $ticker إلى $currentPrice ج.م متجاوزاً الهدف ${a.targetPrice} ج.م'
+                : 'هبط سهم $ticker إلى $currentPrice ج.م واصلاً إلى الهدف ${a.targetPrice} ج.م',
+            severity: 'critical',
+            payload: ticker,
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('[PortfolioAlertService] Price alerts check error: $e');
+    }
+  }
+
   /// فحص يدوي (للـ pull-to-refresh)
   Future<void> checkNow() async {
     await _checkPortfolio();
     await _checkWhales();
+    await _checkPriceAlerts();
   }
 
   /// كل التنبيهات (محفظة + حيتان)

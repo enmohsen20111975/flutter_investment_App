@@ -7,7 +7,6 @@ import 'package:flutter/material.dart';
 import '../theme/colors.dart';
 import '../api/client.dart';
 import '../models/types.dart';
-import '../core/app_localizations.dart';
 
 class AlertsScreen extends StatefulWidget {
   const AlertsScreen({super.key});
@@ -148,7 +147,7 @@ class _AlertsScreenState extends State<AlertsScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: Text('إلغاء', style: TextStyle(color: Colors.white.withOpacity(0.5))),
+              child: Text('إلغاء', style: TextStyle(color: Colors.white.withValues(alpha: 0.5))),
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
@@ -169,7 +168,6 @@ class _AlertsScreenState extends State<AlertsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isAr = AppLocalizations.isArabic; // i18n
     return FutureBuilder<List<PriceAlert>>(
       future: _alertsFuture,
       builder: (context, snapshot) {
@@ -221,7 +219,7 @@ class _AlertsScreenState extends State<AlertsScreen> {
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(Icons.notifications_none_outlined, size: 64, color: AppColors.quantumGold.withOpacity(0.5)),
+                          Icon(Icons.notifications_none_outlined, size: 64, color: AppColors.quantumGold.withValues(alpha: 0.5)),
                           const SizedBox(height: 16),
                           const Text('لا توجد تنبيهات أسعار نشطة حالياً', style: TextStyle(color: Colors.white70, fontSize: 16)),
                           const SizedBox(height: 12),
@@ -259,7 +257,7 @@ class _AlertsScreenState extends State<AlertsScreen> {
                                 width: 44,
                                 height: 44,
                                 decoration: BoxDecoration(
-                                  color: (isAbove ? AppColors.quantumEmerald : AppColors.quantumCrimson).withOpacity(0.15),
+                                  color: (isAbove ? AppColors.quantumEmerald : AppColors.quantumCrimson).withValues(alpha: 0.15),
                                   borderRadius: BorderRadius.circular(10),
                                 ),
                                 child: Icon(
@@ -278,7 +276,7 @@ class _AlertsScreenState extends State<AlertsScreen> {
                                         const SizedBox(width: 6),
                                         Text(
                                           isAbove ? 'أعلى من' : 'أقل من',
-                                          style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 12),
+                                          style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 12),
                                         ),
                                       ],
                                     ),

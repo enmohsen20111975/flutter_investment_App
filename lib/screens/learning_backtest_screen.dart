@@ -11,7 +11,6 @@ import '../api/client.dart';
 import '../widgets/state_view.dart';
 import '../services/subscription_service.dart';
 import '../widgets/upgrade_modal.dart';
-import '../core/app_localizations.dart';
 
 class LearningBacktestScreen extends StatefulWidget {
   const LearningBacktestScreen({super.key});
@@ -142,7 +141,6 @@ class _LearningBacktestScreenState extends State<LearningBacktestScreen>
 
   @override
   Widget build(BuildContext context) {
-    final isAr = AppLocalizations.isArabic; // i18n
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(

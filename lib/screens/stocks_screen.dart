@@ -11,7 +11,6 @@ import '../api/client.dart';
 import '../api/cache_manager.dart';
 import '../models/types.dart';
 import 'stock_history_screen.dart';
-import '../core/app_localizations.dart';
 
 class StocksScreen extends StatefulWidget {
   const StocksScreen({super.key, this.marketVersion = 0});
@@ -34,6 +33,7 @@ class _StocksScreenState extends State<StocksScreen>
   String _query = '';
   String _debouncedQuery = '';
   Timer? _debounceTimer;
+  Timer? _cacheDebounce;
   StreamSubscription<String>? _cacheSubscription;
   bool _showMovers = true;
   String _activeMarket = 'EGX';
@@ -47,7 +47,10 @@ class _StocksScreenState extends State<StocksScreen>
     _cacheSubscription = ApiCacheManager.instance.updates.where((key) {
       return key.startsWith('stocks_') || key.startsWith('stock_movement_');
     }).listen((_) {
-      if (mounted) _refreshData();
+      _cacheDebounce?.cancel();
+      _cacheDebounce = Timer(const Duration(milliseconds: 500), () {
+        if (mounted) _refreshData();
+      });
     });
   }
 
@@ -63,6 +66,7 @@ class _StocksScreenState extends State<StocksScreen>
   void dispose() {
     _searchCtrl.dispose();
     _debounceTimer?.cancel();
+    _cacheDebounce?.cancel();
     _cacheSubscription?.cancel();
     super.dispose();
   }
@@ -89,7 +93,7 @@ class _StocksScreenState extends State<StocksScreen>
     final targetMarket = market ?? _activeMarket;
     final response =
         await api.getStocks(search: search ?? '', market: targetMarket);
-    final rawStocks = response is Map ? response['stocks'] : null;
+    final rawStocks = response['stocks'];
     final list = (rawStocks is List)
         ? rawStocks
             .whereType<Map>()
@@ -111,7 +115,7 @@ class _StocksScreenState extends State<StocksScreen>
   Future<Map<String, dynamic>?> _fetchMovement([String? market]) async {
     try {
       final data = await api.getStockMovementClassification(market: market);
-      final payload = data is Map ? Map<String, dynamic>.from(data as Map) : <String, dynamic>{};
+      final payload = Map<String, dynamic>.from(data as Map);
       final rawWrapper = payload['data'];
       final wrapper =
           rawWrapper is Map ? Map<String, dynamic>.from(rawWrapper) : null;
@@ -189,7 +193,6 @@ class _StocksScreenState extends State<StocksScreen>
 
   @override
   Widget build(BuildContext context) {
-    final isAr = AppLocalizations.isArabic; // i18n
     super.build(context);
     return Directionality(
       textDirection: TextDirection.rtl,

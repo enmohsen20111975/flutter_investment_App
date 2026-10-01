@@ -10,7 +10,6 @@ import '../api/client.dart';
 import '../api/cache_manager.dart';
 import '../models/types.dart';
 import '../widgets/state_view.dart';
-import '../core/app_localizations.dart';
 
 class CurrencyScreen extends StatefulWidget {
   const CurrencyScreen({super.key});
@@ -28,6 +27,7 @@ class _CurrencyScreenState extends State<CurrencyScreen> {
   String _toCurrency = 'EGP';
   ConversionResult? _result;
   bool _converting = false;
+  Timer? _cacheDebounce;
 
   @override
   void initState() {
@@ -36,12 +36,16 @@ class _CurrencyScreenState extends State<CurrencyScreen> {
     _cacheSubscription = ApiCacheManager.instance.updates
         .where((key) => key == 'currency_data')
         .listen((_) {
-      if (mounted) _refresh();
+      _cacheDebounce?.cancel();
+      _cacheDebounce = Timer(const Duration(milliseconds: 500), () {
+        if (mounted) _refresh();
+      });
     });
   }
 
   @override
   void dispose() {
+    _cacheDebounce?.cancel();
     _cacheSubscription?.cancel();
     super.dispose();
   }
@@ -91,7 +95,6 @@ class _CurrencyScreenState extends State<CurrencyScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isAr = AppLocalizations.isArabic; // i18n
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
