@@ -95,6 +95,30 @@ class SubscriptionStatus {
         return isPlus || isPremium;
       case 'watchlist_unlimited':
         return isPlus || isPremium;
+      // ── Fix 8: 7 new paywall gates (Task 27-A audit §5/6/7/8 +
+      // PAYWALL-STRATEGY-FINAL §5.2 — must mirror upgrade_modal.dart cases) ──
+      // Gate 2: Exit Radar — Pro feature, Plus-tier minimum (sell-timing
+      //   insight, not a safety feature per Rule 50).
+      case 'exit_radar':
+        return isPlus || isPremium;
+      // Gate 1: fair_value — Pro feature, Plus-tier minimum.
+      case 'fair_value':
+        return isPlus || isPremium;
+      // Gate 6: screener_depth — deeper-than-top-3 screener results.
+      case 'screener_depth':
+        return isPlus || isPremium;
+      // Gate 3: accuracy_details — accuracy breakdown per persona/signal.
+      case 'accuracy_details':
+        return isPremium;
+      // Gate 4: historical_trades — trade history.
+      case 'historical_trades':
+        return isPremium;
+      // Gate 5: advanced_lessons — premium academy content.
+      case 'advanced_lessons':
+        return isPremium;
+      // Gate 7: predictions_tickers — ticker list inside predictions.
+      case 'predictions_tickers':
+        return isPremium;
       default:
         return true;
     }
