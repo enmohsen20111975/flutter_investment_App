@@ -16,6 +16,7 @@ export 'watchlist.dart';
 export 'user.dart';
 export 'recommendation.dart';
 export 'zakat.dart';
+export 'sharia.dart'; // Task 28-A Fix 10: Sharia compliance models.
 export 'orderbook.dart';
 export 'disclosure.dart';
 export 'alert_model.dart';
