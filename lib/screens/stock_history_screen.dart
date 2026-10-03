@@ -1223,6 +1223,10 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
     final stopLoss = (hunter['stop_loss'] as num?)?.toDouble() ??
         (_recommendation?['stop_loss'] as num?)?.toDouble();
     final fairValue = (_stockQuote?['fair_value'] as num?)?.toDouble();
+    // Fix 3: Paywall Gate 1 — backend nullifies fair_value + sets
+    // fair_value_locked=true for free users (route.ts:1 fair_value_locked).
+    // Previously we silently rendered nothing — now show upgrade CTA.
+    final fairValueLocked = _stockQuote?['fair_value_locked'] == true;
 
     return Container(
       padding: const EdgeInsets.all(14),
@@ -1256,7 +1260,9 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
               _buildLevelItem('وقف الخسارة',
                   stopLoss != null ? '${stopLoss.toStringAsFixed(2)} ج.م' : '-', AppColors.danger),
               if (fairValue != null)
-                _buildLevelItem('القيمة العادلة', '${fairValue.toStringAsFixed(2)} ج.م', AppColors.warning),
+                _buildLevelItem('القيمة العادلة', '${fairValue.toStringAsFixed(2)} ج.م', AppColors.warning)
+              else if (fairValueLocked)
+                _buildLockedLevelItem('القيمة العادلة', AppColors.warning, 'fair_value'),
             ],
           ),
         ],
@@ -1273,6 +1279,36 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
             style: TextStyle(
                 color: color, fontWeight: FontWeight.bold, fontSize: 13)),
       ],
+    );
+  }
+
+  // Fix 3: locked-level item — when backend nullifies a value AND sets
+  // the matching `*_locked` flag (Gate 1 fair_value_locked; Gate 3
+  // details_locked; Gate 4 trades_locked), show a tappable lock CTA
+  // that opens UpgradeModal. Replaces silent '—' / missing item.
+  Widget _buildLockedLevelItem(String label, Color color, String feature) {
+    return GestureDetector(
+      onTap: () => UpgradeModal.show(
+        context,
+        feature: feature,
+        reason: 'هذه القيمة محجوبة للمشتركين بلس/بريميوم — ترقية لمشاهدة القيمة العادلة للسهم',
+      ),
+      child: Column(
+        children: [
+          Text(label, style: const TextStyle(color: AppColors.textMuted, fontSize: 10)),
+          const SizedBox(height: 4),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.lock_outline, color: color, size: 13),
+              const SizedBox(width: 3),
+              Text('للبلاس+',
+                  style: TextStyle(
+                      color: color, fontWeight: FontWeight.bold, fontSize: 12)),
+            ],
+          ),
+        ],
+      ),
     );
   }
 
