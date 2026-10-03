@@ -8,19 +8,20 @@ import 'package:flutter/material.dart';
 class AppColors {
   AppColors._();
 
-  // Primary - Royal Indigo / Electric Blue
-  static const Color primary = Color(0xFF6366F1);
-  static const Color primaryDark = Color(0xFF4F46E5);
-  static const Color primaryLight = Color(0xFF818CF8);
-  static const Color primaryMuted = Color(0x1F6366F1);
-  static const Color primaryContainer = Color(0x266366F1);
-  static const Color primaryGlow = Color(0xFFA5B4FC);
+  // Primary — Emerald (Rule 30: NO blue/indigo — matches website hsl(160,84%,39%)≈#10B981).
+  // Was Indigo #6366F1 / #4F46E5 / #818CF8 before Task 28-A Fix 5.
+  static const Color primary = Color(0xFF10B981);        // Emerald-600
+  static const Color primaryDark = Color(0xFF059669);    // Emerald-700
+  static const Color primaryLight = Color(0xFF34D399);   // Emerald-400
+  static const Color primaryMuted = Color(0x1F10B981);    // 12% emerald-600
+  static const Color primaryContainer = Color(0x2610B981); // 15% emerald-600
+  static const Color primaryGlow = Color(0xFF6EE7B7);    // Emerald-300
 
-  // Secondary - Tech Cyan / Sky Blue (replaces clashing hot pink)
-  static const Color secondary = Color(0xFF0EA5E9);
-  static const Color secondaryDark = Color(0xFF0284C7);
-  static const Color secondaryLight = Color(0xFF38BDF8);
-  static const Color secondaryMuted = Color(0x1F0EA5E9);
+  // Secondary — Teal (was Sky blue #0EA5E9 before Task 28-A Fix 5).
+  static const Color secondary = Color(0xFF14B8A6);      // Teal-500
+  static const Color secondaryDark = Color(0xFF0F766E);  // Teal-700
+  static const Color secondaryLight = Color(0xFF5EEAD4); // Teal-300
+  static const Color secondaryMuted = Color(0x1F14B8A6); // 12% teal-500
 
   // Accent - Warm Luxury Gold / Amber
   static const Color accent = Color(0xFFF59E0B);
@@ -136,7 +137,9 @@ class AppColors {
     colors: [Color(0xFFF59E0B), Color(0xFFFBBF24), Color(0xFFFCD34D)],
   );
   static const LinearGradient gradientInfo = LinearGradient(
-    colors: [Color(0xFF0EA5E9), Color(0xFF38BDF8)],
+    // Fix 5: was Sky blue #0EA5E9/#38BDF8 — Rule 30 says no blue/indigo.
+    // Now Teal-500/Teal-300 to match new secondary palette.
+    colors: [Color(0xFF14B8A6), Color(0xFF5EEAD4)],
   );
   static const LinearGradient gradientHero = LinearGradient(
     colors: [primaryDark, primary, secondary],
