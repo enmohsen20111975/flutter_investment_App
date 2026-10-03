@@ -24,6 +24,7 @@ import '../theme/colors.dart';
 import '../theme/typography.dart';
 import '../widgets/loading_widget.dart';
 import '../widgets/empty_state_widget.dart';
+import '../widgets/upgrade_modal.dart';
 
 // ─── Provider: Exit Radar Data ───────────────────────────────────────────
 final exitRadarProvider =
@@ -61,6 +62,28 @@ class ExitRadarScreen extends ConsumerWidget {
             onRetry: () => ref.refresh(exitRadarProvider),
           ),
           data: (data) {
+            // Fix 2: Paywall Gate 2 — server returns 403 with
+            // `{success:false, error:'EXIT_RADAR_LOCKED', upgradeUrl}`
+            // for anonymous users OR trial-expired free users
+            // (route.ts:159-171). Show UpgradeModal instead of generic
+            // empty state — was silently showing "تعذّر الحصول على..."
+            // for free users with expired trial.
+            final errorCode = data['error']?.toString();
+            if (data['success'] == false &&
+                errorCode == 'EXIT_RADAR_LOCKED') {
+              return EmptyStateWidget(
+                icon: Icons.lock_outline,
+                message:
+                    'رادار الخروج ميزة احترافية — لإيداع الاشتراك لرؤية علامات التوزيع قبل غيرك',
+                actionLabel: 'ترقية الاشتراك',
+                onAction: () => UpgradeModal.show(
+                  context,
+                  feature: 'exit_radar',
+                  reason: 'رادار الخروج بيكشف علامات التوزيع عند الميكرز '
+                      'قبل ما السهم ينهار — متاح لبلس/بريميوم بس',
+                ),
+              );
+            }
             if (data.isEmpty ||
                 data['success'] == false ||
                 data['paths'] == null && data['exit_paths'] == null) {

@@ -4123,13 +4123,27 @@ class GLMApiClient {
   }
 
   /// GET /api/maker-radar/exit-radar
-  /// Returns exit radar (distribution signals)
+  /// Returns exit radar (distribution signals).
+  ///
+  /// Paywall: 403 with `{success:false, error:'EXIT_RADAR_LOCKED', upgradeUrl}`
+  /// is returned for anonymous users OR trial-expired free users
+  /// (route.ts:159-171). Surface structured body so the screen can show
+  /// UpgradeModal instead of generic empty state.
   Future<Map<String, dynamic>> getExitRadar({String market = 'EGX'}) async {
     try {
       final response = await _dio.get('/api/maker-radar/exit-radar', queryParameters: {'market': market});
       return response.data is Map<String, dynamic>
           ? response.data as Map<String, dynamic>
           : <String, dynamic>{'data': response.data};
+    } on DioException catch (e) {
+      // Preserve 403 body so caller can detect EXIT_RADAR_LOCKED + upgradeUrl.
+      final body = e.response?.data;
+      if (body is Map<String, dynamic>) {
+        debugPrint('[API] getExitRadar($market) ${e.response?.statusCode}: ${body['error']}');
+        return body;
+      }
+      debugPrint('[API] getExitRadar($market) failed: $e');
+      return {'success': false, 'error': e.toString()};
     } catch (e) {
       debugPrint('[API] getExitRadar($market) failed: $e');
       return {'success': false, 'error': e.toString()};
