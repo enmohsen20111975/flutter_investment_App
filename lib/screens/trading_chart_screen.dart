@@ -29,7 +29,7 @@ class TradingChartScreen extends StatefulWidget {
 class _TradingChartScreenState extends State<TradingChartScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  String _timeframe = 'MONTH';
+  String _timeframe = 'DAY'; // matches website default (was MONTH — broke UI silently)
   Future<Map<String, dynamic>>? _dataFuture;
   pc.ChartType _chartType = pc.ChartType.candle;
 
@@ -698,6 +698,10 @@ class _FullAnalysisData {
   final List<_Signal> signals;
   final List<_Level> supports;
   final List<_Level> resistances;
+  // New: source/warning/_paywall passthrough (Fix 1) — used by Fix 4 lock UI.
+  final String? source;
+  final String? warning;
+  final _PaywallState? paywall;
 
   _FullAnalysisData({
     required this.currentPrice,
@@ -707,16 +711,20 @@ class _FullAnalysisData {
     required this.signals,
     required this.supports,
     required this.resistances,
+    this.source,
+    this.warning,
+    this.paywall,
   });
 
   factory _FullAnalysisData.fromMap(Map<String, dynamic> m) {
     final data = m['data'] is Map ? Map<String, dynamic>.from(m['data']) : m;
-    // Candles
-    final rawCandles = data['candles'] ??
+    // Candles — API returns `ohlcv` (Fix 1). Keep fallbacks for legacy shapes.
+    final rawCandles = data['ohlcv'] ??
+        data['candles'] ??
         data['chart_data'] ??
         data['ohlc'] ??
         data['series'] ??
-        (m['candles'] ?? m['chart_data']);
+        (m['candles'] ?? m['chart_data'] ?? m['ohlcv']);
     List<ChartDataModel> candles = [];
     if (rawCandles is List) {
       for (final c in rawCandles) {
@@ -796,6 +804,9 @@ class _FullAnalysisData {
       signals: signals,
       supports: supports,
       resistances: resistances,
+      source: data['source']?.toString(),
+      warning: data['warning']?.toString(),
+      paywall: _PaywallState.fromMap(data['_paywall']),
     );
   }
 
@@ -858,4 +869,55 @@ class _Level {
   final String label;
   final double value;
   const _Level({required this.label, required this.value});
+}
+
+// ============================================================================
+// Paywall state — mirrors backend `_paywall` object returned by
+// /api/v2/chart/full-analysis (src/lib/paywall.ts → applyPaywallToChartAnalysis).
+// Used by Fix 4 to render lock cards for trap_detector / early_trend /
+// trailing_stop / full_narrative on free-tier users.
+// ============================================================================
+class _PaywallState {
+  final bool? isPremium;
+  final bool? trapDetectorLocked;
+  final bool? earlyTrendLocked;
+  final bool? trailingStopLocked;
+  final bool? fullNarrativeLocked;
+  final String? upgradeUrl;
+
+  const _PaywallState({
+    this.isPremium,
+    this.trapDetectorLocked,
+    this.earlyTrendLocked,
+    this.trailingStopLocked,
+    this.fullNarrativeLocked,
+    this.upgradeUrl,
+  });
+
+  bool get hasAnyLock =>
+      trapDetectorLocked == true ||
+      earlyTrendLocked == true ||
+      trailingStopLocked == true ||
+      fullNarrativeLocked == true;
+
+  factory _PaywallState.fromMap(dynamic raw) {
+    if (raw is! Map) return const _PaywallState();
+    final m = Map<String, dynamic>.from(raw);
+    bool? parseBool(dynamic v) {
+      if (v is bool) return v;
+      if (v is String) {
+        if (v.toLowerCase() == 'true') return true;
+        if (v.toLowerCase() == 'false') return false;
+      }
+      return null;
+    }
+    return _PaywallState(
+      isPremium: parseBool(m['is_premium']),
+      trapDetectorLocked: parseBool(m['trap_detector']),
+      earlyTrendLocked: parseBool(m['early_trend']),
+      trailingStopLocked: parseBool(m['trailing_stop']),
+      fullNarrativeLocked: parseBool(m['full_narrative']),
+      upgradeUrl: m['upgrade_url']?.toString(),
+    );
+  }
 }
