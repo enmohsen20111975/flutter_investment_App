@@ -805,12 +805,15 @@ class _LevelRow extends StatelessWidget {
               style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
             ),
           ),
+          // Fix 6: render '—' when value is null (was '0.00' due to ?? 0).
           Text(
-            level.value.toStringAsFixed(2),
+            level.value != null
+                ? level.value!.toStringAsFixed(2)
+                : '—',
             style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w700,
-              color: color,
+              color: level.value != null ? color : AppColors.textMuted,
             ),
           ),
         ],
@@ -957,9 +960,13 @@ class _FullAnalysisData {
           list.add(_Level(label: 'مستوى', value: e.toDouble()));
         } else if (e is Map) {
           final lm = Map<String, dynamic>.from(e);
+          // Fix 6: pass null through — do NOT coerce to 0 (was rendering
+          // '0.00' for INVALID-nullified support/resistance from the
+          // data-validation layer, Rule 65). _LevelRow renders '—' on null.
+          final v = _toDouble(lm['price'] ?? lm['value'] ?? lm['level']);
           list.add(_Level(
             label: (lm['label'] ?? lm['name'] ?? 'مستوى').toString(),
-            value: _toDouble(lm['price'] ?? lm['value'] ?? lm['level']) ?? 0,
+            value: v,
           ));
         }
       }
@@ -1006,7 +1013,9 @@ class _Signal {
 
 class _Level {
   final String label;
-  final double value;
+  // Fix 6: nullable — null means INVALID/nullified by data-validation layer
+  // (Rule 65). _LevelRow renders '—' (not '0.00') when value is null.
+  final double? value;
   const _Level({required this.label, required this.value});
 }
 
