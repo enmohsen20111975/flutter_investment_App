@@ -9,6 +9,7 @@ import '../theme/colors.dart';
 import '../api/client.dart';
 import '../widgets/state_view.dart';
 import '../widgets/skeleton_loader.dart';
+import '../widgets/upgrade_modal.dart';
 import '../widgets/price_chart.dart' as pc;
 import '../models/chart_data_model.dart';
 
@@ -231,6 +232,11 @@ class _TradingChartScreenState extends State<TradingChartScreen>
                       _buildChartSection(parsed),
                       const SizedBox(height: 8),
                       _buildPriceHeader(parsed),
+                      // Fix 4: paywall banner — show lock indicators when
+                      // _paywall.is_premium == false AND any of trap_detector /
+                      // early_trend / trailing_stop / full_narrative is locked.
+                      if (parsed.paywall != null && parsed.paywall!.hasAnyLock)
+                        _buildPaywallBanner(parsed.paywall!),
                       _buildTabs(parsed),
                     ],
                   );
@@ -379,6 +385,139 @@ class _TradingChartScreenState extends State<TradingChartScreen>
                 ],
               ),
             ),
+        ],
+      ),
+    );
+  }
+
+  // ===========================================================================
+  // Paywall banner (Fix 4) — shows lock cards for trap_detector / early_trend /
+  // trailing_stop / full_narrative when _paywall.is_premium == false. The
+  // backend truncates humanized_reason to ~30 chars + "🔒" for free users
+  // (src/lib/paywall.ts applyPaywallToChartAnalysis); this banner explains
+  // why and routes to UpgradeModal.
+  // ===========================================================================
+  Widget _buildPaywallBanner(_PaywallState p) {
+    final locks = <_LockItem>[];
+    if (p.trapDetectorLocked == true) {
+      locks.add(const _LockItem(
+        title: 'كاشف الفخ (Trap Detector)',
+        desc: 'يكشف فخاخ الشراء وهمّة السوق قبل ما تقع فيها',
+        icon: Icons.warning_amber_rounded,
+        feature: 'predictions',
+      ));
+    }
+    if (p.earlyTrendLocked == true) {
+      locks.add(const _LockItem(
+        title: 'الاتجاه المبكر (Early Trend)',
+        desc: 'بداية الاتجاه قبل ما يبدأ السهم يتحرك بقوة',
+        icon: Icons.trending_up_rounded,
+        feature: 'recommendations',
+      ));
+    }
+    if (p.trailingStopLocked == true) {
+      locks.add(const _LockItem(
+        title: 'إيقاف الخسارة المتتبع (Trailing Stop)',
+        desc: 'يحفظ أرباحك ويبيع تلقائياً لو رجع السهم',
+        icon: Icons.shield_rounded,
+        feature: 'recommendations',
+      ));
+    }
+    if (p.fullNarrativeLocked == true) {
+      locks.add(const _LockItem(
+        title: 'التحليل الكامل (Full Narrative)',
+        desc: 'شرح مفصّل لكل سبب من أسباب التوصية',
+        icon: Icons.menu_book_rounded,
+        feature: 'ai_analysis',
+      ));
+    }
+    if (locks.isEmpty) return const SizedBox.shrink();
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            AppColors.accent.withValues(alpha: 0.12),
+            AppColors.surface,
+          ],
+          begin: Alignment.topRight,
+          end: Alignment.bottomLeft,
+        ),
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+        border: Border.all(color: AppColors.accent.withValues(alpha: 0.4)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.lock_outline, color: AppColors.accent, size: 18),
+              const SizedBox(width: 8),
+              const Expanded(
+                child: Text(
+                  'أقسام محجوبة — تُفتح للمشتركين بلس/بريميوم',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.accent,
+                  ),
+                ),
+              ),
+              GestureDetector(
+                onTap: () => UpgradeModal.show(
+                  context,
+                  feature: 'recommendations',
+                  reason: 'التحليل الكامل للشارت — كاشف الفخ + الاتجاه المبكر + '
+                      'إيقاف الخسارة المتتبع + الشرح المفصل — متاح لبلس/بريميوم',
+                ),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: AppColors.accent,
+                    borderRadius: BorderRadius.circular(AppRadius.sm),
+                  ),
+                  child: const Text(
+                    'ترقية',
+                    style: TextStyle(
+                      color: AppColors.white,
+                      fontWeight: FontWeight.w800,
+                      fontSize: 11,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          ...locks.map((l) => _buildLockRow(l)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLockRow(_LockItem l) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          Icon(l.icon, color: AppColors.textMuted, size: 16),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(l.title,
+                    style: const TextStyle(
+                        fontSize: 12, fontWeight: FontWeight.w700)),
+                Text(l.desc,
+                    style: const TextStyle(
+                        fontSize: 10, color: AppColors.textMuted)),
+              ],
+            ),
+          ),
+          const Icon(Icons.lock, color: AppColors.accent, size: 14),
         ],
       ),
     );
@@ -869,6 +1008,20 @@ class _Level {
   final String label;
   final double value;
   const _Level({required this.label, required this.value});
+}
+
+// Fix 4: lightweight descriptor for a paywall-locked chart section.
+class _LockItem {
+  final String title;
+  final String desc;
+  final IconData icon;
+  final String feature;
+  const _LockItem({
+    required this.title,
+    required this.desc,
+    required this.icon,
+    required this.feature,
+  });
 }
 
 // ============================================================================
