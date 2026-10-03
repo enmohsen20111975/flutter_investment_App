@@ -956,6 +956,108 @@ class GLMApiClient {
   }
 
   // ============================================================================
+  // Sharia API — Task 28-A Fix 9 (mirrors src/app/api/sharia/route.ts +
+  // src/app/api/sharia/purification/route.ts on the website).
+  // Reads data_engine.db (sharia_metrics + sharia_source_status +
+  // sharia_purification_rates tables — populated weekly by
+  // data_engine/scrapers/sharia_compliance_scraper.py per crontab.txt #25).
+  // ============================================================================
+
+  /// GET /api/sharia — list of EGX stocks with sharia compliance metrics.
+  ///
+  /// Query params (all optional):
+  ///   ?symbol=ABUK        single-ticker detail (sources + purification_rates)
+  ///   ?search=بنك         search by symbol or name_ar
+  ///   ?consensus=true     only halal-consensus stocks (≥6 of 8 sources)
+  ///   ?method=S&P         filter by purification method key
+  ///   ?source=musaffa     filter by source key
+  ///   ?review=true        only stocks needing manual review
+  ///   ?limit=100&offset=0
+  ///
+  /// Returns:
+  ///   {success, source, primary_method, consensus_min, filters, stats,
+  ///    sources, alias_map:{totals,review_queue}, total, count, offset,
+  ///    limit, rows:[{symbol, name_ar, category_ar, market,
+  ///                  sp_haram_earning_pct, compliant_sources_count,
+  ///                  is_halal_consensus, purification_rate,
+  ///                  compliant_sources, ...}], generated_at}
+  ///
+  /// For single-ticker detail (?symbol=X), returns:
+  ///   {success, symbol, metric, sources:[ShariaSourceRow...],
+  ///    purification_rates:[ShariaPurificationRate...], price, generated_at}
+  Future<Map<String, dynamic>> getShariaList({
+    String? symbol,
+    String? search,
+    bool consensus = false,
+    String? method,
+    String? source,
+    bool review = false,
+    int limit = 100,
+    int offset = 0,
+  }) async {
+    try {
+      final qp = <String, dynamic>{
+        if (symbol != null && symbol.isNotEmpty) 'symbol': symbol.toUpperCase(),
+        if (search != null && search.isNotEmpty) 'search': search,
+        if (consensus) 'consensus': 'true',
+        if (method != null && method.isNotEmpty) 'method': method,
+        if (source != null && source.isNotEmpty) 'source': source,
+        if (review) 'review': 'true',
+        'limit': limit,
+        'offset': offset,
+      };
+      final response = await _dio.get('/api/sharia', queryParameters: qp);
+      return response.data is Map<String, dynamic>
+          ? response.data as Map<String, dynamic>
+          : <String, dynamic>{'data': response.data};
+    } catch (e) {
+      debugPrint('[API] getShariaList failed: $e');
+      return {'success': false, 'error': e.toString()};
+    }
+  }
+
+  /// GET /api/sharia?symbol=X — single-ticker sharia detail.
+  /// Convenience wrapper around getShariaList(symbol: X) — returns the
+  /// detail envelope directly (or null on miss/empty body).
+  Future<Map<String, dynamic>?> getShariaDetail(String ticker) async {
+    final resp = await getShariaList(symbol: ticker, limit: 1);
+    if (resp['success'] == true && resp['symbol'] != null) {
+      return resp;
+    }
+    return null;
+  }
+
+  /// POST /api/sharia/purification — حاسبة تطهير الأرباح (Tazkiyah).
+  ///
+  /// Body shapes (mutually exclusive):
+  ///   {symbol: 'ABUK', quantity: 500, buy_price: 72, sell_price: 90}
+  ///   {user_id: '<id>'}              — portfolio purification (reads holdings)
+  ///   {user_id, include_capital_gain: true}
+  ///
+  /// Returns:
+  ///   {success, primary_method:'S&P',
+  ///    engine:'vps-service/portfolio/purification_calculator.py',
+  ///    ...payload from python calculator (purification_amount, rates, etc.)}
+  ///
+  /// Errors:
+  ///   503 calculator_missing  — purification_calculator.py not found.
+  ///   400 invalid_request     — body missing required fields.
+  ///   500 calculator_failed    — python script crashed.
+  Future<Map<String, dynamic>> calculatePurification(
+      Map<String, dynamic> params) async {
+    try {
+      final response =
+          await _dio.post('/api/sharia/purification', data: params);
+      return response.data is Map<String, dynamic>
+          ? response.data as Map<String, dynamic>
+          : <String, dynamic>{'data': response.data};
+    } catch (e) {
+      debugPrint('[API] calculatePurification failed: $e');
+      return {'success': false, 'error': e.toString()};
+    }
+  }
+
+  // ============================================================================
   // MOBILE Recommendations API (CORRECT endpoints)
   // ============================================================================
   Future<List<dynamic>> getRecommendations() async {
