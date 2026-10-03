@@ -175,6 +175,21 @@ class UpgradeModal {
         return 'المحفظة الممتدة ميزة مدفوعة';
       case 'watchlist_unlimited':
         return 'قائمة المتابعة الممتدة ميزة مدفوعة';
+      // ── Fix 7: 7 new paywall gates (Task 27-A audit §5/6/7/8 + PAYWALL-STRATEGY-FINAL §5.2) ──
+      case 'exit_radar':
+        return 'رادار الخروج ميزة احترافية';
+      case 'fair_value':
+        return 'القيمة العادلة ميزة احترافية';
+      case 'accuracy_details':
+        return 'تفاصيل دقة الرادار ميزة بريميوم';
+      case 'historical_trades':
+        return 'سجل الصفقات التاريخية ميزة بريميوم';
+      case 'advanced_lessons':
+        return 'الدروس المتقدمة ميزة بريميوم';
+      case 'screener_depth':
+        return 'نتائج الفرّاز المعمّقة ميزة احترافية';
+      case 'predictions_tickers':
+        return 'تيكرات التوقعات ميزة بريميوم';
       default:
         return 'ترقية مطلوبة';
     }
