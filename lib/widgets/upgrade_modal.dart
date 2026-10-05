@@ -25,17 +25,30 @@ class UpgradeModal {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Container(
-                margin: const EdgeInsets.only(top: 12),
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: AppColors.border,
-                  borderRadius: BorderRadius.circular(2),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.close_rounded, size: 24, color: AppColors.textSecondary),
+                      tooltip: 'إغلاق',
+                      onPressed: () => Navigator.pop(ctx),
+                    ),
+                    Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: AppColors.border,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                    const SizedBox(width: 40),
+                  ],
                 ),
               ),
               Padding(
-                padding: const EdgeInsets.all(24),
+                padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
                 child: Column(
                   children: [
                     Container(
@@ -102,6 +115,14 @@ class UpgradeModal {
                           'عرض الخطط والاشتراك',
                           style: TextStyle(color: AppColors.white, fontWeight: FontWeight.w700, fontSize: 16),
                         ),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    TextButton(
+                      onPressed: () => Navigator.pop(ctx),
+                      child: const Text(
+                        'إغلاق ومتابعة التجربة المجانية',
+                        style: TextStyle(color: AppColors.textSecondary, fontSize: 13, fontFamily: 'Cairo'),
                       ),
                     ),
                   ],

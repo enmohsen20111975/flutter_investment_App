@@ -436,13 +436,37 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
         appBar: AppBar(
           backgroundColor: AppColors.surface,
           elevation: 0,
-          title: const Text('الاشتراكات',
+          title: const Text('الباقات والاشتراكات',
               style:
                   TextStyle(fontFamily: 'Cairo', fontWeight: FontWeight.bold)),
           leading: IconButton(
-            icon: const Icon(Icons.arrow_back),
-            onPressed: () => Navigator.pop(context),
+            icon: const Icon(Icons.close_rounded, size: 24),
+            tooltip: 'إغلاق والعودة',
+            onPressed: () {
+              if (Navigator.canPop(context)) {
+                Navigator.pop(context);
+              } else {
+                Navigator.pushReplacementNamed(context, '/home');
+              }
+            },
           ),
+          actions: [
+            TextButton.icon(
+              onPressed: () {
+                Navigator.pushNamed(context, '/auth');
+              },
+              icon: const Icon(Icons.login_rounded, size: 18, color: AppColors.primary),
+              label: const Text(
+                'تسجيل الدخول',
+                style: TextStyle(
+                  fontFamily: 'Cairo',
+                  color: AppColors.primary,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                ),
+              ),
+            ),
+          ],
         ),
         body: FutureBuilder<SubscriptionData?>(
           future: _dataFuture,
