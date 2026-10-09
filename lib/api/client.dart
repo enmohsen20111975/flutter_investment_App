@@ -839,9 +839,9 @@ class GLMApiClient {
     }
   }
 
-  Future<List<dynamic>> getLatestNews() async {
+  Future<List<dynamic>> getLatestNews({String? market}) async {
     try {
-      final response = await _dio.get('/api/news/latest');
+      final response = await _dio.get('/api/news/latest', queryParameters: market != null ? {'market': market} : null);
       final raw = response.data;
       return raw is List ? raw : (raw['news'] as List? ?? []);
     } catch (e) {
@@ -1326,7 +1326,7 @@ class GLMApiClient {
       ttl: ApiCacheManager.defaultTtl,
       fetcher: () async {
         final response =
-            await _dio.get('/api/stocks/$ticker/professional-analysis');
+            await _dio.get('/api/stocks/$ticker/unified'); // Task FLUTTER-INTEGRATION: redirect to canonical unified (professional-analysis is 410 Gone)
         return response.data is Map<String, dynamic>
             ? response.data
             : Map<String, dynamic>.from(response.data as Map);
@@ -1807,7 +1807,7 @@ class GLMApiClient {
       {required String market, required String persona}) async {
     try {
       final response =
-          await _dio.get('/api/maestro/stock/$ticker', queryParameters: {
+          await _dio.get('/api/stocks/$ticker/unified', // Task FLUTTER-INTEGRATION: maestro 410 Gone → canonical unified
         'market': market,
         'persona': persona,
       });
