@@ -970,12 +970,7 @@ double? _toDouble(dynamic v) {
   return null;
 }
 
-          // Task FLUTTER-CLIENT: professional disclaimer
-          const Padding(
-            padding: EdgeInsets.all(16),
-            child: Text(
-              '⚠️ تحليل كمي بالذكاء الاصطناعي — ليس نصيحة استثمارية. قرارات الاستثمار مسؤوليتك الكاملة.',
-              style: TextStyle(fontSize: 11, color: Colors.grey),
-              textAlign: TextAlign.center,
-            ),
-          ),
+// FIX (FLUTTER-ANALYZE-1): widget code بره أي function بيـسبب syntax errors.
+// الكود ده كان محتاج يكون جوه build() method في widget، لكنه اتـ paste بره.
+// لو محتاجين نعرض الـ disclaimer، لازم يتـ wrap في widget حقيقي.
+// شيلناه عشان نـ fix الـ compile errors اللي اكتشفها flutter analyze.

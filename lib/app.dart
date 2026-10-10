@@ -11,6 +11,7 @@ import 'screens/dashboard_screen.dart';
 import 'screens/stocks_screen.dart';
 import 'screens/stock_history_screen.dart';
 import 'screens/currency_screen.dart';
+import 'screens/crypto_screen.dart';
 import 'screens/zakat_screen.dart';
 import 'screens/ai_analysis_screen.dart';
 import 'screens/auth_screen.dart';
