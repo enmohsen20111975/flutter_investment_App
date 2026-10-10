@@ -455,8 +455,9 @@ class _MainNavigatorState extends State<MainNavigator> {
                 onTap: () => _navigateTo(const SettingsScreen()),
                 child: Container(
                   margin: const EdgeInsets.only(left: 8, right: 8),
+                  // THEME-OVERHAUL: solid Emerald بدل gradient نيون
                   decoration: const BoxDecoration(
-                    gradient: AppColors.gradientPurplePink,
+                    color: AppColors.primary,
                     shape: BoxShape.circle,
                   ),
                   child: CircleAvatar(
