@@ -627,23 +627,17 @@ void _showCommandBar() {
   // ===========================================================================
   Widget _buildDrawer() {
     return Drawer(
-      backgroundColor: AppColors.quantumBg,
+      backgroundColor: AppColors.background,
       child: Directionality(
         textDirection: TextDirection.rtl,
         child: ListView(
           padding: EdgeInsets.zero,
           children: [
-            // Header with user profile info
+            // Header — THEME-OVERHAUL: solid Emerald بدل gradient
             Container(
               padding: const EdgeInsets.fromLTRB(20, 50, 20, 20),
               decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    AppColors.primaryDark,
-                    AppColors.primary,
-                    AppColors.secondary
-                  ],
-                ),
+                color: AppColors.primaryDark,  // Emerald-700 (solid, institutional)
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
