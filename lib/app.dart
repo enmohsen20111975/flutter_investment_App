@@ -48,11 +48,11 @@ import 'screens/risk_profiler_screen.dart';
 import 'screens/persona_screen.dart';
 import 'screens/radar_hub_screen.dart';
 import 'screens/tools_hub_screen.dart';
-import 'screens/investors_screen.dart';
+// THEME-OVERHAUL-2: investors_screen + stock_search_dialog imports اتـ شالتهم
+// (كانوا بـ يستخدموا في _showQuickHubModal اللي شيلناها)
 // FOCUS-5-TASKS (2026-10-01): MyBriefingScreen — الـ mirror الـ mobile للـ web widget.
 // شاشة شخصية للعميل: محفظته + تنبيهاته + أخبار أسهمه (مرتّبة بالأولوية).
 import 'screens/my_briefing_screen.dart';
-import 'widgets/stock_search_dialog.dart';
 import 'api/client.dart';
 import 'models/types.dart';
 import 'services/notification_service.dart';
@@ -494,33 +494,9 @@ class _MainNavigatorState extends State<MainNavigator> {
           index: _currentIndex,
           children: List.generate(5, (index) => _buildTabScreen(index)),
         ),
-        floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
-        floatingActionButton: Container(
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: [Color(0xFF4F46E5), Color(0xFF0EA5E9)],
-            ),
-            borderRadius: BorderRadius.circular(30),
-            boxShadow: [
-              BoxShadow(
-                color: const Color(0xFF4F46E5).withValues(alpha: 0.35),
-                blurRadius: 14,
-                spreadRadius: 1,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          child: FloatingActionButton.extended(
-            onPressed: () => _showQuickHubModal(context),
-            backgroundColor: Colors.transparent,
-            elevation: 0,
-            icon: const Icon(Icons.bolt_rounded, color: Color(0xFFFACC15), size: 22),
-            label: const Text(
-              'الأوامر السريعة',
-              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
-            ),
-          ),
-        ),
+        // THEME-OVERHAUL-2: إزالة FloatingActionButton المشوه (gradient نيون)
+        // واستبداله بزر بحث أنيق في شريط العنوان العلوي (موجود في AppBar)
+        // مفيش FAB — التطبيق المؤسسي مفيهوش أزرار عشوائية
         bottomNavigationBar: Container(
           decoration: BoxDecoration(
             color: AppColors.surface,
@@ -544,20 +520,16 @@ class _MainNavigatorState extends State<MainNavigator> {
             selectedFontSize: 11,
             unselectedFontSize: 10,
             items: const [
+              // THEME-OVERHAUL-2: 5 Golden Pillars (مطابقة Master Blueprint)
               BottomNavigationBarItem(
-                icon: Icon(Icons.home_rounded),
-                activeIcon: Icon(Icons.home, color: AppColors.primaryGlow),
-                label: 'الرئيسية',
+                icon: Icon(Icons.show_chart_rounded),
+                activeIcon: Icon(Icons.show_chart, color: AppColors.primaryGlow),
+                label: 'الأسواق',
               ),
               BottomNavigationBarItem(
-                icon: Icon(Icons.trending_up_rounded),
-                activeIcon: Icon(Icons.trending_up, color: AppColors.primaryGlow),
-                label: 'الأسهم',
-              ),
-              BottomNavigationBarItem(
-                icon: Icon(Icons.local_fire_department_rounded),
-                activeIcon: Icon(Icons.local_fire_department, color: AppColors.quantumCrimson),
-                label: 'الرادار والفرص',
+                icon: Icon(Icons.radar_rounded),
+                activeIcon: Icon(Icons.radar, color: AppColors.primaryGlow),
+                label: 'الرادار',
               ),
               BottomNavigationBarItem(
                 icon: Icon(Icons.account_balance_wallet_rounded),
@@ -565,9 +537,14 @@ class _MainNavigatorState extends State<MainNavigator> {
                 label: 'المحفظة',
               ),
               BottomNavigationBarItem(
-                icon: Icon(Icons.grid_view_rounded),
-                activeIcon: Icon(Icons.grid_view, color: AppColors.quantumGold),
-                label: 'الأدوات',
+                icon: Icon(Icons.science_rounded),
+                activeIcon: Icon(Icons.science, color: AppColors.quantumGold),
+                label: 'المختبر',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(Icons.person_rounded),
+                activeIcon: Icon(Icons.person, color: AppColors.primaryGlow),
+                label: 'الحساب',
               ),
             ],
           ),
@@ -1030,123 +1007,8 @@ void _showCommandBar() {
     );
   }
 
-  void _showQuickHubModal(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (ctx) => Container(
-        padding: const EdgeInsets.all(20),
-        decoration: const BoxDecoration(
-          color: AppColors.quantumSurface,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-          border: Border(top: BorderSide(color: AppColors.quantumGlassBorder)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Row(
-                  children: [
-                    Icon(Icons.bolt_rounded, color: AppColors.quantumGold, size: 22),
-                    SizedBox(width: 8),
-                    Text(
-                      'مركز الأوامر والوصول السريع',
-                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
-                    ),
-                  ],
-                ),
-                IconButton(
-                  icon: const Icon(Icons.close_rounded, color: Colors.white54),
-                  onPressed: () => Navigator.pop(ctx),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            GridView.count(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              crossAxisCount: 3,
-              mainAxisSpacing: 10,
-              crossAxisSpacing: 10,
-              childAspectRatio: 1.1,
-              children: [
-                _buildQuickHubTile(Icons.search_rounded, 'فحص سهم', AppColors.quantumEmerald, () {
-                  Navigator.pop(ctx);
-                  StockSearchDialog.show(context);
-                }),
-                _buildQuickHubTile(Icons.candlestick_chart_rounded, 'TradingView', AppColors.quantumGold, () {
-                  Navigator.pop(ctx);
-                  _navigateTo(const TradingChartScreen(ticker: 'EGX30', displayName: 'مؤشر EGX 30'));
-                }),
-                _buildQuickHubTile(Icons.local_fire_department_rounded, 'الفرص الانفجارية', AppColors.danger, () {
-                  Navigator.pop(ctx);
-                  _setTabIndex(2);
-                }),
-                _buildQuickHubTile(Icons.radar_rounded, 'رادار السيولة', Colors.tealAccent, () {
-                  Navigator.pop(ctx);
-                  _navigateTo(const RadarScreen());
-                }),
-                _buildQuickHubTile(Icons.groups_rounded, 'المستثمرون', AppColors.info, () {
-                  Navigator.pop(ctx);
-                  _navigateTo(const InvestorsScreen());
-                }),
-                _buildQuickHubTile(Icons.diamond_rounded, 'أسعار الذهب', AppColors.warning, () {
-                  Navigator.pop(ctx);
-                  _navigateTo(const MetalsScreen());
-                }),
-                _buildQuickHubTile(Icons.currency_exchange_rounded, 'أسعار العملات', Colors.lightGreenAccent, () {
-                  Navigator.pop(ctx);
-                  _navigateTo(const CurrencyScreen());
-                }),
-                _buildQuickHubTile(Icons.psychology_rounded, 'تحليل AI', Colors.purpleAccent, () {
-                  Navigator.pop(ctx);
-                  _navigateTo(const AiAnalysisScreen());
-                }),
-                _buildQuickHubTile(Icons.filter_alt_rounded, 'المسح Screener', Colors.cyanAccent, () {
-                  Navigator.pop(ctx);
-                  _navigateTo(const ScreenerScreen());
-                }),
-              ],
-            ),
-            const SizedBox(height: 16),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildQuickHubTile(IconData icon, String label, Color color, VoidCallback onTap) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: AppColors.quantumGlass,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: color.withValues(alpha: 0.3)),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, color: color, size: 24),
-            const SizedBox(height: 6),
-            Text(
-              label,
-              style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
-              textAlign: TextAlign.center,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+  // THEME-OVERHAUL-2: _showQuickHubModal + _buildQuickHubTile اتـ شالتهم
+  // (كانوا بـ يستخدموا مع FloatingActionButton المشوه اللي شيلناه)
 
   Future<void> _handleLogout() async {
     final confirm = await showDialog<bool>(
