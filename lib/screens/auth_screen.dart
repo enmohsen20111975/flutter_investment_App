@@ -128,7 +128,7 @@ class _AuthScreenState extends State<AuthScreen> {
         } else if (errorStr.contains(': 10') ||
             errorStr.contains('DEVELOPER_ERROR')) {
           _error =
-              'خطأ إعدادات Google (كود 10): بصمة الشهادة SHA-1 لنسخة الإنتاج غير مطابقة في Google Cloud Console.\n\nبصمة Release المطلوبة:\nF8:EF:3F:95:7B:3D:11:51:B0:D8:DA:F0:FA:B0:14:0E:30:8F:E4:A4';
+              'خطأ إعدادات Google (كود 10): بصمة الشهادة SHA-1 غير مطابقة في Google Cloud Console. يرجى التواصل مع الدعم الفني.';
         } else if (errorStr.contains('12500')) {
           _error =
               'فشل تسجيل الدخول بواسطة Google (كود 12500). يرجى التحقق من تفعيل حساب Google وشاشة موافقة OAuth في Google Cloud.';

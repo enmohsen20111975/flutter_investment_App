@@ -5,6 +5,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../core/app_localizations.dart';
 import '../theme/colors.dart';
 import '../theme/typography.dart';
@@ -12,6 +13,7 @@ import '../api/client.dart';
 import '../models/types.dart';
 import '../widgets/state_view.dart';
 import '../services/subscription_service.dart';
+import '../services/version_service.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -23,6 +25,8 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   User? _user;
   String _riskTolerance = 'medium';
+  String _appVersion = '';
+  bool _devModeEnabled = false;  // FIX (FLUTTER-PROD-3): developer features خلف dev mode
   String _language = 'ar';
   bool _notifications = true;
   bool _darkMode = false;
@@ -41,7 +45,29 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _language = prefs.getString('language') ?? 'ar';
       _notifications = prefs.getBool('notifications') ?? true;
       _darkMode = prefs.getBool('dark_mode') ?? false;
+      // FIX (FLUTTER-PROD-3): developer features خلف dev mode toggle
+      // 5 taps على version card = enable dev mode (similar to Android developer options)
+      _devModeEnabled = prefs.getBool('dev_mode_enabled') ?? false;
     });
+
+    // FIX (FLUTTER-PROD-1): استخدم VersionService للحصول على الإصدار الحقيقي
+    // (بدل ما نظهر '2.0.0' hardcoded)
+    try {
+      final version = await VersionService.instance.getCurrentVersion();
+      final buildNumber = await VersionService.instance.getCurrentBuildNumber();
+      if (mounted) {
+        setState(() {
+          _appVersion = '$version+$buildNumber';
+        });
+      }
+    } catch (e) {
+      debugPrint('[SettingsScreen] Failed to get version: $e');
+      if (mounted) {
+        setState(() {
+          _appVersion = '3.0.1+44';  // fallback to pubspec version
+        });
+      }
+    }
 
     // Try to load user data (skip if API fails)
     if (await api.isAuthenticated()) {
@@ -61,6 +87,60 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final prefs = await SharedPreferences.getInstance();
     if (value is bool) await prefs.setBool(key, value);
     if (value is String) await prefs.setString(key, value);
+  }
+
+  // FIX (FLUTTER-PROD-3): 5 taps على version card = enable/disable dev mode
+  // (similar to Android's developer options pattern)
+  int _versionTapCount = 0;
+  DateTime? _lastVersionTap;
+  Future<void> _handleVersionTap() async {
+    final now = DateTime.now();
+    if (_lastVersionTap == null || now.difference(_lastVersionTap!) > const Duration(seconds: 2)) {
+      _versionTapCount = 1;
+    } else {
+      _versionTapCount++;
+    }
+    _lastVersionTap = now;
+
+    if (_versionTapCount >= 5) {
+      _versionTapCount = 0;
+      final prefs = await SharedPreferences.getInstance();
+      final newDevMode = !(_devModeEnabled);
+      await prefs.setBool('dev_mode_enabled', newDevMode);
+      if (!mounted) return;
+      setState(() {
+        _devModeEnabled = newDevMode;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(newDevMode
+              ? 'تم تفعيل وضع المطور — ميزات إضافية الآن متاحة'
+              : 'تم إيقاف وضع المطور'),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    } else if (_versionTapCount >= 3) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('اضغط ${5 - _versionTapCount} مرات أخرى لتفعيل وضع المطور'),
+          duration: const Duration(seconds: 1),
+        ),
+      );
+    }
+  }
+
+  // FIX (FLUTTER-PROD-3): فتح الموقع في المتصفح الخارجي
+  Future<void> _openWebsite() async {
+    final Uri url = Uri.parse('https://invist.m2y.net');
+    try {
+      await launchUrl(url, mode: LaunchMode.externalApplication);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('تعذر فتح الموقع: $e')),
+      );
+    }
   }
 
   Future<void> _handleLogout() async {
@@ -178,19 +258,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
               // Connection Section
               const SectionHeader(title: 'الاتصال', icon: Icons.cloud),
               const SizedBox(height: 8),
-              _buildSettingsCard(
-                icon: Icons.dns_outlined,
-                title: 'عنوان الخادم',
-                subtitle: api.baseUrl,
-                onTap: () => _showServerUrlDialog(),
-              ),
-              _buildSettingsCard(
-                icon: Icons.info_outline,
-                title: 'فحص الاتصال',
-                subtitle: 'التحقق من اتصال الخادم',
-                onTap: () => _testConnection(),
-              ),
-              const SizedBox(height: 20),
+              // FIX (FLUTTER-PROD-3): developer features خلف dev mode toggle
+              // (5 taps على version card = enable/disable dev mode)
+              if (_devModeEnabled) ...[
+                _buildSettingsCard(
+                  icon: Icons.dns_outlined,
+                  title: 'عنوان الخادم (Dev)',
+                  subtitle: api.baseUrl,
+                  onTap: () => _showServerUrlDialog(),
+                ),
+                _buildSettingsCard(
+                  icon: Icons.info_outline,
+                  title: 'فحص الاتصال (Dev)',
+                  subtitle: 'التحقق من اتصال الخادم',
+                  onTap: () => _testConnection(),
+                ),
+                const SizedBox(height: 20),
+              ],
 
               // About Section
               const SectionHeader(title: 'حول التطبيق', icon: Icons.info),
@@ -198,12 +282,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
               _buildSettingsCard(
                 icon: Icons.code,
                 title: 'الإصدار',
-                subtitle: '2.0.0',
+                subtitle: _appVersion.isNotEmpty ? _appVersion : '3.0.1+44',
+                onTap: _handleVersionTap,  // 5 taps = enable dev mode
               ),
               _buildSettingsCard(
                 icon: Icons.web,
                 title: 'الموقع الإلكتروني',
                 subtitle: 'invist.m2y.net',
+                onTap: () => _openWebsite(),
               ),
               const SizedBox(height: 20),
 

@@ -601,7 +601,7 @@ void _showCommandBar() {
       _ServiceItem(Icons.storage_rounded, 'Database', 'قاعدة البيانات', true, '3ms'),
       _ServiceItem(Icons.update_rounded, 'Data Freshness', 'تحديث البيانات', true, '< 30s'),
       _ServiceItem(Icons.security_rounded, 'Auth Service', 'خدمة المصادقة', true, 'OK'),
-      _ServiceItem(Icons.cached_rounded, 'Cache Manager', 'lea cache', true, 'Active'),
+      _ServiceItem(Icons.cached_rounded, 'Cache Manager', 'مدير الذاكرة المؤقتة', true, 'Active'),
     ];
     showModalBottomSheet(
       context: context,
@@ -636,7 +636,7 @@ void _showCommandBar() {
 
 // ── Share Sheet ──
   void _showShareSheet(BuildContext context) {
-    showShareSheet(context, 'مساعد Investment', body: 'منصة دlify للاستثمار في البورصة المصرية');
+    showShareSheet(context, 'مساعد الاستثمار', body: 'منصة ذكية للاستثمار في البورصة المصرية');
   }
 
   // ===========================================================================
@@ -682,7 +682,7 @@ void _showCommandBar() {
                           color: AppColors.white,
                           fontFamily: 'Cairo')),
                   const SizedBox(height: 4),
-                  Text('منصة الاستثمار الذكية Quantum 2.0',
+                  Text('منصة الاستثمار الذكية',
                       style: TextStyle(
                           fontSize: 12,
                           color: AppColors.white.withValues(alpha: 0.8))),
@@ -855,7 +855,9 @@ void _showCommandBar() {
                   _setTabIndex(1);
                 }),
                 _buildTreeSubItem(Icons.currency_bitcoin_rounded, 'الكريبتو والعملات الرقمية', () {
-                  _setTabIndex(3);
+                  // FIX (FLUTTER-PROD-2): كان بـ _setTabIndex(3) → بيفتح PortfolioScreen (tab 3)
+                  // بدل ما يفتح CryptoScreen. ده navigation bug خطير.
+                  _navigateTo(const CryptoScreen());
                 }),
                 _buildTreeSubItem(Icons.diamond_rounded, 'الذهب والمعادن وعيار 21', () => _navigateTo(const MetalsScreen())),
                 _buildTreeSubItem(Icons.currency_exchange_rounded, 'أسعار صرف العملات الأجنبية', () => _navigateTo(const CurrencyScreen())),
@@ -868,7 +870,7 @@ void _showCommandBar() {
             _buildTreeCategory(
               title: 'الفرص والذكاء الاصطناعي',
               icon: Icons.auto_awesome_rounded,
-              badgeCount: '6',
+              badgeCount: '7',
               accentColor: AppColors.quantumGold,
               children: [
                 _buildTreeSubItem(Icons.local_fire_department_rounded, 'صائد الفرص الانفجارية', () {
@@ -887,7 +889,7 @@ void _showCommandBar() {
             _buildTreeCategory(
               title: 'أدوات واختبارات التداول',
               icon: Icons.build_circle_rounded,
-              badgeCount: '5',
+              badgeCount: '7',
               accentColor: AppColors.info,
               children: [
                 _buildTreeSubItem(Icons.science_rounded, 'محاكاة التداول والاختبار', () => _navigateTo(const SimulationScreen())),
@@ -919,11 +921,13 @@ void _showCommandBar() {
             _buildTreeCategory(
               title: 'المحفظة والإعدادات',
               icon: Icons.account_balance_wallet_rounded,
-              badgeCount: '6',
+              badgeCount: '9',
               accentColor: AppColors.quantumEmerald,
               children: [
                 _buildTreeSubItem(Icons.account_balance_wallet_rounded, 'المحفظة وتوزيع الأصول', () {
-                  _setTabIndex(4);
+                  // FIX (FLUTTER-PROD-2): كان بـ _setTabIndex(4) → بيفتح ToolsHubScreen (tab 4)
+                  // بدل ما يفتح PortfolioScreen (tab 3).
+                  _setTabIndex(3);
                 }),
                 _buildTreeSubItem(Icons.stacked_line_chart_rounded, 'رسوم الثروة البيانية', () => _navigateTo(const WealthChartsScreen())),
                 _buildTreeSubItem(Icons.trending_up_rounded, 'توصيات زيادة المركز', () => _navigateTo(const TopUpRecommendationsScreen())),
@@ -940,10 +944,10 @@ void _showCommandBar() {
 
 // ── Quick Preferences ──
             _buildTreeSubItem(Icons.psychology_alt_rounded, 'استبيان تحليل المخاطر', () => _navigateTo(const RiskProfilerScreen())),
-            _buildTreeSubItem(Icons.person_pin_rounded, 'الشخصية Tested', () => _navigateTo(const PersonaScreen())),
+            _buildTreeSubItem(Icons.person_pin_rounded, 'تحليل الشخصية', () => _navigateTo(const PersonaScreen())),
             _buildTreeSubItem(Icons.language_rounded, 'فتح موقع invist.m2y.net', () => _navigateTo(const WebViewScreen())),
             _buildTreeSubItem(Icons.hub_rounded, 'الخدمات', () => _showServicesSheet(context)),
-            _buildTreeSubItem(Icons.share_rounded, '��share على منصات مختلفة', () => _showShareSheet(context)),
+            _buildTreeSubItem(Icons.share_rounded, 'مشاركة على منصات مختلفة', () => _showShareSheet(context)),
             _buildTreeSubItem(
               Icons.login, _isLoggedIn ? 'تسجيل الخروج' : 'تسجيل الدخول', () {
                 if (_isLoggedIn) {
@@ -955,10 +959,12 @@ void _showCommandBar() {
             ),
 
             const SizedBox(height: 16),
+            // FIX (FLUTTER-PROD-1): استخدم الإصدار الفعلي من pubspec (3.0.1+44)
+            // بدل ما نظهر '2.0.2' القديم
             const Padding(
               padding: EdgeInsets.symmetric(horizontal: 20),
               child: Text(
-                'الإصدار 2.0.2 • © 2026 مساعد الاستثمار',
+                'الإصدار 3.0.1+44 • © 2026 مساعد الاستثمار',
                 style: TextStyle(fontSize: 10, color: Colors.white38),
               ),
             ),
@@ -1222,7 +1228,7 @@ class _CommandBarDialogState extends State<_CommandBarDialog> {
     // Markets
     _CommandAction('الأسهم', Icons.trending_up, Icons.trending_up, null, 1),
     _CommandAction('الكريبتو', Icons.currency_bitcoin_outlined,
-        Icons.currency_bitcoin, null, 2),
+        Icons.currency_bitcoin, () => const CryptoScreen(), null),
     _CommandAction('العملات', Icons.swap_horiz, Icons.swap_horiz,
         () => const CurrencyScreen(), null),
     _CommandAction('الذهب والمعادن', Icons.toll_outlined, Icons.toll,

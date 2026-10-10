@@ -460,7 +460,12 @@ class GLMApiClient {
 
   Future<Map<String, dynamic>> getStockFundamentals(
       [String? ticker, Map<String, dynamic>? opts]) async {
-    final symbol = ticker ?? opts?['ticker'] ?? 'EGX';
+    // FIX (FLUTTER-PROD-2): default لـ 'EGX' كان غلط — 'EGX' اسم سوق مش ticker.
+    // لو ticker مش متحدد، نرجع empty (Rule 27: NO-FAKE-DATA).
+    final symbol = ticker ?? opts?['ticker'] as String?;
+    if (symbol == null || symbol.isEmpty) {
+      return <String, dynamic>{};
+    }
     return _cachedMap(
       key: 'stock_fundamentals_$symbol',
       fetcher: () async {
@@ -1660,23 +1665,29 @@ class GLMApiClient {
   }
 
   Future<Map<String, dynamic>> getMinAppVersion() async {
+    // FIX (FLUTTER-PROD-1): كان بيـ fallback بـ min_version='2.4.0' وهمي على
+    // أي خطأ — ده ممكن يعمل force update وهمي للعميل.
+    // Rule 27 (NO-FAKE-DATA): لو الـ API فشل، نرجع min_version='0.0.0'
+    // (يعني أي إصدار مقبول) بدل ما نكذب على المستخدم.
     try {
       final response = await _dio.get('/api/app/version');
-      return response.data;
+      return response.data is Map<String, dynamic>
+          ? response.data
+          : Map<String, dynamic>.from(response.data as Map);
     } on DioException catch (e) {
-      if (e.response?.statusCode == 404) {
-        debugPrint('[API] getMinAppVersion - 404 (using fallback)');
-      } else {
-        debugPrint('[API] getMinAppVersion failed: $e');
-      }
+      // 404 / network error / timeout — NO forced update fallback
+      debugPrint('[API] getMinAppVersion failed: ${e.type} ${e.response?.statusCode}');
       return {
-        'min_version': '2.4.0',
-        'message_ar': 'يرجى تحديث التطبيق إلى أحدث إصدار للمتابعة.',
+        'min_version': '0.0.0',
+        'message_ar': '',
+        'source': 'next-fallback',
       };
-    } catch (_) {
+    } catch (e) {
+      debugPrint('[API] getMinAppVersion failed: $e');
       return {
-        'min_version': '2.4.0',
-        'message_ar': 'يرجى تحديث التطبيق إلى أحدث إصدار للمتابعة.',
+        'min_version': '0.0.0',
+        'message_ar': '',
+        'source': 'next-fallback',
       };
     }
   }
@@ -1806,14 +1817,22 @@ class GLMApiClient {
   Future<Map<String, dynamic>> getMaestroAnalysis(String ticker,
       {required String market, required String persona}) async {
     try {
-      final response =
-          await _dio.get('/api/stocks/$ticker/unified', // Task FLUTTER-INTEGRATION: maestro 410 Gone → canonical unified
-        'market': market,
-        'persona': persona,
-      });
-      return response.data;
+      // FIX (FLUTTER-PROD-1): syntax broken — `market`/`persona` were passed
+      // as positional args to _dio.get() instead of queryParameters map.
+      // This caused a Dart compile error and made the method dead code.
+      // Now: uses /api/stocks/[ticker]/unified with proper queryParameters.
+      final response = await _dio.get(
+        '/api/stocks/\$ticker/unified',
+        queryParameters: {
+          'market': market,
+          'persona': persona,
+        },
+      );
+      return response.data is Map<String, dynamic>
+          ? response.data
+          : Map<String, dynamic>.from(response.data as Map);
     } catch (e) {
-      debugPrint('[API] getMaestroAnalysis failed: $e');
+      debugPrint('[API] getMaestroAnalysis failed: \$e');
       return {};
     }
   }

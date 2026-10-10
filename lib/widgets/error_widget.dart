@@ -2,17 +2,19 @@
 // مساعد الاستثمار Flutter - Error Widget
 // Reusable error display widget
 // ============================================================================
+// FIX (FLUTTER-PROD-3): rename ErrorWidget → AppErrorWidget عشان ما يتعارضش
+// مع Flutter framework's ErrorWidget (confusion risk)
 
 import 'package:flutter/material.dart';
 import '../theme/colors.dart';
 import '../theme/typography.dart';
 
-class ErrorWidget extends StatelessWidget {
+class AppErrorWidget extends StatelessWidget {
   final String message;
   final VoidCallback? onRetry;
   final IconData icon;
 
-  const ErrorWidget({
+  const AppErrorWidget({
     super.key,
     required this.message,
     this.onRetry,
@@ -66,7 +68,7 @@ class NetworkErrorWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ErrorWidget(
+    return AppErrorWidget(
       message: 'تعذر الاتصال بالخادم. تأكد من اتصالك بالإنترنت.',
       onRetry: onRetry,
       icon: Icons.wifi_off_rounded,

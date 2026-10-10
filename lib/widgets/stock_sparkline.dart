@@ -1,15 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:dio/dio.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import '../api/client.dart';
 
 /// StockSparkline — رسم بياني مصغر لسهم (آخر 30 يوم)
 /// يتصل بـ /api/stocks/sparkline?ticker=X&days=30
-/// Bug fixes:
-/// 1. Fixed || → ?? for range calculation
-/// 2. Safe type conversion (num → double)
-/// 3. Auth header from SharedPreferences
-/// 4. shouldRepaint checks prices reference
-/// 5. Caches Dio instance (no per-instance creation)
+///
+/// FIX (FLUTTER-PROD-3): كان بيـ instantiate Dio مستقل بـ baseUrl hardcoded
+/// 'https://invist.m2y.net' بدل ما يستخدم الـ singleton من GLMApiClient.
+/// ده كان بيـ skip auth header إذا الـ token اتحدث.
+/// دلوقتي بيستخدم api.dio من GLMApiClient.instance.
 class StockSparkline extends StatefulWidget {
   final String ticker;
   final double height;
@@ -32,7 +30,6 @@ class _StockSparklineState extends State<StockSparkline> {
   List<double> _prices = [];
   bool _loading = true;
   double _changePct = 0;
-  static Dio? _dio;
 
   @override
   void initState() {
@@ -40,22 +37,9 @@ class _StockSparklineState extends State<StockSparkline> {
     _fetchData();
   }
 
-  Future<Dio> _getDio() async {
-    if (_dio != null) return _dio!;
-    final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('auth_token');
-    _dio = Dio(BaseOptions(
-      baseUrl: 'https://invist.m2y.net',
-      connectTimeout: const Duration(seconds: 10),
-      receiveTimeout: const Duration(seconds: 15),
-      headers: token != null ? {'Authorization': 'Bearer $token'} : {},
-    ));
-    return _dio!;
-  }
-
   Future<void> _fetchData() async {
     try {
-      final dio = await _getDio();
+      final dio = GLMApiClient.instance.dio;
       final res = await dio.get('/api/stocks/sparkline', queryParameters: {
         'ticker': widget.ticker,
         'days': widget.days,
