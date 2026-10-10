@@ -87,6 +87,17 @@ class _TradingChartScreenState extends State<TradingChartScreen>
               expandedHeight: 110,
               pinned: true,
               automaticallyImplyLeading: false,
+              leading: Navigator.canPop(context)
+                  ? IconButton(
+                      icon: const Icon(Icons.arrow_back_ios_new_rounded, color: AppColors.text, size: 20),
+                      tooltip: "رجوع",
+                      onPressed: () => Navigator.maybePop(context),
+                    )
+                  : IconButton(
+                      icon: const Icon(Icons.menu_rounded, color: AppColors.text, size: 24),
+                      tooltip: "القائمة",
+                      onPressed: () => Scaffold.maybeOf(context)?.openDrawer(),
+                    ),
               backgroundColor: AppColors.surface,
               flexibleSpace: FlexibleSpaceBar(
                 background: Container(

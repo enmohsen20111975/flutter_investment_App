@@ -14,6 +14,7 @@ import '../api/client.dart';
 import '../widgets/state_view.dart';
 import '../widgets/skeleton_loader.dart';
 import '../widgets/freshness_badge.dart';
+import '../widgets/app_custom_app_bar.dart';
 
 class PredictionPerformanceScreen extends StatefulWidget {
   const PredictionPerformanceScreen({super.key});
@@ -177,6 +178,17 @@ class _PredictionPerformanceScreenState
       expandedHeight: 130,
       pinned: true,
       automaticallyImplyLeading: false,
+              leading: Navigator.canPop(context)
+                  ? IconButton(
+                      icon: const Icon(Icons.arrow_back_ios_new_rounded, color: AppColors.text, size: 20),
+                      tooltip: "رجوع",
+                      onPressed: () => Navigator.maybePop(context),
+                    )
+                  : IconButton(
+                      icon: const Icon(Icons.menu_rounded, color: AppColors.text, size: 24),
+                      tooltip: "القائمة",
+                      onPressed: () => Scaffold.maybeOf(context)?.openDrawer(),
+                    ),
       backgroundColor: AppColors.surface,
       flexibleSpace: FlexibleSpaceBar(
         background: Container(
