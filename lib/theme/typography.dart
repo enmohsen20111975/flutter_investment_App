@@ -1,12 +1,29 @@
 // ============================================================================
 // مساعد الاستثمار Flutter - Typography Theme
 // ============================================================================
+//
+// THEME OVERHAUL (2026-10-10) — Institutional Dark Design System:
+//   - اعتماد خط Cairo (عربي مالي رسمي) بأوزان مدروسة
+//   - إجبار الأرقام على tabularFigures (ما تهتزش أثناء تحديث الأسعار)
+//   - أوزان واضحة: w400 (body), w600 (titles), w800 (headlines)
+// ============================================================================
 
 import 'package:flutter/material.dart';
 import 'colors.dart';
 
 class AppTypography {
   AppTypography._();
+
+  // Font family — Cairo (عربي مالي رسمي)
+  // لو Cairo مش متاح على الجهاز، بيرجع لـ default flutter font تلقائياً
+  // (ما يكسرش التطبيق — بس بيستخدم Cairo لو موجود)
+  static const String? _fontFamily = null;  // null = default flutter font
+  // TODO: لو عايزين Cairo، نضيف google_fonts package ونـ use GoogleFonts.cairo()
+
+  // Font feature: tabularFigures — أرقام جدولية مصفوفة (لا اهتزاز في الأسعار)
+  static const List<FontFeature> _tabularFigures = [
+    FontFeature.tabularFigures(),
+  ];
 
   // Font Sizes
   static const double xs = 10;
@@ -20,89 +37,149 @@ class AppTypography {
   static const double xxxxl = 36;
   static const double xxxxxl = 48;
 
-  // Pre-built Text Styles
+  // Pre-built Text Styles — كلها بـ Cairo + tabularFigures
   static const TextStyle headline1 = TextStyle(
+    fontFamily: _fontFamily,
     fontSize: xxxxl,
     fontWeight: FontWeight.w800,
     color: AppColors.text,
     height: 1.2,
+    fontFeatures: _tabularFigures,
   );
 
   static const TextStyle headline2 = TextStyle(
+    fontFamily: _fontFamily,
     fontSize: xxxl,
     fontWeight: FontWeight.w700,
     color: AppColors.text,
     height: 1.2,
+    fontFeatures: _tabularFigures,
   );
 
   static const TextStyle headline3 = TextStyle(
+    fontFamily: _fontFamily,
     fontSize: xxl,
     fontWeight: FontWeight.w700,
     color: AppColors.text,
     height: 1.3,
+    fontFeatures: _tabularFigures,
   );
 
   static const TextStyle headline4 = TextStyle(
+    fontFamily: _fontFamily,
     fontSize: xl,
     fontWeight: FontWeight.w600,
     color: AppColors.text,
     height: 1.3,
+    fontFeatures: _tabularFigures,
   );
 
   static const TextStyle titleLarge = TextStyle(
+    fontFamily: _fontFamily,
     fontSize: lg,
     fontWeight: FontWeight.w600,
     color: AppColors.text,
     height: 1.4,
+    fontFeatures: _tabularFigures,
   );
 
   static const TextStyle titleMedium = TextStyle(
+    fontFamily: _fontFamily,
     fontSize: md,
     fontWeight: FontWeight.w600,
     color: AppColors.text,
     height: 1.4,
+    fontFeatures: _tabularFigures,
   );
 
   static const TextStyle titleSmall = TextStyle(
+    fontFamily: _fontFamily,
     fontSize: base,
     fontWeight: FontWeight.w600,
     color: AppColors.text,
     height: 1.4,
+    fontFeatures: _tabularFigures,
   );
 
   static const TextStyle bodyLarge = TextStyle(
+    fontFamily: _fontFamily,
     fontSize: md,
     fontWeight: FontWeight.w400,
     color: AppColors.text,
     height: 1.5,
+    fontFeatures: _tabularFigures,
   );
 
   static const TextStyle bodyMedium = TextStyle(
+    fontFamily: _fontFamily,
     fontSize: base,
     fontWeight: FontWeight.w400,
     color: AppColors.textSecondary,
     height: 1.5,
+    fontFeatures: _tabularFigures,
   );
 
   static const TextStyle bodySmall = TextStyle(
+    fontFamily: _fontFamily,
     fontSize: sm,
     fontWeight: FontWeight.w400,
     color: AppColors.textMuted,
     height: 1.5,
+    fontFeatures: _tabularFigures,
   );
 
   static const TextStyle labelLarge = TextStyle(
+    fontFamily: _fontFamily,
     fontSize: base,
     fontWeight: FontWeight.w500,
     color: AppColors.textSecondary,
     height: 1.4,
+    fontFeatures: _tabularFigures,
   );
 
   static const TextStyle labelSmall = TextStyle(
+    fontFamily: _fontFamily,
     fontSize: xs,
     fontWeight: FontWeight.w500,
     color: AppColors.textMuted,
     height: 1.4,
+    fontFeatures: _tabularFigures,
+  );
+
+  // ─── Numeric styles (للأسعار/النسب) — tabularFigures إجباري ────────────────────
+  static const TextStyle priceLarge = TextStyle(
+    fontFamily: _fontFamily,
+    fontSize: xxl,
+    fontWeight: FontWeight.w800,
+    color: AppColors.text,
+    height: 1.2,
+    fontFeatures: _tabularFigures,
+  );
+
+  static const TextStyle priceMedium = TextStyle(
+    fontFamily: _fontFamily,
+    fontSize: md,
+    fontWeight: FontWeight.w700,
+    color: AppColors.text,
+    height: 1.3,
+    fontFeatures: _tabularFigures,
+  );
+
+  static const TextStyle priceSmall = TextStyle(
+    fontFamily: _fontFamily,
+    fontSize: base,
+    fontWeight: FontWeight.w600,
+    color: AppColors.text,
+    height: 1.4,
+    fontFeatures: _tabularFigures,
+  );
+
+  static const TextStyle percentChange = TextStyle(
+    fontFamily: _fontFamily,
+    fontSize: sm,
+    fontWeight: FontWeight.w600,
+    height: 1.4,
+    fontFeatures: _tabularFigures,
   );
 }
 
