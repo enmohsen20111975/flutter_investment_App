@@ -34,7 +34,7 @@ class _HunterScreenState extends State<HunterScreen>
   bool get wantKeepAlive => true;
 
   String _selectedMarket = 'ALL';
-  final List<String> _markets = ['ALL', 'EGX', 'TADAWUL', 'KSE', 'QSE'];
+  final List<String> _markets = ['ALL', 'EGX', 'TADAWUL', 'KSE', 'QSE', 'US', 'CRYPTO']; // Task FLUTTER-INTEGRATION: added US + CRYPTO
   Future<Map<String, dynamic>>? _payloadFuture;
 
   @override

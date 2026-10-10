@@ -26,9 +26,10 @@ class ScreenerScreen extends StatefulWidget {
 class _ScreenerScreenState extends State<ScreenerScreen>
     with AutomaticKeepAliveClientMixin {
   String _selectedMarket = 'EGX';
-  final List<String> _markets = const ['EGX', 'TADAWUL', 'KSE', 'QSE', 'DFM', 'ADX'];
+  final List<String> _markets = const ['EGX', 'TADAWUL', 'KSE', 'QSE', 'US', 'CRYPTO']; // Task FLUTTER-INTEGRATION: 6 markets unified with platform
   Future<List<_ScreenerItem>>? _itemsFuture;
   String _sortMode = 'score'; // score | change | ticker
+  String? _activePreset; // Task FLUTTER-INTEGRATION: trader presets (null = no preset)
 
   @override
   bool get wantKeepAlive => true;
