@@ -11,6 +11,8 @@ import '../api/client.dart';
 import '../widgets/state_view.dart';
 import '../widgets/skeleton_loader.dart';
 
+const String _platformName = 'دليل الاستثمار';
+
 class ReportsScreen extends StatefulWidget {
   const ReportsScreen({super.key});
 
@@ -20,6 +22,17 @@ class ReportsScreen extends StatefulWidget {
 
 class _ReportsScreenState extends State<ReportsScreen>
     with SingleTickerProviderStateMixin {
+  String _selectedMarket = 'EGX';
+  final List<String> _markets = const ['EGX', 'TADAWUL', 'KSE', 'QSE', 'US', 'CRYPTO'];
+  final Map<String, String> _marketNames = {
+    'EGX': 'البورصة المصرية',
+    'TADAWUL': 'السوق السعودي',
+    'KSE': 'بورصة الكويت',
+    'QSE': 'بورصة قطر',
+    'US': 'السوق الأمريكي',
+    'CRYPTO': 'العملات الرقمية',
+  };
+
   late TabController _tabController;
   Future<Map<String, dynamic>>? _reportsFuture;
 
@@ -956,3 +969,13 @@ double? _toDouble(dynamic v) {
   if (v is String) return double.tryParse(v);
   return null;
 }
+
+          // Task FLUTTER-CLIENT: professional disclaimer
+          const Padding(
+            padding: EdgeInsets.all(16),
+            child: Text(
+              '⚠️ تحليل كمي بالذكاء الاصطناعي — ليس نصيحة استثمارية. قرارات الاستثمار مسؤوليتك الكاملة.',
+              style: TextStyle(fontSize: 11, color: Colors.grey),
+              textAlign: TextAlign.center,
+            ),
+          ),

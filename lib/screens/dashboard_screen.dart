@@ -39,6 +39,8 @@ class _DashboardScreenState extends State<DashboardScreen>
   bool _isLoading = true;
   bool _isOffline = false;
   Map<String, dynamic>? _marketSummary;
+  String _selectedMarket = 'EGX';
+  final List<String> _markets = const ['EGX', 'TADAWUL', 'KSE', 'QSE', 'US', 'CRYPTO']; // Task FLUTTER-CLIENT: 6 markets
   List<dynamic> _indices = [];
   List<dynamic> _gainers = [];
   List<dynamic> _losers = [];

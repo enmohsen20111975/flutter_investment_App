@@ -257,6 +257,17 @@ class _RadarScreenState extends ConsumerState<RadarScreen> with SingleTickerProv
     final stop = tl != null ? (tl['stop'] as num?)?.toDouble() : null;
     final rr = tl != null ? (tl['risk_reward'] as num?)?.toDouble() : null;
 
+    // Task FLUTTER-CLIENT: fallback to prediction levels from unified API (canonical)
+    final pred = stock['prediction'] as Map<String, dynamic>?;
+    final aiEntry = pred != null ? (pred['entry_price'] as num?)?.toDouble() : null;
+    final aiTarget = pred != null ? (pred['target_price'] as num?)?.toDouble() : null;
+    final aiStop = pred != null ? (pred['stop_loss'] as num?)?.toDouble() : null;
+    final aiRR = pred != null ? (pred['risk_reward'] as num?)?.toDouble() : null;
+    final effEntry = entry ?? aiEntry;
+    final effTarget1 = target1 ?? aiTarget;
+    final effStop = stop ?? aiStop;
+    final effRR = rr ?? aiRR;
+
     final isSell = signalType == 'SELL';
 
     return Card(
@@ -318,10 +329,10 @@ class _RadarScreenState extends ConsumerState<RadarScreen> with SingleTickerProv
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // Trade Levels
-                if (entry != null && target1 != null && stop != null) ...[
+                if (effEntry != null && effTarget1 != null && effStop != null) ...[
                   const Text('🎯 مستويات التداول', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                   const SizedBox(height: 8),
-                  _levelsGrid(entry, target1, target2, stop, rr),
+                  _levelsGrid(effEntry, effTarget1, target2, effStop, effRR),
                   const SizedBox(height: 12),
                 ],
                 // Info
@@ -348,7 +359,7 @@ class _RadarScreenState extends ConsumerState<RadarScreen> with SingleTickerProv
                     TextButton.icon(
                       icon: const Icon(Icons.track_changes, size: 16),
                       label: const Text('تتبّع', style: TextStyle(fontSize: 12)),
-                      onPressed: () => _trackStock(ticker, entry ?? price),
+                      onPressed: () => _trackStock(ticker, effEntry ?? price),
                     ),
                     const SizedBox(width: 8),
                     FilledButton.icon(
