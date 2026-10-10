@@ -311,16 +311,17 @@ class GLMApiClient {
   // Market API
   // ============================================================================
   Future<MarketOverview> getMarketOverview([String? market]) async {
-    final String cacheKey =
-        market != null ? 'market_overview_$market' : 'market_overview';
+    // FIX (NAV-FIX-2): default لـ 'EGX' لو market = null (منع إرسال null للسيرفر)
+    final String effectiveMarket = (market != null && market.isNotEmpty) ? market : 'EGX';
+    final String cacheKey = 'market_overview_$effectiveMarket';
     return ApiCacheManager.instance.fetch<MarketOverview>(
       key: cacheKey,
       fetcher: () async {
         try {
-          debugPrint('[API] Fetching market overview for $market...');
+          debugPrint('[API] Fetching market overview for $effectiveMarket...');
           final response =
               await _dio.get('/api/market/overview', queryParameters: {
-            if (market != null) 'market': market,
+            'market': effectiveMarket,  // دايماً تبعت market (مش null)
           });
           debugPrint('[API] Market overview response: ${response.data.keys}');
           return MarketOverview.fromJson(response.data);
@@ -348,7 +349,7 @@ class GLMApiClient {
         try {
           final response =
               await _dio.get('/api/market/live-data', queryParameters: {
-            if (market != null) 'market': market,
+            'market': market ?? 'EGX',
           });
           return response.data;
         } catch (e) {
@@ -369,7 +370,7 @@ class GLMApiClient {
         try {
           final response =
               await _dio.get('/api/market/investing', queryParameters: {
-            if (market != null) 'market': market,
+            'market': market ?? 'EGX',
           });
           return response.data;
         } catch (e) {
@@ -1094,7 +1095,7 @@ class GLMApiClient {
         }
         final queryParams = <String, dynamic>{
           if (persona != null) 'persona': persona,
-          if (market != null) 'market': market,
+          'market': market ?? 'EGX',
         };
         final response = await _dio.get(
           '/api/mobile/recommendations',
@@ -1529,7 +1530,7 @@ class GLMApiClient {
       fetcher: () async {
         final queryParams = <String, dynamic>{
           if (month != null) 'month': month,
-          if (market != null) 'market': market,
+          'market': market ?? 'EGX',
         };
         final response = await _aiDio.get(
           '/api/predictions/performance',
@@ -2167,7 +2168,7 @@ class GLMApiClient {
       debugPrint('[API] Fetching mobile dashboard...');
       final response =
           await _dio.get('/api/mobile/dashboard', queryParameters: {
-        if (market != null) 'market': market,
+        'market': market ?? 'EGX',
       });
       final data = response.data is Map<String, dynamic>
           ? response.data
@@ -2791,7 +2792,7 @@ class GLMApiClient {
       // FIX: /api/scanner/quick doesn't exist — use /api/v2/recommend instead
       // (same pattern as the fix at line 1575 for getScannerRecommendations)
       final response = await _dio.get('/api/v2/recommend', queryParameters: {
-        if (market != null) 'market': market,
+        'market': market ?? 'EGX',
         'limit': limit,
       });
       if (response.data is List) return response.data;
@@ -3979,7 +3980,7 @@ class GLMApiClient {
       final response = await _dio.get(
         '/api/news-feed',
         queryParameters: {
-          if (market != null) 'market': market,
+          'market': market ?? 'EGX',
           'limit': limit,
         },
       );
@@ -4363,7 +4364,7 @@ class GLMApiClient {
     try {
       final response = await _dio.post('/api/telegram/publish-stock', data: {
         'ticker': ticker,
-        if (market != null) 'market': market,
+        'market': market ?? 'EGX',
         if (channelId != null) 'channel_id': channelId,
       });
       return response.data is Map<String, dynamic>
