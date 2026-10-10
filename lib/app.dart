@@ -7,7 +7,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'theme/colors.dart';
-import 'screens/dashboard_screen.dart';
+// THEME-OVERHAUL-2: DashboardScreen اتشال من الـ tabs (اتدمج في الأسواق)
+// لو محتاجينه لاحقاً في الـ Drawer، نرجع الـ import
 import 'screens/stocks_screen.dart';
 import 'screens/stock_history_screen.dart';
 import 'screens/currency_screen.dart';
@@ -68,7 +69,7 @@ class _MainNavigatorState extends State<MainNavigator> {
   int _currentIndex = 0;
   int _marketVersion = 0;
   bool _loadingMarkets = false;
-  final GlobalKey<State> _dashboardKey = GlobalKey<State>();
+  // THEME-OVERHAUL-2: _dashboardKey اتشال (DashboardScreen مش في الـ tabs دلوقتي)
   final GlobalKey<State> _stocksKey = GlobalKey<State>();
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   User? _user;
@@ -100,25 +101,28 @@ class _MainNavigatorState extends State<MainNavigator> {
     if (!_loadedTabs.contains(index)) {
       return const SizedBox.shrink();
     }
+    // THEME-OVERHAUL-2: 5 Golden Pillars mapping
+    //   Tab 0 → الأسواق (StocksScreen — الأسهم + تبويبات للأصول الأخرى)
+    //   Tab 1 → الرادار (RadarHubScreen — صائد الفرص + Confluence + AI)
+    //   Tab 2 → المحفظة (PortfolioScreen — المحفظة + Watchlist)
+    //   Tab 3 → المختبر (ToolsHubScreen — المحاكاة + الأكاديمية + التقارير)
+    //   Tab 4 → الحساب (SettingsScreen — الإعدادات + التنبيهات + الاشتراك)
     switch (index) {
       case 0:
-        return DashboardScreen(
-          key: _dashboardKey,
-          marketVersion: _marketVersion,
-        );
-      case 1:
         return StocksScreen(
           key: _stocksKey,
           marketVersion: _marketVersion,
         );
-      case 2:
+      case 1:
         return RadarHubScreen(
           marketVersion: _marketVersion,
         );
-      case 3:
+      case 2:
         return const PortfolioScreen();
-      case 4:
+      case 3:
         return const ToolsHubScreen();
+      case 4:
+        return const SettingsScreen();
       default:
         return const SizedBox.shrink();
     }
