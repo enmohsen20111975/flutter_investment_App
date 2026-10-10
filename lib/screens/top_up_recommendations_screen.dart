@@ -509,7 +509,7 @@ class _TopUpRecommendationsScreenState
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [AppColors.success, AppColors.neonLime],
+          colors: [AppColors.success, AppColors.success],
           begin: Alignment.topRight,
           end: Alignment.bottomLeft,
         ),

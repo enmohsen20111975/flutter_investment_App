@@ -448,7 +448,7 @@ class _WealthChartsScreenState extends State<WealthChartsScreen> {
       AppColors.success,
       AppColors.info,
       AppColors.warning,
-      AppColors.neonCyan,
+      AppColors.secondary,
       AppColors.danger,
     ];
 

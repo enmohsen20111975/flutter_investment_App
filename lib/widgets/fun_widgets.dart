@@ -45,9 +45,9 @@ class FunUtils {
         AppColors.primaryGlow,
         AppColors.secondary,
         AppColors.accent,
-        AppColors.neonCyan,
-        AppColors.neonLime,
-        AppColors.neonYellow,
+        AppColors.secondary,
+        AppColors.success,
+        AppColors.accent,
       ],
     );
   }
@@ -869,7 +869,7 @@ class ParticleBackground extends StatelessWidget {
             final colors = [
               AppColors.primary.withValues(alpha: 0.3),
               AppColors.secondary.withValues(alpha: 0.3),
-              AppColors.neonCyan.withValues(alpha: 0.2),
+              AppColors.secondary.withValues(alpha: 0.2),
               AppColors.accent.withValues(alpha: 0.2),
             ];
             final color = colors[i % colors.length];

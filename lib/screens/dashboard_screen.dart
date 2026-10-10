@@ -501,7 +501,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                               Navigator.push(context, MaterialPageRoute(builder: (_) => const MetalsScreen()));
                             }),
                             const SizedBox(width: 8),
-                            _buildQuickActionPill('أسعار العملات 💱', Icons.currency_exchange_rounded, Colors.tealAccent, () {
+                            _buildQuickActionPill('أسعار العملات 💱', Icons.currency_exchange_rounded, AppColors.secondary, () {
                               Navigator.push(context, MaterialPageRoute(builder: (_) => const CurrencyScreen()));
                             }),
                           ],

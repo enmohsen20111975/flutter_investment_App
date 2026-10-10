@@ -216,7 +216,7 @@ class ToolsHubScreen extends StatelessWidget {
                   title: 'المسح الفني Screener',
                   subtitle: 'تصفية وفلترة متقدمة',
                   icon: Icons.filter_alt_rounded,
-                  color: Colors.tealAccent,
+                  color: AppColors.secondary,
                   onTap: () {
                     Navigator.push(
                       context,
@@ -244,7 +244,7 @@ class ToolsHubScreen extends StatelessWidget {
                   title: 'تحليل الذكاء الاصطناعي',
                   subtitle: 'توقعات ورؤى الذكاء الاصطناعي',
                   icon: Icons.psychology_rounded,
-                  color: Colors.purpleAccent,
+                  color: AppColors.accent,
                   onTap: () {
                     Navigator.push(
                       context,
@@ -268,7 +268,7 @@ class ToolsHubScreen extends StatelessWidget {
                   title: 'التقارير اليومية',
                   subtitle: 'التقرير الصباحي والتحليلات',
                   icon: Icons.article_rounded,
-                  color: Colors.cyanAccent,
+                  color: AppColors.secondary,
                   onTap: () {
                     Navigator.push(
                       context,
