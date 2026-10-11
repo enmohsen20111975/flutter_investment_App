@@ -11,6 +11,7 @@ import '../widgets/state_view.dart';
 import '../widgets/skeleton_loader.dart';
 import '../widgets/upgrade_modal.dart';
 import '../widgets/price_chart.dart' as pc;
+import '../widgets/tradingview_advanced_chart.dart';
 import '../models/chart_data_model.dart';
 
 class TradingChartScreen extends StatefulWidget {
@@ -33,6 +34,7 @@ class _TradingChartScreenState extends State<TradingChartScreen>
   String _timeframe = 'DAY'; // matches website default (was MONTH — broke UI silently)
   Future<Map<String, dynamic>>? _dataFuture;
   pc.ChartType _chartType = pc.ChartType.candle;
+  bool _showAdvancedTradingView = true;
 
   static const List<_TimeframeOption> _timeframes = [
     _TimeframeOption('DAY', 'يومي', '1D'),
@@ -275,51 +277,82 @@ class _TradingChartScreenState extends State<TradingChartScreen>
       ),
       child: Column(
         children: [
-          // Chart type switcher
+          // Main Mode Switcher: TradingView Advanced vs Native Chart
           Row(
             children: [
               _ChartTypeChip(
-                label: 'شموع',
-                active: _chartType == pc.ChartType.candle,
-                onTap: () => setState(() => _chartType = pc.ChartType.candle),
+                label: 'TradingView الأصلي 📊',
+                active: _showAdvancedTradingView,
+                onTap: () => setState(() => _showAdvancedTradingView = true),
               ),
               const SizedBox(width: 6),
               _ChartTypeChip(
-                label: 'خط',
-                active: _chartType == pc.ChartType.line,
-                onTap: () => setState(() => _chartType = pc.ChartType.line),
-              ),
-              const SizedBox(width: 6),
-              _ChartTypeChip(
-                label: 'مساحة',
-                active: _chartType == pc.ChartType.area,
-                onTap: () => setState(() => _chartType = pc.ChartType.area),
+                label: 'شارت التحليل الداخلي 📈',
+                active: !_showAdvancedTradingView,
+                onTap: () => setState(() => _showAdvancedTradingView = false),
               ),
               const Spacer(),
-              Text(
-                '${candles.length} شمعة',
-                style: const TextStyle(
-                    fontSize: 11, color: AppColors.textMuted),
-              ),
+              if (!_showAdvancedTradingView)
+                Text(
+                  '${candles.length} شمعة',
+                  style: const TextStyle(
+                      fontSize: 11, color: AppColors.textMuted),
+                ),
             ],
           ),
           const SizedBox(height: 8),
-          RepaintBoundary(
-            child: SizedBox(
-              height: 320,
-              child: candles.isEmpty
-                  ? const Center(
-                      child: Text(
-                        'لا توجد بيانات شموع متاحة',
-                        style: TextStyle(color: AppColors.textMuted),
-                      ),
-                    )
-                  : _NativeMiniChart(
-                      candles: candles,
-                      type: _chartType,
-                    ),
+          if (_showAdvancedTradingView)
+            SizedBox(
+              height: 440,
+              child: TradingViewAdvancedChart(
+                ticker: widget.ticker,
+                height: 440,
+                darkTheme: true,
+                showHeader: false,
+                showTimeframes: true,
+                allowFullscreen: true,
+              ),
+            )
+          else ...[
+            Row(
+              children: [
+                _ChartTypeChip(
+                  label: 'شموع',
+                  active: _chartType == pc.ChartType.candle,
+                  onTap: () => setState(() => _chartType = pc.ChartType.candle),
+                ),
+                const SizedBox(width: 6),
+                _ChartTypeChip(
+                  label: 'خط',
+                  active: _chartType == pc.ChartType.line,
+                  onTap: () => setState(() => _chartType = pc.ChartType.line),
+                ),
+                const SizedBox(width: 6),
+                _ChartTypeChip(
+                  label: 'مساحة',
+                  active: _chartType == pc.ChartType.area,
+                  onTap: () => setState(() => _chartType = pc.ChartType.area),
+                ),
+              ],
             ),
-          ),
+            const SizedBox(height: 8),
+            RepaintBoundary(
+              child: SizedBox(
+                height: 320,
+                child: candles.isEmpty
+                    ? const Center(
+                        child: Text(
+                          'لا توجد بيانات شموع متاحة',
+                          style: TextStyle(color: AppColors.textMuted),
+                        ),
+                      )
+                    : _NativeMiniChart(
+                        candles: candles,
+                        type: _chartType,
+                      ),
+              ),
+            ),
+          ],
         ],
       ),
     );

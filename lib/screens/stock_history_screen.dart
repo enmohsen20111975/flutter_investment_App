@@ -12,6 +12,7 @@ import '../api/cache_manager.dart';
 import '../api/local_database.dart';
 import '../models/types.dart';
 import '../widgets/tradingview_chart.dart';
+import '../widgets/tradingview_advanced_chart.dart';
 import '../widgets/upgrade_modal.dart';
 import '../services/subscription_service.dart';
 import '../core/official_links.dart';
@@ -29,6 +30,7 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
   late TabController _tabController;
   late Future<Map<String, dynamic>> _detailsFuture = _loadStockDetailsData();
   bool _isInWatchlist = false;
+  bool _useAdvancedTradingView = true;
 
   Map<String, dynamic>? _stockQuote;
   OrderBook? _orderBook;
@@ -595,52 +597,117 @@ class _StockHistoryScreenState extends State<StockHistoryScreen>
                         ),
                       ),
 
-                      // TradingView Chart Widget Container
-                      SizedBox(
-                        height: 260,
-                        child: TradingViewChartWithControls(
-                          darkTheme: true,
-                          candleData: _candles.isNotEmpty ? _candles : null,
-                          volumeData: _volumes.isNotEmpty ? _volumes : null,
-                          onReloadData: (interval) async {
-                            final days = interval.days > 0 ? interval.days : 365;
-                            try {
-                              final res = await GLMApiClient.instance
-                                  .getStockHistory(widget.ticker, days: days);
-                              if (mounted && res.data.isNotEmpty) {
-                                final newCandles = <Map<String, dynamic>>[];
-                                final newVolumes = <Map<String, dynamic>>[];
-                                for (final item in res.data) {
-                                  if (item.date.isNotEmpty && item.close != null) {
-                                    final d = item.date.split('T').first;
-                                    newCandles.add({
-                                      'time': d,
-                                      'open': item.open ?? item.close,
-                                      'high': item.high ?? item.close,
-                                      'low': item.low ?? item.close,
-                                      'close': item.close,
-                                    });
-                                    if (item.volume != null && item.volume! > 0) {
-                                      newVolumes.add({
-                                        'time': d,
-                                        'value': item.volume,
-                                        'color': (item.close ?? 0) >=
-                                                (item.open ?? item.close ?? 0)
-                                            ? 'rgba(38, 166, 154, 0.5)'
-                                            : 'rgba(239, 83, 80, 0.5)',
-                                      });
-                                    }
-                                  }
-                                }
-                                setState(() {
-                                  _candles = newCandles;
-                                  _volumes = newVolumes;
-                                });
-                              }
-                            } catch (_) {}
-                          },
+                      // Chart Switcher & Container
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                        child: Row(
+                          children: [
+                            InkWell(
+                              onTap: () => setState(() => _useAdvancedTradingView = true),
+                              borderRadius: BorderRadius.circular(20),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                                decoration: BoxDecoration(
+                                  color: _useAdvancedTradingView ? AppColors.primary : AppColors.surface,
+                                  borderRadius: BorderRadius.circular(20),
+                                  border: Border.all(
+                                    color: _useAdvancedTradingView ? AppColors.primary : AppColors.border,
+                                  ),
+                                ),
+                                child: Text(
+                                  'TradingView الأصلي 📊',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                    color: _useAdvancedTradingView ? Colors.white : AppColors.textSecondary,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            InkWell(
+                              onTap: () => setState(() => _useAdvancedTradingView = false),
+                              borderRadius: BorderRadius.circular(20),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                                decoration: BoxDecoration(
+                                  color: !_useAdvancedTradingView ? AppColors.primary : AppColors.surface,
+                                  borderRadius: BorderRadius.circular(20),
+                                  border: Border.all(
+                                    color: !_useAdvancedTradingView ? AppColors.primary : AppColors.border,
+                                  ),
+                                ),
+                                child: Text(
+                                  'الشارت الخفيف 📈',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                    color: !_useAdvancedTradingView ? Colors.white : AppColors.textSecondary,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
+                      if (_useAdvancedTradingView)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          child: TradingViewAdvancedChart(
+                            ticker: widget.ticker,
+                            height: 380,
+                            darkTheme: true,
+                            showHeader: false,
+                            showTimeframes: true,
+                            allowFullscreen: true,
+                          ),
+                        )
+                      else
+                        SizedBox(
+                          height: 260,
+                          child: TradingViewChartWithControls(
+                            darkTheme: true,
+                            candleData: _candles.isNotEmpty ? _candles : null,
+                            volumeData: _volumes.isNotEmpty ? _volumes : null,
+                            onReloadData: (interval) async {
+                              final days = interval.days > 0 ? interval.days : 365;
+                              try {
+                                final res = await GLMApiClient.instance
+                                    .getStockHistory(widget.ticker, days: days);
+                                if (mounted && res.data.isNotEmpty) {
+                                  final newCandles = <Map<String, dynamic>>[];
+                                  final newVolumes = <Map<String, dynamic>>[];
+                                  for (final item in res.data) {
+                                    if (item.date.isNotEmpty && item.close != null) {
+                                      final d = item.date.split('T').first;
+                                      newCandles.add({
+                                        'time': d,
+                                        'open': item.open ?? item.close,
+                                        'high': item.high ?? item.close,
+                                        'low': item.low ?? item.close,
+                                        'close': item.close,
+                                      });
+                                      if (item.volume != null && item.volume! > 0) {
+                                        newVolumes.add({
+                                          'time': d,
+                                          'value': item.volume,
+                                          'color': (item.close ?? 0) >=
+                                                  (item.open ?? item.close ?? 0)
+                                              ? 'rgba(38, 166, 154, 0.5)'
+                                              : 'rgba(239, 83, 80, 0.5)',
+                                        });
+                                      }
+                                    }
+                                  }
+                                  setState(() {
+                                    _candles = newCandles;
+                                    _volumes = newVolumes;
+                                  });
+                                }
+                              } catch (_) {}
+                            },
+                          ),
+                        ),
                     ],
                   ),
                 ),

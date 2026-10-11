@@ -396,41 +396,46 @@ class _AcademyEncyclopediaScreenState extends State<AcademyEncyclopediaScreen> {
               final done = _completed.contains(l.id);
               return GestureDetector(
                 onTap: () => setState(() => _selectedLesson = i),
-                child: Container(
-                  width: 80,
-                  margin: const EdgeInsets.symmetric(horizontal: 4),
-                  padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(
-                    color: selected ? AppColors.primary : (done ? Colors.green.withValues(alpha: 0.1) : Colors.grey.shade100),
-                    borderRadius: BorderRadius.circular(10),
-                    border: selected ? Border.all(color: AppColors.primary, width: 2) : null,
-                  ),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Stack(
-                        children: [
-                          Text(l.emoji, style: const TextStyle(fontSize: 18)),
-                          if (done)
-                            Positioned(
-                              right: -2, top: -2,
-                              child: Container(
-                                padding: const EdgeInsets.all(1),
-                                decoration: const BoxDecoration(color: Colors.green, shape: BoxShape.circle),
-                                child: const Icon(Icons.check, size: 8, color: Colors.white),
+                child: ClipRect(
+                  child: Container(
+                    width: 80,
+                    margin: const EdgeInsets.symmetric(horizontal: 4),
+                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: selected ? AppColors.primary : (done ? Colors.green.withValues(alpha: 0.1) : Colors.grey.shade100),
+                      borderRadius: BorderRadius.circular(10),
+                      border: selected ? Border.all(color: AppColors.primary, width: 2) : null,
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Stack(
+                          clipBehavior: Clip.hardEdge,
+                          alignment: Alignment.center,
+                          children: [
+                            Text(l.emoji, style: const TextStyle(fontSize: 14)),
+                            if (done)
+                              Positioned(
+                                right: -1, top: -1,
+                                child: Container(
+                                  padding: const EdgeInsets.all(1),
+                                  decoration: const BoxDecoration(color: Colors.green, shape: BoxShape.circle),
+                                  child: const Icon(Icons.check, size: 7, color: Colors.white),
+                                ),
                               ),
-                            ),
-                        ],
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        l.title,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        textAlign: TextAlign.center,
-                        style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: selected ? Colors.white : Colors.black87),
-                      ),
-                    ],
+                          ],
+                        ),
+                        const SizedBox(height: 1),
+                        Text(
+                          l.title,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(fontSize: 6, fontWeight: FontWeight.bold, color: selected ? Colors.white : Colors.black87),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               );
